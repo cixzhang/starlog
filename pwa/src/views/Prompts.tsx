@@ -53,7 +53,7 @@ const styles = stylex.create({
 const FLAVOR_LABEL: Record<Prompt['flavor'], string> = {
   short: 'a quick one',
   deep: 'a deeper one',
-  maker: 'a maker\u2019s one',
+  maker: 'a maker’s one',
   odd: 'an odd one',
 };
 
@@ -75,7 +75,7 @@ export default function Prompts({
         if (alive) setPrompts(ps);
       } catch (e) {
         if (alive)
-          setError(e instanceof Error ? e.message : 'Couldn\u2019t load prompts.');
+          setError(e instanceof Error ? e.message : 'Couldn’t load prompts.');
       }
     })();
     return () => {
@@ -85,7 +85,7 @@ export default function Prompts({
 
   return (
     <div {...stylex.props(styles.list)}>
-      {error && <ErrorNote title="The prompts didn\u2019t load." detail={error} />}
+      {error && <ErrorNote title="The prompts didn’t load." detail={error} />}
       {!error && prompts === null && <Loading label="Gathering prompts…" />}
       {!error && prompts !== null && prompts.length === 0 && (
         <EmptyNote>

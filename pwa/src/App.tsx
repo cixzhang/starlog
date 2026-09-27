@@ -201,7 +201,7 @@ export default function App() {
       } catch (e) {
         if (alive)
           setTenantError(
-            e instanceof Error ? e.message : 'Couldn\u2019t reach the journal.',
+            e instanceof Error ? e.message : 'Couldn’t reach the journal.',
           );
       }
     })();
@@ -275,7 +275,7 @@ export default function App() {
             <main {...stylex.props(styles.main)}>
               {tenantError && (
                 <ErrorNote
-                  title="Couldn\u2019t reach your journal."
+                  title="Couldn’t reach your journal."
                   detail={tenantError}
                 />
               )}

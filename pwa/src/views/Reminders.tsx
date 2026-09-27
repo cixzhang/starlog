@@ -297,7 +297,7 @@ export default function Reminders({
         if (alive) setReminders(rs);
       } catch (e) {
         if (alive)
-          setError(e instanceof Error ? e.message : 'Couldn\u2019t load reminders.');
+          setError(e instanceof Error ? e.message : 'Couldn’t load reminders.');
       }
     })();
     return () => {
@@ -319,7 +319,7 @@ export default function Reminders({
 
   return (
     <div {...stylex.props(styles.wrap)}>
-      {error && <ErrorNote title="The reminders didn\u2019t load." detail={error} />}
+      {error && <ErrorNote title="The reminders didn’t load." detail={error} />}
       {!error && reminders === null && <Loading label="Checking reminders…" />}
       {!error && reminders !== null && reminders.length === 0 && (
         <EmptyNote>

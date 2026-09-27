@@ -137,7 +137,7 @@ export default function Calendar({ cfg, tenantId, onPickDay }: Props) {
         if (alive) setDates(new Set(ds));
       } catch (e) {
         if (alive)
-          setError(e instanceof Error ? e.message : 'Couldn\u2019t load the calendar.');
+          setError(e instanceof Error ? e.message : 'Couldn’t load the calendar.');
       }
     })();
     return () => {
@@ -179,7 +179,7 @@ export default function Calendar({ cfg, tenantId, onPickDay }: Props) {
         </button>
       </div>
 
-      {error && <ErrorNote title="The calendar didn\u2019t load." detail={error} />}
+      {error && <ErrorNote title="The calendar didn’t load." detail={error} />}
       {!error && dates === null && <Loading label="Turning pages…" />}
 
       {!error && dates !== null && (

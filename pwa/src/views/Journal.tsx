@@ -180,7 +180,7 @@ export default function Journal({ cfg, tenantId, jump, onJumpConsumed }: Props) 
         }
       } catch (e) {
         if (alive)
-          setError(e instanceof Error ? e.message : 'Couldn\u2019t load entries.');
+          setError(e instanceof Error ? e.message : 'Couldn’t load entries.');
       }
     })();
     return () => {
@@ -261,13 +261,13 @@ export default function Journal({ cfg, tenantId, jump, onJumpConsumed }: Props) 
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        {error && <ErrorNote title="The journal didn\u2019t load." detail={error} />}
+        {error && <ErrorNote title="The journal didn’t load." detail={error} />}
         {!error && entries === null && <Loading />}
         {!error && entries !== null && entries.length === 0 && (
           <EmptyNote>
             Nothing written on {WEEKDAY_NAMES[weekday - 1].toLowerCase()}s yet.
             <br />
-            The page is quiet — that\u2019s fine.
+            The page is quiet — that’s fine.
           </EmptyNote>
         )}
         {!error &&

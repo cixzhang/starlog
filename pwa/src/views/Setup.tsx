@@ -114,7 +114,7 @@ export default function Setup({
       anonKey: key.trim(),
     };
     if (!isValidProjectUrl(cfg.url)) {
-      setError('That doesn\u2019t look like a Supabase project URL.');
+      setError('That doesn’t look like a Supabase project URL.');
       return;
     }
     if (cfg.anonKey.length < 20) {
@@ -131,8 +131,8 @@ export default function Setup({
     } catch (e) {
       setError(
         e instanceof Error
-          ? `Couldn\u2019t reach that project: ${e.message}`
-          : 'Couldn\u2019t reach that project.',
+          ? `Couldn’t reach that project: ${e.message}`
+          : 'Couldn’t reach that project.',
       );
     } finally {
       setBusy(false);

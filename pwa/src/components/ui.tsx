@@ -65,7 +65,7 @@ export function ErrorNote({ title, detail }: { title: string; detail?: string })
   return (
     <div {...stylex.props(styles.error)} role="alert">
       <div {...stylex.props(styles.errorTitle)}>{title}</div>
-      {detail ?? 'Something didn\u2019t come through. Try again in a moment.'}
+      {detail ?? 'Something didn’t come through. Try again in a moment.'}
     </div>
   );
 }
