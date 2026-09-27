@@ -48,6 +48,10 @@ const styles = stylex.create({
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
     margin: '0 0 12px',
+    color: 'var(--sl-ink)',
+  },
+  monthTitleMuted: {
+    color: 'var(--sl-ink-soft)',
   },
   grid: {
     display: 'grid',
@@ -263,7 +267,14 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                 k !== 0 && styles.monthMuted,
               )}
             >
-              <h2 {...stylex.props(styles.monthTitle)}>{formatMonth(start)}</h2>
+              <h2
+                {...stylex.props(
+                  styles.monthTitle,
+                  k !== 0 && styles.monthTitleMuted,
+                )}
+              >
+                {formatMonth(start)}
+              </h2>
               <div
                 {...stylex.props(styles.grid)}
                 role="grid"
