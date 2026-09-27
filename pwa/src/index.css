@@ -56,6 +56,17 @@ body {
   color: var(--color-text-secondary);
   overflow-wrap: break-word;
 }
+/* Muted sheets (non-current weeks): dim the Markdown content via
+   foreground only, background stays identical. */
+[data-muted="true"] .sl-md {
+  color: var(--color-text-disabled);
+}
+[data-muted="true"] .sl-md h1,
+[data-muted="true"] .sl-md h2,
+[data-muted="true"] .sl-md h3,
+[data-muted="true"] .sl-md strong {
+  color: var(--color-text-disabled);
+}
 .sl-md > *:first-child {
   margin-top: 0;
 }

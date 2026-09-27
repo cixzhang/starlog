@@ -299,6 +299,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                 <article
                   id={`sheet-${iso}`}
                   data-sheet-iso={iso}
+                  data-muted={k !== 0 ? 'true' : undefined}
                   {...stylex.props(
                     styles.sheet,
                     k !== 0 && styles.sheetMuted,
