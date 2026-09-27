@@ -221,18 +221,28 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     inner.style.position = 'relative';
     // (height is set declaratively in the JSX — fixed tall container.)
 
-    // Initialize scroll to MIDDLE so k=0 is at the viewport top.
-    // The container height is fixed from the first paint, so no clamping
-    // in theory — but iOS may not have laid out the scrollable area yet on
-    // the first layout effect. Retry via rAF until scrollTop sticks.
-    // On prepend, the layout effect re-runs; k=0 stays at MIDDLE, so no
-    // scroll adjustment is needed — the visual position never moves.
+    // Initialize scroll so k=0 (this week) is at the viewport top.
+    // Instead of assuming the MIDDLE constant, scroll to the actual k=0
+    // element's position. This is robust even if the absolute positioning
+    // has a slight offset — we scroll to where k=0 actually is.
+    // iOS may not have laid out the scrollable area yet; retry via rAF
+    // until the k=0 element is measurable and scrollTop sticks.
+    // On prepend, k=0 stays at its position, so no adjustment needed.
     if (!initializedRef.current) {
       const tryInit = () => {
-        if (container.scrollTop !== MIDDLE) {
-          container.scrollTop = MIDDLE;
+        const k0El = container.querySelector(
+          '[data-sheet-k="0"]',
+        ) as HTMLElement | null;
+        if (!k0El || k0El.offsetTop === 0) {
+          // Not laid out yet — retry next frame.
+          requestAnimationFrame(tryInit);
+          return;
+        }
+        const targetTop = k0El.offsetTop;
+        if (container.scrollTop !== targetTop) {
+          container.scrollTop = targetTop;
           // If it didn't stick (not yet scrollable), try next frame.
-          if (container.scrollTop !== MIDDLE) {
+          if (container.scrollTop !== targetTop) {
             requestAnimationFrame(tryInit);
             return;
           }
@@ -319,6 +329,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                 <article
                   id={`sheet-${iso}`}
                   data-sheet-iso={iso}
+                  data-sheet-k={k}
                   data-muted={k !== 0 ? 'true' : undefined}
                   {...stylex.props(
                     styles.sheet,
