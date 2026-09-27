@@ -123,6 +123,13 @@ const styles = stylex.create({
     backgroundColor: 'var(--sl-paper-deep)',
     color: 'var(--sl-ink-soft)',
   },
+  // Non-today sheets are uniformly sized (truncated) for smooth scrolling
+  // and accurate radar estimation. Today's sheet shows the full entry.
+  sheetTruncated: {
+    maxHeight: '32vh',
+    overflow: 'hidden',
+    position: 'relative',
+  },
   sheetHead: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -733,6 +740,7 @@ export default function Journal({
                   {...stylex.props(
                     styles.sheet,
                     k !== 0 && styles.sheetMuted,
+                    iso !== todayIso && styles.sheetTruncated,
                   )}
                 >
                   <div {...stylex.props(styles.sheetHead)}>
@@ -882,6 +890,7 @@ export default function Journal({
               {...stylex.props(
                 styles.sheet,
                 k !== 0 && styles.sheetMuted,
+                iso !== todayIso && styles.sheetTruncated,
                 highlighted === iso && styles.highlight,
               )}
             >
