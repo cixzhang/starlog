@@ -28,7 +28,7 @@ const styles = stylex.create({
     position: 'fixed',
     inset: 0,
     zIndex: 10,
-    backgroundColor: 'var(--color-background-surface)',
+    backgroundColor: 'var(--sl-paper-deep)',
     display: 'flex',
     flexDirection: 'column',
   },
@@ -42,7 +42,7 @@ const styles = stylex.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomStyle: 'solid',
-    borderBottomColor: 'var(--color-border)',
+    borderBottomColor: 'var(--sl-line)',
   },
   title: {
     fontSize: 20,
@@ -70,7 +70,7 @@ const styles = stylex.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: 600,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--sl-ink-soft)',
     paddingLeft: 20,
     paddingRight: 20,
     paddingTop: 20,
@@ -114,7 +114,7 @@ const styles = stylex.create({
     borderRadius: 12,
     borderWidth: 1.5,
     borderStyle: 'solid',
-    borderColor: 'var(--color-border)',
+    borderColor: 'var(--sl-line)',
     backgroundColor: 'transparent',
     color: 'var(--color-text)',
     fontSize: 15,
@@ -122,19 +122,19 @@ const styles = stylex.create({
     cursor: 'pointer',
   },
   tileSelected: {
-    borderColor: 'var(--color-coral)',
-    backgroundColor: 'color-mix(in srgb, var(--color-coral) 10%, transparent)',
+    borderColor: 'var(--sl-coral)',
+    backgroundColor: 'color-mix(in srgb, var(--sl-coral) 10%, transparent)',
   },
   itemDestructive: {
     color: 'var(--color-text-red)',
   },
   check: {
-    color: 'var(--color-text-secondary)',
+    color: 'var(--sl-ink-soft)',
     flexShrink: 0,
   },
   divider: {
     height: 1,
-    backgroundColor: 'var(--color-border)',
+    backgroundColor: 'var(--sl-line)',
     marginLeft: 20,
     marginRight: 20,
     marginTop: 12,
@@ -293,7 +293,7 @@ export default function SettingsPanel({
                   paddingBottom: 8,
                 }}
               >
-                <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
+                <span style={{ fontSize: 14, color: 'var(--sl-ink-soft)' }}>
                   Custom: {customTheme.name}
                 </span>
                 <button
@@ -323,9 +323,9 @@ export default function SettingsPanel({
                 width: '100%',
                 boxSizing: 'border-box',
                 borderRadius: 12,
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-background-body)',
-                color: 'var(--color-text-primary)',
+                border: '1px solid var(--sl-line)',
+                backgroundColor: 'var(--sl-paper)',
+                color: 'var(--sl-ink)',
                 fontSize: 14,
                 padding: 12,
                 fontFamily: 'monospace',

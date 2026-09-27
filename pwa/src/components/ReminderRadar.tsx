@@ -20,10 +20,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Reminder } from '../lib/supabase';
 import { toISODate, isoWeekday } from '../lib/dates';
 
-const CORAL = 'var(--color-coral)';
-const CORAL_LIGHT = 'color-mix(in srgb, var(--color-coral), white 35%)';
-const STONE = 'var(--color-text-disabled)';
-const STONE_LIGHT = 'color-mix(in srgb, var(--color-text-disabled), white 25%)';
+const CORAL = 'var(--sl-coral)';
+const CORAL_LIGHT = 'color-mix(in srgb, var(--sl-coral), white 35%)';
+const STONE = 'var(--sl-ink-faint)';
+const STONE_LIGHT = 'color-mix(in srgb, var(--sl-ink-faint), white 25%)';
 
 const MAX_SIZE = 24;
 const MIN_SIZE = 12;
@@ -69,7 +69,7 @@ function urgencyToColor(urgency: Reminder['urgency']): {
     case 'high':
       return { color: CORAL, light: CORAL_LIGHT, glow: true };
     case 'normal':
-      return { color: 'var(--color-text-yellow)', light: 'color-mix(in srgb, var(--color-text-yellow), white 35%)', glow: false };
+      return { color: 'var(--sl-gold)', light: 'color-mix(in srgb, var(--sl-gold), white 35%)', glow: false };
     case 'low':
     default:
       return { color: STONE, light: STONE_LIGHT, glow: false };
@@ -102,10 +102,10 @@ const styles = stylex.create({
     position: 'fixed',
     zIndex: 20,
     pointerEvents: 'auto',
-    backgroundColor: 'var(--color-background-surface)',
+    backgroundColor: 'var(--sl-paper-deep)',
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--color-border)',
+    borderColor: 'var(--sl-line)',
     borderRadius: 12,
     padding: '12px 14px',
     maxWidth: 260,
@@ -115,16 +115,16 @@ const styles = stylex.create({
     fontSize: 14,
     fontWeight: 600,
     marginBottom: 4,
-    color: 'var(--color-text-primary)',
+    color: 'var(--sl-ink)',
   },
   popupDate: {
     fontSize: 12,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--sl-ink-soft)',
     marginBottom: 6,
   },
   popupDetail: {
     fontSize: 13,
-    color: 'var(--color-text-primary)',
+    color: 'var(--sl-ink)',
     lineHeight: 1.4,
   },
   popupClose: {
@@ -132,7 +132,7 @@ const styles = stylex.create({
     top: 8,
     right: 8,
     fontSize: 16,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--sl-ink-soft)',
     background: 'none',
     border: 'none',
     cursor: 'pointer',

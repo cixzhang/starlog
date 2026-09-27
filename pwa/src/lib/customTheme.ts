@@ -24,6 +24,8 @@ const FONT_LINK_ID = 'starlog-custom-fonts';
 export interface CustomTheme {
   name: string;
   tokens: Record<string, string>;
+  /** Starlog --sl-* local token overrides */
+  slTokens: Record<string, string>;
   fonts?: {
     body?: string;
     heading?: string;
@@ -31,17 +33,20 @@ export interface CustomTheme {
   };
 }
 
-function sanitizeTokens(source: unknown): Record<string, string> {
+function sanitizeTokens(source: unknown): {
+  tokens: Record<string, string>;
+  slTokens: Record<string, string>;
+} {
   const tokens: Record<string, string> = {};
-  if (typeof source !== 'object' || !source) return tokens;
+  const slTokens: Record<string, string> = {};
+  if (typeof source !== 'object' || !source) return { tokens, slTokens };
   for (const [k, v] of Object.entries(source as Record<string, unknown>)) {
-    if (typeof k === 'string' && k.startsWith('--color-') && typeof v === 'string') {
-      if (/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-z]+)$/.test(v.trim())) {
-        tokens[k] = v.trim();
-      }
-    }
+    if (typeof k !== 'string' || typeof v !== 'string') continue;
+    if (!/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-z]+)$/.test(v.trim())) continue;
+    if (k.startsWith('--color-')) tokens[k] = v.trim();
+    else if (k.startsWith('--sl-')) slTokens[k] = v.trim();
   }
-  return tokens;
+  return { tokens, slTokens };
 }
 
 function sanitizeFonts(source: unknown): CustomTheme['fonts'] | undefined {
@@ -59,12 +64,15 @@ function sanitizeFonts(source: unknown): CustomTheme['fonts'] | undefined {
 function toCustomTheme(data: unknown): CustomTheme | null {
   if (typeof data !== 'object' || !data) return null;
   const d = data as Record<string, unknown>;
-  const tokens = sanitizeTokens(d.tokens ?? d);
+  const { tokens, slTokens } = sanitizeTokens(d.tokens ?? d);
   const fonts = sanitizeFonts(d.fonts);
-  if (Object.keys(tokens).length === 0 && !fonts) return null;
+  if (Object.keys(tokens).length === 0 && Object.keys(slTokens).length === 0 && !fonts) {
+    return null;
+  }
   return {
     name: typeof d.name === 'string' ? d.name : 'Custom',
     tokens,
+    slTokens,
     fonts,
   };
 }
@@ -101,6 +109,11 @@ export function buildCustomTheme(custom: CustomTheme): DefinedTheme {
     name: `starlog-${slug(custom.name)}`,
     extends: starlogTheme,
     tokens: custom.tokens,
+    // Starlog domain tokens go through localTokens so they properly
+    // override the base theme's local token definitions.
+    ...(Object.keys(custom.slTokens).length > 0 && {
+      localTokens: custom.slTokens,
+    }),
     ...(custom.fonts && {
       typography: {
         ...(custom.fonts.body && { body: { family: custom.fonts.body } }),

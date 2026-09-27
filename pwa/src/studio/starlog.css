@@ -79,8 +79,6 @@
 
 @layer astryx-base {
 :root {
-  --color-coral: light-dark(#F16E56, #F28A76);
-  --color-navy: light-dark(#193346, #8FB4D1);
   --color-data-categorical-blue: light-dark(#0171E3, #0171E3);
   --color-data-categorical-orange: light-dark(#EB6E00, #EB6E00);
   --color-data-categorical-purple: light-dark(#6B1EFD, #6B1EFD);
@@ -327,6 +325,20 @@
     --astryx-theme-neutral-color-on-tint-overlay-pressed: light-dark(#fafafa33, #0a0a0a33);
     --astryx-theme-neutral-color-destructive-overlay-hover: light-dark(#ff7f770D, #ee736c0D);
     --astryx-theme-neutral-color-destructive-overlay-pressed: light-dark(#ff7f771A, #ee736c1A);
+    --sl-paper: light-dark(#f5f3ec, #141a17);
+    --sl-paper-deep: light-dark(#ece9dd, #1c2420);
+    --sl-ink: light-dark(#17231f, #ece9dd);
+    --sl-ink-soft: light-dark(#3d4a44, #c2cabd);
+    --sl-ink-faint: light-dark(#8a938c, #7d877e);
+    --sl-line: light-dark(#ddd8c8, #2b342f);
+    --sl-line-strong: light-dark(#c4bda6, #3d473f);
+    --sl-coral: light-dark(#f16e56, #f0856d);
+    --sl-coral-deep: light-dark(#c24e37, #f0856d);
+    --sl-gold: light-dark(#d9a83e, #d9a83e);
+    --sl-gold-soft: light-dark(#f2c85b, #f2c85b);
+    --sl-band: light-dark(#ece9dd, #1c2420);
+    --sl-surface: light-dark(#ece9dd, #1c2420);
+    --sl-mark-tile: light-dark(#ece9dd, #193346);
   }
 
   :scope {

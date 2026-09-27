@@ -37,12 +37,12 @@ const styles = stylex.create({
   },
   monthSheet: {
     padding: '20px 20px 28px',
-    color: 'var(--color-text-primary)',
+    color: 'var(--sl-ink)',
   },
   // Months other than this one recede: muted band, muted text.
   monthMuted: {
-    backgroundColor: 'var(--color-background-surface)',
-    color: 'var(--color-text-secondary)',
+    backgroundColor: 'var(--sl-paper-deep)',
+    color: 'var(--sl-ink-soft)',
   },
   monthTitle: {
     fontFamily: 'var(--font-heading)',
@@ -51,7 +51,7 @@ const styles = stylex.create({
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
     margin: '0 0 12px',
-    color: 'var(--color-text-primary)',
+    color: 'var(--sl-ink)',
   },
   grid: {
     display: 'grid',
@@ -64,7 +64,7 @@ const styles = stylex.create({
     fontWeight: 600,
     letterSpacing: '0.06em',
     textTransform: 'uppercase',
-    color: 'var(--color-text-disabled)',
+    color: 'var(--sl-ink-faint)',
     padding: '8px 0',
   },
   cell: {
@@ -80,30 +80,30 @@ const styles = stylex.create({
     justifyContent: 'center',
     gap: 3,
     fontSize: 15,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--sl-ink-soft)',
     fontFamily: 'var(--font-body)',
-    ':hover': { backgroundColor: 'var(--color-background-surface)' },
+    ':hover': { backgroundColor: 'var(--sl-paper-deep)' },
   },
   cellDim: {
-    color: 'var(--color-text-disabled)',
+    color: 'var(--sl-ink-faint)',
     opacity: 0.45,
   },
   cellToday: {
     fontWeight: 700,
-    color: 'var(--color-text-primary)',
-    boxShadow: 'inset 0 0 0 1.5px var(--color-border-yellow)',
+    color: 'var(--sl-ink)',
+    boxShadow: 'inset 0 0 0 1.5px var(--sl-gold)',
   },
   dot: {
     width: 5,
     height: 5,
     borderRadius: '50%',
-    backgroundColor: 'var(--color-background-yellow)',
+    backgroundColor: 'var(--sl-gold)',
   },
   dotReminder: {
     width: 5,
     height: 5,
     borderRadius: '50%',
-    backgroundColor: 'var(--color-coral)',
+    backgroundColor: 'var(--sl-coral)',
   },
   dotReminderOffset: {
     marginLeft: 3,
@@ -326,7 +326,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                 {...stylex.props(styles.monthTitle)}
                 style={
                   k !== 0
-                    ? { color: 'var(--color-text-secondary)' }
+                    ? { color: 'var(--sl-ink-soft)' }
                     : undefined
                 }
               >

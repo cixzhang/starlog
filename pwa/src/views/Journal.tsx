@@ -150,10 +150,10 @@ const styles = stylex.create({
     // X=weekdays, Y=weeks). Subtle 1px lines on left/right edges.
     borderLeftWidth: 1,
     borderLeftStyle: 'solid',
-    borderLeftColor: 'var(--color-border)',
+    borderLeftColor: 'var(--sl-line)',
     borderRightWidth: 1,
     borderRightStyle: 'solid',
-    borderRightColor: 'var(--color-border)',
+    borderRightColor: 'var(--sl-line)',
   },
   // Off-screen weekday preview, slides in under the finger during a swipe.
   preview: {
@@ -173,7 +173,7 @@ const styles = stylex.create({
   },
   sheet: {
     padding: '20px 20px 28px',
-    color: 'var(--color-text-primary)',
+    color: 'var(--sl-ink)',
     // Each day holds its ground even when empty — the min-height is the
     // breathing room between date headings.
     minHeight: '20vh',
@@ -185,8 +185,8 @@ const styles = stylex.create({
   },
   // Weeks other than this one recede: muted band, muted text.
   sheetMuted: {
-    backgroundColor: 'var(--color-background-surface)',
-    color: 'var(--color-text-secondary)',
+    backgroundColor: 'var(--sl-paper-deep)',
+    color: 'var(--sl-ink-soft)',
   },
   // Sheets use natural variable heights. Activity recycling handles
   // performance by only keeping ~7 sheets active.
@@ -204,13 +204,13 @@ const styles = stylex.create({
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
     margin: 0,
-    color: 'var(--color-text-primary)',
+    color: 'var(--sl-ink)',
   },
   relLabel: {
     fontFamily: 'var(--font-code)',
     fontSize: 11,
     letterSpacing: '0.1em',
-    color: 'var(--color-text-disabled)',
+    color: 'var(--sl-ink-faint)',
     whiteSpace: 'nowrap',
   },
   todayPill: {
@@ -219,7 +219,7 @@ const styles = stylex.create({
     fontWeight: 700,
     letterSpacing: '0.1em',
     color: '#fff',
-    backgroundColor: 'var(--color-coral)',
+    backgroundColor: 'var(--sl-coral)',
     borderRadius: 999,
     padding: '4px 12px',
     whiteSpace: 'nowrap',
@@ -228,7 +228,7 @@ const styles = stylex.create({
     marginTop: 8,
     padding: '28px 0',
     textAlign: 'center',
-    color: 'var(--color-text-disabled)',
+    color: 'var(--sl-ink-faint)',
     fontFamily: 'var(--font-body)',
     fontSize: 14,
     lineHeight: 1.7,
@@ -244,20 +244,20 @@ const styles = stylex.create({
     alignItems: 'baseline',
     gap: 8,
     fontSize: 14,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--sl-ink-soft)',
   },
   annoLabel: {
     fontFamily: 'var(--font-code)',
     fontSize: 11,
     letterSpacing: '0.08em',
-    color: 'var(--color-text-disabled)',
+    color: 'var(--sl-ink-faint)',
     whiteSpace: 'nowrap',
   },
   annoDot: {
     width: 6,
     height: 6,
     borderRadius: '50%',
-    backgroundColor: 'var(--color-coral)',
+    backgroundColor: 'var(--sl-coral)',
     flexShrink: 0,
     alignSelf: 'center',
   },
@@ -825,7 +825,7 @@ export default function Journal({
                       {...stylex.props(styles.sheetDate)}
                       style={
                         k !== 0
-                          ? { color: 'var(--color-text-secondary)' }
+                          ? { color: 'var(--sl-ink-soft)' }
                           : undefined
                       }
                     >
@@ -1049,7 +1049,7 @@ export default function Journal({
                   {...stylex.props(styles.sheetDate)}
                   style={
                     k !== 0
-                      ? { color: 'var(--color-text-secondary)' }
+                      ? { color: 'var(--sl-ink-soft)' }
                       : undefined
                   }
                 >

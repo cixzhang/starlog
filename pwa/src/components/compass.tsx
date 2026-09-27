@@ -22,7 +22,7 @@ const styles = stylex.create({
   },
   legend: {
     fontSize: 12,
-    color: 'var(--color-text-disabled)',
+    color: 'var(--sl-ink-faint)',
     marginTop: 8,
     letterSpacing: '0.02em',
   },
@@ -104,7 +104,7 @@ export default function Compass({
         cy={C}
         r={rr}
         fill="none"
-        stroke="var(--color-border-emphasized)"
+        stroke="var(--sl-line-strong)"
         strokeWidth="1"
         strokeDasharray="2 5"
         opacity="0.8"
@@ -115,7 +115,7 @@ export default function Compass({
         textAnchor="middle"
         fontSize="9.5"
         letterSpacing="0.08em"
-        fill="var(--color-text-disabled)"
+        fill="var(--sl-ink-faint)"
         style={{ textTransform: 'uppercase' }}
       >
         {label}
@@ -136,25 +136,25 @@ export default function Compass({
         {ring(RING_R.this, 'this week')}
         {ring(RING_R.next, 'next week')}
         {/* today: the moon at the center */}
-        <circle cx={C} cy={C} r={13 * k} fill="var(--color-background-surface)" />
+        <circle cx={C} cy={C} r={13 * k} fill="var(--sl-paper-deep)" />
         <circle
           cx={C}
           cy={C}
           r={13 * k}
           fill="none"
-          stroke="var(--color-text-yellow)"
+          stroke="var(--sl-gold)"
           strokeWidth="1.5"
         />
         <circle
           cx={C - 4 * k}
           cy={C - 3 * k}
           r={3 * k}
-          fill="var(--color-border-emphasized)"
+          fill="var(--sl-line-strong)"
           opacity="0.5"
         />
         {placed.map((p) => {
           const high = p.r.urgency === 'high';
-          const fill = high ? 'var(--color-coral)' : 'var(--color-text-primary)';
+          const fill = high ? 'var(--sl-coral)' : 'var(--sl-ink)';
           const at = new Date(p.r.remind_at);
           const label = `${p.r.title} — ${relativeLabel(
             new Date(at.getFullYear(), at.getMonth(), at.getDate()),
