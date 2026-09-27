@@ -199,14 +199,16 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     const pastTotal = -negTop;
     latestBottomRef.current = negTop;
 
-    // Apply positions and wrapper height.
+    // Shift virtual tops by pastTotal so all DOM positions are positive
+    // and reachable via scrolling. k=0's virtual top:0 becomes pastTotal.
+    // (The "top padding" compensation — a positive offset on the container.)
     for (const [iso, t] of tops) {
       const el = inner.querySelector(
         `[data-sheet-iso="${iso}"]`,
       ) as HTMLElement | null;
       if (el) {
         el.style.position = 'absolute';
-        el.style.top = `${t}px`;
+        el.style.top = `${t + pastTotal}px`;
         el.style.left = '0';
         el.style.right = '0';
       }
