@@ -69,10 +69,10 @@ export function formatMonth(d: Date): string {
   return monthFmt.format(d);
 }
 
-/** Start of the week containing d (Monday), at local midnight. */
-export function startOfWeek(d: Date): Date {
+/** Start of the week containing d, at local midnight. weekStart is ISO 1..7. */
+export function startOfWeek(d: Date, weekStart: 1 | 7 = 1): Date {
   const c = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return addDays(c, -(isoWeekday(c) - 1));
+  return addDays(c, -((isoWeekday(c) - weekStart + 7) % 7));
 }
 
 /** Whole days from a to b (b - a), by calendar day. */

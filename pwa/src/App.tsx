@@ -7,6 +7,7 @@ import { DropdownMenu } from '@astryxdesign/core';
 import {
   BookOpen,
   Calendar as CalendarIcon,
+  Check,
   ChevronLeft,
   ChevronRight,
   Ellipsis,
@@ -24,6 +25,7 @@ import {
   type SbConfig,
 } from './lib/supabase';
 import { isoWeekday, parseISODate, WEEKDAY_NAMES } from './lib/dates';
+import { getWeekStart, setWeekStart, type WeekStart } from './lib/settings';
 import { StarlogMark } from './components/mark';
 import { ErrorNote, Loading } from './components/ui';
 import Setup from './views/Setup';
@@ -224,6 +226,11 @@ export default function App() {
   // two-tap: arm, then confirm.
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  const [weekStart, setWeekStartState] = useState<WeekStart>(() => getWeekStart());
+  const chooseWeekStart = (w: WeekStart) => {
+    setWeekStart(w);
+    setWeekStartState(w);
+  };
 
   const pickDay = useCallback((isoDate: string) => {
     const d = parseISODate(isoDate);
@@ -316,6 +323,28 @@ export default function App() {
                 }}
                 items={[
                   {
+                    type: 'section',
+                    title: 'Week starts on',
+                    items: [
+                      {
+                        id: 'week-start-mon',
+                        label: 'Monday',
+                        endContent:
+                          weekStart === 1 ? <Check size={16} /> : null,
+                        hasCloseOnSelect: false,
+                        onClick: () => chooseWeekStart(1),
+                      },
+                      {
+                        id: 'week-start-sun',
+                        label: 'Sunday',
+                        endContent:
+                          weekStart === 7 ? <Check size={16} /> : null,
+                        hasCloseOnSelect: false,
+                        onClick: () => chooseWeekStart(7),
+                      },
+                    ],
+                  },
+                  {
                     id: 'disconnect',
                     label: confirmingDisconnect
                       ? 'Tap again to disconnect'
@@ -352,10 +381,16 @@ export default function App() {
                   jump={jump}
                   onJumpConsumed={() => setJump(null)}
                   onControls={handleControls}
+                  weekStart={weekStart}
                 />
               )}
               {!tenantError && tenantId && tab === 'calendar' && (
-                <Calendar cfg={cfg} tenantId={tenantId} onPickDay={pickDay} />
+                <Calendar
+                  cfg={cfg}
+                  tenantId={tenantId}
+                  onPickDay={pickDay}
+                  weekStart={weekStart}
+                />
               )}
             </main>
           </>

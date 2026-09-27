@@ -197,12 +197,14 @@ export default function Journal({
   jump,
   onJumpConsumed,
   onControls,
+  weekStart,
 }: {
   cfg: SbConfig;
   tenantId: string;
   jump: { weekday: number; date: string } | null;
   onJumpConsumed: () => void;
   onControls: (ctl: WeekdayControls | null) => void;
+  weekStart: 1 | 7;
 }) {
   const [weekday, setWeekday] = useState<number>(() => isoWeekday(new Date()));
   const [past, setPast] = useState(INIT_PAST);
@@ -228,9 +230,11 @@ export default function Journal({
   const scrollCooldown = useRef(0);
 
   // The k=0 sheet: the selected weekday's date in the current week.
+  // Offset of an ISO weekday from the configured week start.
+  const weekOffset = (w: number) => (w - weekStart + 7) % 7;
   const anchor = useMemo(
-    () => addDays(startOfWeek(now), weekday - 1),
-    [now, weekday],
+    () => addDays(startOfWeek(now, weekStart), weekOffset(weekday)),
+    [now, weekday, weekStart],
   );
   const sheets: Sheet[] = useMemo(() => {
     const out: Sheet[] = [];
@@ -398,14 +402,14 @@ export default function Journal({
 
   const goWeekday = useCallback(
     (w: number) => {
-      const a = addDays(startOfWeek(now), w - 1);
+      const a = addDays(startOfWeek(now, weekStart), weekOffset(w));
       setWeekday(w);
       setPast(INIT_PAST);
       setFuture(INIT_FUTURE);
       centerDate.current = toISODate(a);
       setCenterNonce((n) => n + 1);
     },
-    [now],
+    [now, weekStart],
   );
 
   const move = useCallback(
@@ -428,7 +432,7 @@ export default function Journal({
   // Calendar jump: make sure the date is in the window, then center it.
   useEffect(() => {
     if (!jump) return;
-    const a = addDays(startOfWeek(now), jump.weekday - 1);
+    const a = addDays(startOfWeek(now, weekStart), weekOffset(jump.weekday));
     const k = Math.round(daysBetween(a, parseISODate(jump.date)) / 7);
     setWeekday(jump.weekday);
     setPast((p) => Math.max(p, k < 0 ? -k + 2 : INIT_PAST));

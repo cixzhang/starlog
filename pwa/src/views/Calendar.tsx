@@ -109,9 +109,10 @@ interface Props {
   cfg: SbConfig;
   tenantId: string;
   onPickDay: (isoDate: string) => void;
+  weekStart: 1 | 7;
 }
 
-export default function Calendar({ cfg, tenantId, onPickDay }: Props) {
+export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props) {
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -149,13 +150,21 @@ export default function Calendar({ cfg, tenantId, onPickDay }: Props) {
     };
   }, [cfg, tenantId, monthStart, monthEnd]);
 
-  // cells: leading dim days (Mon-based) + month days + trailing to fill 6 rows
+  // cells: leading dim days + month days + trailing to fill 6 rows.
+  // Ordered from the configured week start.
+  const dowOrder = useMemo(
+    () =>
+      weekStart === 7
+        ? [...WEEKDAY_SHORT.slice(6), ...WEEKDAY_SHORT.slice(0, 6)]
+        : WEEKDAY_SHORT,
+    [weekStart],
+  );
   const cells = useMemo(() => {
-    const lead = isoWeekday(monthStart) - 1;
+    const lead = (isoWeekday(monthStart) - weekStart + 7) % 7;
     const total = Math.ceil((lead + monthEnd.getDate()) / 7) * 7;
     const first = addDays(monthStart, -lead);
     return Array.from({ length: total }, (_, i) => addDays(first, i));
-  }, [monthStart, monthEnd]);
+  }, [monthStart, monthEnd, weekStart]);
 
   const todayIso = toISODate(today);
 
@@ -195,7 +204,7 @@ export default function Calendar({ cfg, tenantId, onPickDay }: Props) {
 
       {!error && dates !== null && (
         <div {...stylex.props(styles.grid)} role="grid" aria-label={formatMonth(cursor)}>
-          {WEEKDAY_SHORT.map((d) => (
+          {dowOrder.map((d) => (
             <div key={d} {...stylex.props(styles.dow)}>
               {d}
             </div>
