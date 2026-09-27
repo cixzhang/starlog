@@ -224,8 +224,8 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     if (!jumpDate) return;
     if (!dates.some((d) => d.iso === jumpDate)) return;
     const el = document.querySelector(`[data-sheet-iso="${jumpDate}"]`);
-    // Top-align via scrollIntoView; scroll-margin-top leaves room for header.
-    (el as HTMLElement | null)?.scrollIntoView({ block: 'start' });
+    // Top-align with smooth animation. scroll-margin-top leaves room for header.
+    (el as HTMLElement | null)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     onJumpHandled();
   }, [jumpDate, dates, onJumpHandled]);
 
@@ -348,9 +348,8 @@ const styles = stylex.create({
     borderLeftWidth: 1,
     borderLeftStyle: 'solid',
     borderLeftColor: 'var(--color-border)',
-    borderRightWidth: 1,
-    borderRightStyle: 'solid',
-    borderRightColor: 'var(--color-border)',
+    // No right border: adjacent columns would create a double border.
+    // The left border of the next column serves as the divider.
     boxSizing: 'border-box',
   },
   sheet: {

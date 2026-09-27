@@ -183,6 +183,8 @@ export default function Journal({
   const [allReminders, setAllReminders] = useState<Reminder[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState<string | null>(null);
+  // Local jump for radar taps (separate from the Calendar jump prop).
+  const [radarJump, setRadarJump] = useState<{ weekday: number; date: string } | null>(null);
   const [fetchVersion, setFetchVersion] = useState(0);
 
   // "Now" refreshes if the day rolls over while the app is open/suspended.
@@ -396,8 +398,16 @@ export default function Journal({
     setHighlighted(jump.date);
   }, [jump]);
 
+  // Radar tap jump: same as Calendar jump, but from a local state.
+  useEffect(() => {
+    if (!radarJump) return;
+    setWeekday(radarJump.weekday);
+    setHighlighted(radarJump.date);
+  }, [radarJump]);
+
   const handleJumpHandled = useCallback(() => {
     onJumpConsumed();
+    setRadarJump(null);
   }, [onJumpConsumed]);
 
   // --- Horizontal carousel gesture ---
@@ -562,7 +572,10 @@ export default function Journal({
               decosByDate={decosByDate}
               remindersByDate={remindersByDate}
               onNeedDates={onNeedDates}
-              jumpDate={jump && jump.weekday === w ? jump.date : null}
+              jumpDate={
+                (jump && jump.weekday === w ? jump.date : null) ||
+                (radarJump && radarJump.weekday === w ? radarJump.date : null)
+              }
               onJumpHandled={handleJumpHandled}
               onNeedWindow={(p, f) => {
                 setPast((prev) => Math.max(prev, p));
@@ -576,8 +589,11 @@ export default function Journal({
           currentWeekday={weekday}
           anchorDate={anchors[weekday]}
           onPlanetTap={(date) => {
-            // TODO: jump the matching sheet to this date.
-            console.log('Radar tap:', date);
+            // Jump to the reminder's date: switch to its weekday column
+            // and smooth-scroll to the date.
+            const d = new Date(date + 'T00:00:00');
+            const wd = isoWeekday(d);
+            setRadarJump({ weekday: wd, date });
           }}
         />
       </div>
