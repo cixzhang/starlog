@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { defineTheme, type DefinedTheme } from '@astryxdesign/core/theme';
+import { starlogTheme } from '../studio/starlog.js';
 
-// Custom theme overrides: a map of CSS variable names to values.
-// Installed via ?theme=<base64url-json> URL param or stored in localStorage.
-// Lets agents generate custom themes and apply them without a rebuild.
+// Custom themes via the Astryx Theme provider: a user-supplied token map
+// becomes a real DefinedTheme (extends starlogTheme) passed to <Theme>.
+// Installed via ?theme=<base64url-json> URL param, pasted JSON in Settings,
+// and persisted in localStorage.
 //
-// Format: {"--color-coral": "#FF6B6B", "--color-background-body": "#1a1a1a"}
-// Only --color-* variables are accepted; everything else is ignored.
+// Format: {"name": "Dusk", "tokens": {"--color-...": "#..."}}
+// Only --color-* tokens are accepted; values must look like colors.
 
 const THEME_KEY = 'starlog.customTheme';
 
@@ -14,24 +17,26 @@ export interface CustomTheme {
   tokens: Record<string, string>;
 }
 
-function decodeThemeParam(param: string): CustomTheme | null {
-  try {
-    // base64url -> base64
-    const b64 = param.replace(/-/g, '+').replace(/_/g, '/');
-    const json = atob(b64);
-    const data = JSON.parse(json);
-    if (typeof data !== 'object' || !data) return null;
-    const tokens: Record<string, string> = {};
-    const source = data.tokens ?? data;
-    for (const [k, v] of Object.entries(source)) {
-      if (typeof k === 'string' && k.startsWith('--color-') && typeof v === 'string') {
-        // Basic sanity: must look like a color
-        if (/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-z]+)$/.test(v.trim())) {
-          tokens[k] = v.trim();
-        }
+function sanitizeTokens(source: unknown): Record<string, string> | null {
+  if (typeof source !== 'object' || !source) return null;
+  const tokens: Record<string, string> = {};
+  for (const [k, v] of Object.entries(source as Record<string, unknown>)) {
+    if (typeof k === 'string' && k.startsWith('--color-') && typeof v === 'string') {
+      if (/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-z]+)$/.test(v.trim())) {
+        tokens[k] = v.trim();
       }
     }
-    if (Object.keys(tokens).length === 0) return null;
+  }
+  return Object.keys(tokens).length > 0 ? tokens : null;
+}
+
+function decodeThemeParam(param: string): CustomTheme | null {
+  try {
+    const b64 = param.replace(/-/g, '+').replace(/_/g, '/');
+    const data = JSON.parse(atob(b64));
+    if (typeof data !== 'object' || !data) return null;
+    const tokens = sanitizeTokens(data.tokens ?? data);
+    if (!tokens) return null;
     return {
       name: typeof data.name === 'string' ? data.name : 'Custom',
       tokens,
@@ -41,32 +46,28 @@ function decodeThemeParam(param: string): CustomTheme | null {
   }
 }
 
-function themeRoot(): HTMLElement {
-  // Astryx scopes its tokens under [data-astryx-theme]; overrides must
-  // land on that element, not <html>, or the scoped values win.
-  return (
-    (document.querySelector('[data-astryx-theme]') as HTMLElement | null) ??
-    document.documentElement
-  );
-}
-
-function applyTokens(tokens: Record<string, string>) {
-  const root = themeRoot();
-  for (const [k, v] of Object.entries(tokens)) {
-    root.style.setProperty(k, v);
+function loadStored(): CustomTheme | null {
+  try {
+    const stored = window.localStorage.getItem(THEME_KEY);
+    if (stored) {
+      const data = JSON.parse(stored);
+      const tokens = sanitizeTokens(data?.tokens);
+      if (tokens) {
+        return {
+          name: typeof data.name === 'string' ? data.name : 'Custom',
+          tokens,
+        };
+      }
+    }
+  } catch {
+    /* ignore */
   }
-}
-
-function clearTokens(tokens: Record<string, string>) {
-  const root = themeRoot();
-  for (const k of Object.keys(tokens)) {
-    root.style.removeProperty(k);
-  }
+  return null;
 }
 
 export function useCustomTheme(active: boolean) {
   const [customTheme, setCustomTheme] = useState<CustomTheme | null>(() => {
-    // 1. URL param wins (and gets persisted)
+    // URL param wins (and gets persisted + stripped from the URL)
     try {
       const params = new URLSearchParams(window.location.search);
       const param = params.get('theme');
@@ -78,9 +79,11 @@ export function useCustomTheme(active: boolean) {
           } catch {
             /* private mode */
           }
-          // Strip the param so it doesn't linger in the URL
           params.delete('theme');
-          const url = window.location.pathname + (params.toString() ? `?${params}` : '') + window.location.hash;
+          const url =
+            window.location.pathname +
+            (params.toString() ? `?${params}` : '') +
+            window.location.hash;
           window.history.replaceState(null, '', url);
           return theme;
         }
@@ -88,24 +91,18 @@ export function useCustomTheme(active: boolean) {
     } catch {
       /* ignore */
     }
-    // 2. Stored theme
-    try {
-      const stored = window.localStorage.getItem(THEME_KEY);
-      if (stored) {
-        const theme = JSON.parse(stored) as CustomTheme;
-        if (theme?.tokens && typeof theme.tokens === 'object') return theme;
-      }
-    } catch {
-      /* ignore */
-    }
-    return null;
+    return loadStored();
   });
 
-  // Apply/remove CSS variable overrides (only when the custom mode is active)
-  useEffect(() => {
-    if (!active || !customTheme) return;
-    applyTokens(customTheme.tokens);
-    return () => clearTokens(customTheme.tokens);
+  // Build a real Astryx theme extending starlogTheme when active.
+  // defineTheme generates + injects the CSS at runtime (unbuilt mode).
+  const appliedTheme: DefinedTheme = useMemo(() => {
+    if (!active || !customTheme) return starlogTheme;
+    return defineTheme({
+      name: `starlog-custom-${customTheme.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      extends: starlogTheme,
+      tokens: customTheme.tokens,
+    });
   }, [active, customTheme]);
 
   const removeCustomTheme = () => {
@@ -117,19 +114,20 @@ export function useCustomTheme(active: boolean) {
     setCustomTheme(null);
   };
 
-  // Install from pasted JSON (or a full ?theme= param value). Returns an
-  // error message, or null on success.
+  // Install from pasted JSON or a ?theme= code. Returns error or null.
   const installCustomTheme = (input: string): string | null => {
     const trimmed = input.trim();
     if (!trimmed) return 'Paste a theme first.';
-    // Accept either raw JSON or a base64url ?theme= param value
     let theme: CustomTheme | null = null;
     if (trimmed.startsWith('{')) {
       try {
         const data = JSON.parse(trimmed);
-        theme = decodeThemeParam(
-          btoa(JSON.stringify(data)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
-        );
+        const tokens = sanitizeTokens(data.tokens ?? data);
+        if (!tokens) return 'No usable --color-* tokens found.';
+        theme = {
+          name: typeof data.name === 'string' ? data.name : 'Custom',
+          tokens,
+        };
       } catch {
         return 'That is not valid JSON.';
       }
@@ -146,7 +144,16 @@ export function useCustomTheme(active: boolean) {
     return null;
   };
 
-  return { customTheme, removeCustomTheme, installCustomTheme };
+  // Re-apply if the stored theme changes in another tab.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === THEME_KEY) setCustomTheme(loadStored());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  return { customTheme, appliedTheme, removeCustomTheme, installCustomTheme };
 }
 
 // Encode a theme for sharing via URL: returns the ?theme= param value.

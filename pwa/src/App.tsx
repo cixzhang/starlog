@@ -13,7 +13,6 @@ import {
   Ellipsis,
 } from 'lucide-react';
 import { Theme } from '@astryxdesign/core/theme';
-import { starlogTheme } from './studio/starlog.js';
 import {
   clearConfig,
   consumeLinkConfig,
@@ -191,7 +190,7 @@ export default function App() {
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('journal');
   const [mode, setMode] = useState<Mode>(initialMode);
-  const { customTheme, removeCustomTheme, installCustomTheme } = useCustomTheme(mode === 'custom');
+  const { customTheme, appliedTheme, removeCustomTheme, installCustomTheme } = useCustomTheme(mode === 'custom');
   const [jump, setJump] = useState<{ weekday: number; date: string } | null>(
     null,
   );
@@ -280,7 +279,7 @@ export default function App() {
   }
 
   return (
-    <Theme theme={starlogTheme} mode={resolvedMode}>
+    <Theme theme={appliedTheme} mode={resolvedMode}>
       <div {...stylex.props(styles.root)}>
         {showInstall ? (
           <InstallApp
