@@ -72,22 +72,6 @@ const styles = stylex.create({
     zIndex: 5,
     overflow: 'hidden',
   },
-  // The composition wrapper: rotates as a unit, positioned at edge
-  composition: (
-    rotation: number,
-    opacity: number,
-    zIndex: number,
-  ) => ({
-    position: 'absolute',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    transform: `rotate(${rotation}deg)`,
-    opacity,
-    zIndex,
-    pointerEvents: 'auto',
-    cursor: 'pointer',
-  }),
   arrow: (color: string, visible: boolean) => ({
     fontSize: 11,
     lineHeight: 1,
@@ -140,19 +124,21 @@ export default function ReminderRadar({
 
         const { color, light, glow } = urgencyToColor(r.urgency);
 
-        // Edge and rotation: soon = bottom (future is below in scroll),
-        // further = distributed to sides
+        // Edge and rotation based on where the date sits relative to now.
+        // The journal scrolls vertically: future is below, past is above.
+        // For v1, all future reminders pin to the bottom edge (pointing down),
+        // past reminders to the top edge (pointing up).
         let edge: PlanetData['edge'];
         let rotation: number;
 
-        if (daysUntil <= 7) {
+        if (daysUntil >= 0) {
+          // Future: below in the scroll
           edge = 'bottom';
           rotation = 180;
         } else {
-          // Alternate left/right for visual distribution
-          const hash = r.id.charCodeAt(0) % 2;
-          edge = hash === 0 ? 'left' : 'right';
-          rotation = hash === 0 ? -90 : 90;
+          // Past: above in the scroll
+          edge = 'top';
+          rotation = 0;
         }
 
         return {
@@ -224,8 +210,18 @@ export default function ReminderRadar({
         return (
           <div
             key={reminder.id}
-            {...stylex.props(styles.composition(rotation, opacity, zIndex))}
-            style={positionStyle}
+            style={{
+              position: 'absolute',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              transform: `rotate(${rotation}deg)`,
+              opacity,
+              zIndex,
+              pointerEvents: 'auto',
+              cursor: 'pointer',
+              ...positionStyle,
+            }}
             onClick={() =>
               onPlanetTap?.(toISODate(new Date(reminder.remind_at)))
             }
