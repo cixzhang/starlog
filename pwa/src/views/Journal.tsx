@@ -173,7 +173,7 @@ const styles = stylex.create({
   },
   sheet: {
     padding: '20px 20px 28px',
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
     // Each day holds its ground even when empty — the min-height is the
     // breathing room between date headings.
     minHeight: '20vh',
@@ -185,8 +185,8 @@ const styles = stylex.create({
   },
   // Weeks other than this one recede: muted band, muted text.
   sheetMuted: {
-    backgroundColor: 'var(--sl-paper-deep)',
-    color: 'var(--sl-ink-soft)',
+    backgroundColor: 'var(--color-background-surface)',
+    color: 'var(--color-text-secondary)',
   },
   // Sheets use natural variable heights. Activity recycling handles
   // performance by only keeping ~7 sheets active.
@@ -204,13 +204,13 @@ const styles = stylex.create({
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
     margin: 0,
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
   },
   relLabel: {
     fontFamily: 'var(--font-code)',
     fontSize: 11,
     letterSpacing: '0.1em',
-    color: 'var(--sl-ink-faint)',
+    color: 'var(--color-text-disabled)',
     whiteSpace: 'nowrap',
   },
   todayPill: {
@@ -219,7 +219,7 @@ const styles = stylex.create({
     fontWeight: 700,
     letterSpacing: '0.1em',
     color: '#fff',
-    backgroundColor: 'var(--sl-coral)',
+    backgroundColor: 'var(--color-coral)',
     borderRadius: 999,
     padding: '4px 12px',
     whiteSpace: 'nowrap',
@@ -228,7 +228,7 @@ const styles = stylex.create({
     marginTop: 8,
     padding: '28px 0',
     textAlign: 'center',
-    color: 'var(--sl-ink-faint)',
+    color: 'var(--color-text-disabled)',
     fontFamily: 'var(--font-body)',
     fontSize: 14,
     lineHeight: 1.7,
@@ -244,20 +244,20 @@ const styles = stylex.create({
     alignItems: 'baseline',
     gap: 8,
     fontSize: 14,
-    color: 'var(--sl-ink-soft)',
+    color: 'var(--color-text-secondary)',
   },
   annoLabel: {
     fontFamily: 'var(--font-code)',
     fontSize: 11,
     letterSpacing: '0.08em',
-    color: 'var(--sl-ink-faint)',
+    color: 'var(--color-text-disabled)',
     whiteSpace: 'nowrap',
   },
   annoDot: {
     width: 6,
     height: 6,
     borderRadius: '50%',
-    backgroundColor: 'var(--sl-coral)',
+    backgroundColor: 'var(--color-coral)',
     flexShrink: 0,
     alignSelf: 'center',
   },

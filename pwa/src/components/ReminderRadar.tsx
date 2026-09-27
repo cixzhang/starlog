@@ -20,10 +20,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Reminder } from '../lib/supabase';
 import { toISODate, isoWeekday } from '../lib/dates';
 
-const CORAL = '#F16E56';
-const CORAL_LIGHT = '#ff9a82';
-const STONE = '#8a8478';
-const STONE_LIGHT = '#b8b0a2';
+const CORAL = 'var(--color-coral)';
+const CORAL_LIGHT = 'color-mix(in srgb, var(--color-coral), white 35%)';
+const STONE = 'var(--color-text-disabled)';
+const STONE_LIGHT = 'color-mix(in srgb, var(--color-text-disabled), white 25%)';
 
 const MAX_SIZE = 24;
 const MIN_SIZE = 12;
@@ -69,7 +69,7 @@ function urgencyToColor(urgency: Reminder['urgency']): {
     case 'high':
       return { color: CORAL, light: CORAL_LIGHT, glow: true };
     case 'normal':
-      return { color: '#c47a5e', light: '#e88a70', glow: false };
+      return { color: 'var(--color-text-yellow)', light: 'color-mix(in srgb, var(--color-text-yellow), white 35%)', glow: false };
     case 'low':
     default:
       return { color: STONE, light: STONE_LIGHT, glow: false };
@@ -102,10 +102,10 @@ const styles = stylex.create({
     position: 'fixed',
     zIndex: 20,
     pointerEvents: 'auto',
-    backgroundColor: 'var(--sl-surface)',
+    backgroundColor: 'var(--color-background-surface)',
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--sl-line)',
+    borderColor: 'var(--color-border)',
     borderRadius: 12,
     padding: '12px 14px',
     maxWidth: 260,
@@ -115,16 +115,16 @@ const styles = stylex.create({
     fontSize: 14,
     fontWeight: 600,
     marginBottom: 4,
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
   },
   popupDate: {
     fontSize: 12,
-    color: 'var(--sl-ink-soft)',
+    color: 'var(--color-text-secondary)',
     marginBottom: 6,
   },
   popupDetail: {
     fontSize: 13,
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
     lineHeight: 1.4,
   },
   popupClose: {
@@ -132,7 +132,7 @@ const styles = stylex.create({
     top: 8,
     right: 8,
     fontSize: 16,
-    color: 'var(--sl-ink-soft)',
+    color: 'var(--color-text-secondary)',
     background: 'none',
     border: 'none',
     cursor: 'pointer',

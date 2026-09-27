@@ -1,26 +1,8 @@
-/* Starlog base styles: the lunar palette, Markdown typography, keyframes.
-   Astryx theme tokens (--color-*, --font-*) come from src/studio/starlog.css.
-   Domain colors live here as --sl-*. */
+/* Starlog base styles: Markdown typography, keyframes.
+   All colors come from Astryx theme tokens (--color-*, --font-*)
+   in src/studio/starlog.css. */
 
 :root {
-  --sl-paper: #f5f3ec;
-  --sl-paper-deep: #ece9dd;
-  --sl-ink: #17231f;
-  --sl-ink-soft: #3d4a44;
-  --sl-ink-faint: #8a938c;
-  --sl-line: #ddd8c8;
-  --sl-line-strong: #c4bda6;
-  --sl-coral: #f16e56;
-  --sl-coral-deep: #c24e37;
-  --sl-gold: #d9a83e;
-  --sl-gold-soft: #f2c85b;
-  --sl-green: #1e3a2f;
-  --sl-navy: #1f2a44;
-
-  /* Top-bar logo tile: light paper in day, merges with the mark's own
-     navy tile at night. */
-  --sl-mark-tile: var(--sl-paper-deep);
-
   --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-heading: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-code: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -29,20 +11,6 @@
 }
 
 html[data-theme='dark'] {
-  --sl-paper: #141a17;
-  --sl-paper-deep: #1c2420;
-  --sl-ink: #ece9dd;
-  --sl-ink-soft: #c2cabd;
-  --sl-ink-faint: #7d877e;
-  --sl-line: #2b342f;
-  --sl-line-strong: #3d473f;
-  --sl-coral: #f0856d;
-  --sl-coral-deep: #f0856d;
-  --sl-gold: #d9a83e;
-  --sl-gold-soft: #f2c85b;
-
-  --sl-mark-tile: #193346;
-
   color-scheme: dark;
 }
 
