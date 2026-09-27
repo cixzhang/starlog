@@ -62,7 +62,7 @@ const styles = stylex.create({
     fontWeight: 600,
     letterSpacing: '0.06em',
     textTransform: 'uppercase',
-    color: 'var(--sl-text-muted)',
+    color: 'var(--color-text-secondary)',
     padding: '8px 0',
   },
   cell: {
@@ -83,7 +83,7 @@ const styles = stylex.create({
     ':hover': { backgroundColor: 'var(--color-background-surface)' },
   },
   cellDim: {
-    color: 'var(--sl-text-muted)',
+    color: 'var(--color-text-secondary)',
     opacity: 0.45,
   },
   cellToday: {
@@ -92,7 +92,7 @@ const styles = stylex.create({
     boxShadow: 'inset 0 0 0 1.5px var(--color-accent)',
   },
   cellMuted: {
-    color: 'var(--sl-text-muted)',
+    color: 'var(--color-text-secondary)',
   },
   dot: {
     width: 5,

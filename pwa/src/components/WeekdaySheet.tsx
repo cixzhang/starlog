@@ -412,7 +412,7 @@ const styles = stylex.create({
   // Non-current weeks recede via foreground only: dimmer text,
   // background stays identical for visual consistency.
   sheetMuted: {
-    color: 'var(--sl-text-muted)',
+    color: 'var(--color-text-secondary)',
   },
   sheetHead: {
     display: 'flex',
