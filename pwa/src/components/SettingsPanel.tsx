@@ -1,9 +1,9 @@
 import * as stylex from '@stylexjs/stylex';
-import { Check, Sun, Moon, MonitorSmartphone, Trash2, X } from 'lucide-react';
+import { Check, Sun, Moon, MonitorSmartphone, Palette, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export type WeekStart = 1 | 7;
-export type ThemeMode = 'light' | 'dark' | 'auto';
+export type ThemeMode = 'light' | 'dark' | 'auto' | 'custom';
 
 import type { CustomTheme } from '../lib/customTheme';
 
@@ -274,16 +274,22 @@ export default function SettingsPanel({
             selected={mode === 'auto'}
             onClick={() => onMode('auto')}
           />
+          <Tile
+            label="Custom"
+            icon={<Palette size={20} />}
+            selected={mode === 'custom'}
+            onClick={() => onMode('custom')}
+          />
         </div>
 
-        {customTheme && (
+        {mode === 'custom' && customTheme && (
           <Item
             label={`Custom: ${customTheme.name} — tap to remove`}
             onClick={onRemoveCustomTheme}
           />
         )}
 
-        {!customTheme && (
+        {mode === 'custom' && !customTheme && (
           <div style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 8 }}>
             <textarea
               value={themeInput}

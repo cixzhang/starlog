@@ -41,21 +41,30 @@ function decodeThemeParam(param: string): CustomTheme | null {
   }
 }
 
+function themeRoot(): HTMLElement {
+  // Astryx scopes its tokens under [data-astryx-theme]; overrides must
+  // land on that element, not <html>, or the scoped values win.
+  return (
+    (document.querySelector('[data-astryx-theme]') as HTMLElement | null) ??
+    document.documentElement
+  );
+}
+
 function applyTokens(tokens: Record<string, string>) {
-  const root = document.documentElement;
+  const root = themeRoot();
   for (const [k, v] of Object.entries(tokens)) {
     root.style.setProperty(k, v);
   }
 }
 
 function clearTokens(tokens: Record<string, string>) {
-  const root = document.documentElement;
+  const root = themeRoot();
   for (const k of Object.keys(tokens)) {
     root.style.removeProperty(k);
   }
 }
 
-export function useCustomTheme() {
+export function useCustomTheme(active: boolean) {
   const [customTheme, setCustomTheme] = useState<CustomTheme | null>(() => {
     // 1. URL param wins (and gets persisted)
     try {
@@ -92,12 +101,12 @@ export function useCustomTheme() {
     return null;
   });
 
-  // Apply/remove CSS variable overrides
+  // Apply/remove CSS variable overrides (only when the custom mode is active)
   useEffect(() => {
-    if (!customTheme) return;
+    if (!active || !customTheme) return;
     applyTokens(customTheme.tokens);
     return () => clearTokens(customTheme.tokens);
-  }, [customTheme]);
+  }, [active, customTheme]);
 
   const removeCustomTheme = () => {
     try {

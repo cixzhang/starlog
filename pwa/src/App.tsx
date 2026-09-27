@@ -35,7 +35,7 @@ import Calendar from './views/Calendar';
 type Tab = 'journal' | 'calendar';
 
 const MODE_KEY = 'starlog:mode';
-type Mode = 'light' | 'dark' | 'auto';
+type Mode = 'light' | 'dark' | 'auto' | 'custom';
 
 const styles = stylex.create({
   root: {
@@ -134,7 +134,7 @@ const styles = stylex.create({
 function initialMode(): Mode {
   try {
     const saved = window.localStorage.getItem(MODE_KEY);
-    if (saved === 'light' || saved === 'dark' || saved === 'auto') return saved;
+    if (saved === 'light' || saved === 'dark' || saved === 'auto' || saved === 'custom') return saved;
   } catch {
     /* ignore */
   }
@@ -191,7 +191,7 @@ export default function App() {
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('journal');
   const [mode, setMode] = useState<Mode>(initialMode);
-  const { customTheme, removeCustomTheme, installCustomTheme } = useCustomTheme();
+  const { customTheme, removeCustomTheme, installCustomTheme } = useCustomTheme(mode === 'custom');
   const [jump, setJump] = useState<{ weekday: number; date: string } | null>(
     null,
   );
@@ -220,7 +220,9 @@ export default function App() {
     return () => mq.removeEventListener('change', onChange);
   }, [mode]);
   const resolvedMode: 'light' | 'dark' =
-    mode === 'auto' ? (osDark ? 'dark' : 'light') : mode;
+    mode === 'light' ? 'light'
+    : mode === 'dark' ? 'dark'
+    : osDark ? 'dark' : 'light';
 
   useEffect(() => {
     if (!cfg) {
