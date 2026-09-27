@@ -1,27 +1,39 @@
-// The Starlog mark: Lucide's `galaxy` icon (ISC license), drawn in the
-// theme-aware Starlog coral. Temporary direction while the custom mark
-// exploration continues.
+// The Starlog mark, theme-aware:
+// - light mode: earthrise — a small coral world over a navy limb
+// - dark mode: pale dot — one warm dot in a navy field
+// Favicon / PWA / share icons always use the crescent Earth (public/icons/).
+
+const CORAL = "#F16E56";
+const NAVY = "#193346";
 
 export function StarlogMark({ size = 32 }: { size?: number }) {
-  const c = "var(--sl-coral)";
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={c}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      role="img"
-      aria-label="Starlog logo"
+    <span
+      className="sl-mark"
+      style={{ width: size, height: size, display: "inline-flex" }}
     >
-      <path d="M16.005 15.108a5.041 6.52 28.25 00-8.008-6.217 5.041 6.52 28.25 008.008 6.217A11.884 7.288-60.76 014.029 7.001" />
-      <path d="M17 21h.01" />
-      <path d="M7 3h.01" />
-      <path d="M7.997 8.891a11.885 7.288-60.756 0111.977 8.107" />
-      <circle cx="12" cy="12" r="1" fill={c} />
-    </svg>
+      <svg
+        className="sl-mark-light"
+        width={size}
+        height={size}
+        viewBox="0 0 120 120"
+        role="img"
+        aria-label="Starlog logo"
+      >
+        <circle cx="60" cy="140" r="80" fill={NAVY} />
+        <circle cx="60" cy="32" r="13" fill={CORAL} />
+      </svg>
+      <svg
+        className="sl-mark-dark"
+        width={size}
+        height={size}
+        viewBox="0 0 96 96"
+        role="img"
+        aria-label="Starlog logo"
+      >
+        <rect width="96" height="96" rx="20" fill={NAVY} />
+        <circle cx="48" cy="38" r="10" fill={CORAL} />
+      </svg>
+    </span>
   );
 }

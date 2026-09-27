@@ -40,6 +40,11 @@ html[data-theme='dark'] {
   color-scheme: dark;
 }
 
+/* Starlog mark: light artwork by default, dark artwork under [data-theme='dark']. */
+.sl-mark-dark { display: none; }
+html[data-theme='dark'] .sl-mark-light { display: none; }
+html[data-theme='dark'] .sl-mark-dark { display: block; }
+
 /* PWA: html always fills the viewport; match the app background so the
    home-indicator zone never shows a dead band. */
 html {
