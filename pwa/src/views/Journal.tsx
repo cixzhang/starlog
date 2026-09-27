@@ -251,6 +251,10 @@ export default function Journal({
   // Only ~7 sheets are visible/active at once; the rest are hidden
   // (state preserved) via React Activity.
   const [activeSheets, setActiveSheets] = useState<Set<string>>(new Set());
+  // Initialize activeSheets with all sheet ISOs on first render.
+  // Sheets are visible by default; the observer removes far ones.
+  // This prevents blank screens if the observer is slow to fire.
+  const sheetsInitializedRef = useRef(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [past, setPast] = useState(INIT_PAST);
   const [future, setFuture] = useState(INIT_FUTURE);
@@ -289,6 +293,15 @@ export default function Journal({
     }
     return out;
   }, [anchor, past, future]);
+
+  // Initialize activeSheets with all current sheet ISOs.
+  // The observer will remove far ones as it fires.
+  useEffect(() => {
+    if (!sheetsInitializedRef.current) {
+      sheetsInitializedRef.current = true;
+      setActiveSheets(new Set(sheets.map((s) => s.iso)));
+    }
+  }, [sheets]);
 
   // Adjacent weekdays for the swipe previews (1-7, wrapping).
   const prevWeekday = ((weekday - 2 + 7) % 7) + 1;
@@ -930,6 +943,12 @@ export default function Journal({
     );
 
     observerRef.current = observer;
+
+    // Observe sheets that already mounted (callback refs fire before
+    // this effect runs, so they couldn't observe themselves yet).
+    const existing = viewport.querySelectorAll('[data-sheet-iso]');
+    existing.forEach((el) => observer.observe(el));
+
     return () => {
       observer.disconnect();
       observerRef.current = null;
