@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { Button } from '@astryxdesign/core/Button';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import {
   getCapabilities,
   isValidProjectUrl,
@@ -45,32 +46,7 @@ const styles = stylex.create({
     margin: '0 0 28px',
   },
   field: {
-    textAlign: 'left',
     marginBottom: 16,
-  },
-  label: {
-    display: 'block',
-    fontSize: 12.5,
-    fontWeight: 600,
-    letterSpacing: '0.06em',
-    textTransform: 'uppercase',
-    color: 'var(--sl-ink-faint)',
-    marginBottom: 6,
-  },
-  input: {
-    width: '100%',
-    boxSizing: 'border-box',
-    fontFamily: 'var(--font-code)',
-    fontSize: 13.5,
-    padding: '11px 13px',
-    borderRadius: 10,
-    border: '1px solid var(--sl-line)',
-    backgroundColor: 'var(--sl-paper-deep)',
-    color: 'var(--sl-ink)',
-    outline: 'none',
-    ':focus': {
-      borderColor: 'var(--sl-gold)',
-    },
   },
   hint: {
     fontSize: 13,
@@ -181,36 +157,23 @@ export default function Setup({
           </p>
         )}
         <div {...stylex.props(styles.field)}>
-          <label {...stylex.props(styles.label)} htmlFor="sl-url">
-            Supabase project URL
-          </label>
-          <input
-            id="sl-url"
-            {...stylex.props(styles.input)}
+          <TextInput
+            label="Supabase project URL"
             value={url}
-            onChange={(e) => handleUrlChange(e.target.value)}
+            onChange={(v) => handleUrlChange(v)}
             placeholder="https://xyz.supabase.co — or paste a setup link"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            inputMode="url"
+            width="100%"
           />
         </div>
         <div {...stylex.props(styles.field)}>
-          <label {...stylex.props(styles.label)} htmlFor="sl-key">
-            Anon key
-          </label>
-          <input
-            id="sl-key"
-            {...stylex.props(styles.input)}
+          <TextInput
+            label="Anon key"
             type="password"
             value={key}
-            onChange={(e) => setKey(e.target.value)}
+            onChange={setKey}
             placeholder="eyJhbGciOi…"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            autoFocus={initialUrl.length > 0}
+            width="100%"
+            hasAutoFocus={initialUrl.length > 0}
           />
         </div>
         <Button
