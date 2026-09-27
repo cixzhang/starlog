@@ -46,8 +46,8 @@ import { sanitizeSvg } from '../lib/svg';
 import { ErrorNote } from '../components/ui';
 import ReminderRadar from '../components/ReminderRadar';
 
-const INIT_PAST = 4;
-const INIT_FUTURE = 2;
+const INIT_PAST = 3;
+const INIT_FUTURE = 3;
 const EXTEND_PAST = 8;
 const EXTEND_FUTURE = 4;
 const EDGE_PX = 240;
