@@ -158,20 +158,23 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
 
   // (alignToCurrentWeek removed: k=0 starts at top by construction, no
   // (Two-phase prepend removed: fragile with off-screen carousel sheets.)
-  // Initialize: render the full window, then set scrollTop to k=0's offsetTop
-  // in a layout effect. offsetTop is relative to the container, so it's
-  // deterministic and doesn't depend on viewport position.
+  // Initialize: render the full window, then set scrollTop to k=0's offsetTop.
+  // Deferred to rAF so the layout (fonts, content heights) is complete.
+  // offsetTop is relative to the container, so it's deterministic.
   useLayoutEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const k0 = datesRef.current.find((d) => d.k === 0);
-    if (!k0) return;
-    const el = container.querySelector(
-      `[data-sheet-iso="${k0.iso}"]`,
-    ) as HTMLElement | null;
-    if (el) {
-      container.scrollTop = el.offsetTop;
-    }
+    const raf = requestAnimationFrame(() => {
+      const container = scrollRef.current;
+      if (!container) return;
+      const k0 = datesRef.current.find((d) => d.k === 0);
+      if (!k0) return;
+      const el = container.querySelector(
+        `[data-sheet-iso="${k0.iso}"]`,
+      ) as HTMLElement | null;
+      if (el) {
+        container.scrollTop = el.offsetTop;
+      }
+    });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   // Jump-to-date: extend the window to include the target date, then scroll
