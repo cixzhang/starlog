@@ -408,8 +408,10 @@ const styles = stylex.create({
     // breathing room between date headings.
     minHeight: '20vh',
   },
+  // Non-current weeks recede via foreground only: dimmer text,
+  // background stays identical for visual consistency.
   sheetMuted: {
-    opacity: 0.62,
+    color: 'var(--sl-ink-faint)',
   },
   sheetHead: {
     display: 'flex',

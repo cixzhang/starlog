@@ -39,9 +39,9 @@ const styles = stylex.create({
     padding: '20px 20px 28px',
     color: 'var(--sl-ink)',
   },
-  // Months other than this one recede: muted band, muted text.
+  // Months other than this one recede via foreground only: dimmer text,
+  // background stays identical for visual consistency.
   monthMuted: {
-    backgroundColor: 'var(--sl-paper-deep)',
     color: 'var(--sl-ink-soft)',
   },
   monthTitle: {
