@@ -43,6 +43,7 @@ import {
 import { Markdown } from '../lib/markdown';
 import { sanitizeSvg } from '../lib/svg';
 import { ErrorNote } from '../components/ui';
+import ReminderRadar from '../components/ReminderRadar';
 
 const INIT_PAST = 4;
 const INIT_FUTURE = 2;
@@ -946,6 +947,14 @@ export default function Journal({
           );
         })}
       </div>
+      <ReminderRadar
+        reminders={allReminders}
+        visibleDates={new Set(sheets.map((s) => s.iso))}
+        onPlanetTap={(date) => {
+          // TODO: scroll to the date's sheet
+          console.log('Radar tap:', date);
+        }}
+      />
     </div>
   );
 }
