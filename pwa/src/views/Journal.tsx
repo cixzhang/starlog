@@ -78,7 +78,17 @@ export default function Journal({
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const [fetchVersion, setFetchVersion] = useState(0);
 
-  const now = useMemo(() => new Date(), []);
+  // "Now" refreshes if the day rolls over while the app is open/suspended.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => {
+      setNow((prev) => {
+        const next = new Date();
+        return toISODate(next) !== toISODate(prev) ? next : prev;
+      });
+    }, 60000);
+    return () => clearInterval(t);
+  }, []);
   const todayIso = toISODate(now);
   const fetchedDates = useRef<Set<string>>(new Set());
   const reminderBounds = useRef<{ from: Date; to: Date } | null>(null);
