@@ -23,7 +23,7 @@ import { ErrorNote } from './ui';
 import type { Decoration, Entry, Prompt, Reminder } from '../lib/supabase';
 
 const INIT_PAST = 3;
-const INIT_FUTURE = 20;
+const INIT_FUTURE = 3;
 const EXTEND_PAST = 8;
 const EXTEND_FUTURE = 4;
 const EDGE_PX = 240;
