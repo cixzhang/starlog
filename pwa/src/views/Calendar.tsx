@@ -371,8 +371,10 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                         k !== 0 && styles.cellMuted,
                       )}
                       onClick={() => onPickDay(iso)}
+                      disabled={!inMonth}
                     >
-                      {d.getDate()}
+                      {inMonth ? d.getDate() : null}
+                      {inMonth && (
                       <span
                         style={{
                           display: 'flex',
@@ -394,6 +396,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                           />
                         )}
                       </span>
+                      )}
                     </button>
                   );
                 })}
