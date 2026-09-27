@@ -18,16 +18,12 @@ import { StarlogMark } from './components/mark';
 import { ErrorNote, Loading } from './components/ui';
 import Setup from './views/Setup';
 import Journal from './views/Journal';
-import Prompts from './views/Prompts';
-import Reminders from './views/Reminders';
 import Calendar from './views/Calendar';
 
-type Tab = 'journal' | 'prompts' | 'reminders' | 'calendar';
+type Tab = 'journal' | 'calendar';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'journal', label: 'Journal' },
-  { id: 'prompts', label: 'Prompts' },
-  { id: 'reminders', label: 'Reminders' },
   { id: 'calendar', label: 'Calendar' },
 ];
 
@@ -379,12 +375,6 @@ export default function App() {
                   jump={jump}
                   onJumpConsumed={() => setJump(null)}
                 />
-              )}
-              {!tenantError && tenantId && tab === 'prompts' && (
-                <Prompts cfg={cfg} tenantId={tenantId} />
-              )}
-              {!tenantError && tenantId && tab === 'reminders' && (
-                <Reminders cfg={cfg} tenantId={tenantId} />
               )}
               {!tenantError && tenantId && tab === 'calendar' && (
                 <Calendar cfg={cfg} tenantId={tenantId} onPickDay={pickDay} />

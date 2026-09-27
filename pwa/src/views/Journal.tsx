@@ -3,25 +3,32 @@
 // dividers and date headings between entries. Swipe (touch), arrow buttons,
 // or keyboard arrows move between weekdays.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import {
   fetchDecorations,
   fetchEntriesByWeekday,
+  fetchPromptsByDates,
+  fetchReminders,
   type Decoration,
   type Entry,
+  type Prompt,
+  type Reminder,
   type SbConfig,
 } from '../lib/supabase';
 import {
   WEEKDAY_NAMES,
   WEEKDAY_SHORT,
+  addDays,
   formatLong,
   isoWeekday,
   parseISODate,
+  toISODate,
 } from '../lib/dates';
 import { Markdown } from '../lib/markdown';
 import { sanitizeSvg } from '../lib/svg';
 import { EmptyNote, ErrorNote, Loading } from '../components/ui';
+import Compass from '../components/compass';
 
 const styles = stylex.create({
   strip: {
@@ -123,6 +130,38 @@ const styles = stylex.create({
     overflow: 'visible',
     opacity: 0.95,
   },
+  anno: {
+    marginTop: 16,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 9,
+  },
+  annoLine: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 9,
+    margin: 0,
+    fontSize: 13.5,
+    lineHeight: 1.6,
+  },
+  annoDot: {
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    backgroundColor: 'var(--sl-coral)',
+    flexShrink: 0,
+    alignSelf: 'center',
+  },
+  annoLabel: {
+    fontFamily: 'var(--font-code)',
+    fontSize: 11.5,
+    letterSpacing: '0.09em',
+    color: 'var(--sl-ink-faint)',
+    whiteSpace: 'nowrap',
+  },
+  annoText: {
+    color: 'var(--sl-ink-soft)',
+  },
   highlight: {
     animationName: 'sl-flash',
     animationDuration: '2.4s',
@@ -141,8 +180,14 @@ export default function Journal({ cfg, tenantId, jump, onJumpConsumed }: Props) 
   const [weekday, setWeekday] = useState<number>(() => isoWeekday(new Date()));
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [decos, setDecos] = useState<Record<string, Decoration[]>>({});
+  const [promptsByDate, setPromptsByDate] = useState<Record<string, Prompt>>({});
+  const [remindersByDate, setRemindersByDate] = useState<
+    Record<string, Reminder[]>
+  >({});
+  const [allReminders, setAllReminders] = useState<Reminder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const touchX = useRef<number | null>(null);
+  const now = useMemo(() => new Date(), []);
 
   const move = useCallback((delta: number) => {
     setWeekday((w) => ((w - 1 + delta + 7) % 7) + 1);
@@ -162,22 +207,38 @@ export default function Journal({ cfg, tenantId, jump, onJumpConsumed }: Props) 
         const es = await fetchEntriesByWeekday(cfg, tenantId, weekday, 4);
         if (!alive) return;
         setEntries(es);
-        if (es.length > 0) {
-          const ds = await fetchDecorations(
-            cfg,
-            tenantId,
-            es.map((e) => e.entry_date),
+        const dates = es.map((e) => e.entry_date);
+        // Prompts and reminders live inline under their entry's date.
+        // Reminders are also fetched a little into the future for the compass.
+        const fromD = addDays(now, -40);
+        fromD.setHours(0, 0, 0, 0);
+        const toD = addDays(now, 14);
+        toD.setHours(23, 59, 59, 999);
+        const [ps, rs, ds] = await Promise.all([
+          fetchPromptsByDates(cfg, tenantId, dates),
+          fetchReminders(cfg, tenantId, fromD.toISOString(), toD.toISOString()),
+          dates.length > 0 ? fetchDecorations(cfg, tenantId, dates) : [],
+        ]);
+        if (!alive) return;
+        const pb: Record<string, Prompt> = {};
+        for (const p of ps) pb[p.prompt_date] = p;
+        setPromptsByDate(pb);
+        const rb: Record<string, Reminder[]> = {};
+        for (const r of rs) {
+          const at = new Date(r.remind_at);
+          const key = toISODate(
+            new Date(at.getFullYear(), at.getMonth(), at.getDate()),
           );
-          if (!alive) return;
-          const byDate: Record<string, Decoration[]> = {};
-          for (const d of ds) {
-            if (!d.entry_date) continue;
-            (byDate[d.entry_date] ??= []).push(d);
-          }
-          setDecos(byDate);
-        } else {
-          setDecos({});
+          (rb[key] ??= []).push(r);
         }
+        setRemindersByDate(rb);
+        setAllReminders(rs);
+        const byDate: Record<string, Decoration[]> = {};
+        for (const d of ds) {
+          if (!d.entry_date) continue;
+          (byDate[d.entry_date] ??= []).push(d);
+        }
+        setDecos(byDate);
       } catch (e) {
         if (alive)
           setError(e instanceof Error ? e.message : 'Couldn’t load entries.');
@@ -186,7 +247,7 @@ export default function Journal({ cfg, tenantId, jump, onJumpConsumed }: Props) 
     return () => {
       alive = false;
     };
-  }, [cfg, tenantId, weekday]);
+  }, [cfg, tenantId, weekday, now]);
 
   // keyboard: arrows move between weekdays
   useEffect(() => {
@@ -263,6 +324,9 @@ export default function Journal({ cfg, tenantId, jump, onJumpConsumed }: Props) 
       >
         {error && <ErrorNote title="The journal didn’t load." detail={error} />}
         {!error && entries === null && <Loading />}
+        {!error && allReminders !== null && allReminders.length > 0 && (
+          <Compass reminders={allReminders} now={now} size={168} />
+        )}
         {!error && entries !== null && entries.length === 0 && (
           <EmptyNote>
             Nothing written on {WEEKDAY_NAMES[weekday - 1].toLowerCase()}s yet.
@@ -275,6 +339,8 @@ export default function Journal({ cfg, tenantId, jump, onJumpConsumed }: Props) 
           entries.map((e, i) => {
             const d = parseISODate(e.entry_date);
             const highlighted = jump?.date === e.entry_date;
+            const prompt = promptsByDate[e.entry_date];
+            const dayReminders = remindersByDate[e.entry_date] ?? [];
             return (
               <article
                 key={e.id}
@@ -288,6 +354,31 @@ export default function Journal({ cfg, tenantId, jump, onJumpConsumed }: Props) 
                   </span>
                 </div>
                 <Markdown source={e.body_text} />
+                {(prompt || dayReminders.length > 0) && (
+                  <div {...stylex.props(styles.anno)}>
+                    {prompt && (
+                      <p {...stylex.props(styles.annoLine)}>
+                        <span {...stylex.props(styles.annoLabel)}>
+                          AI PROMPT ·
+                        </span>
+                        <span {...stylex.props(styles.annoText)}>
+                          {prompt.body}
+                        </span>
+                      </p>
+                    )}
+                    {dayReminders.map((r) => (
+                      <p key={r.id} {...stylex.props(styles.annoLine)}>
+                        {r.importance === 'high' && (
+                          <span {...stylex.props(styles.annoDot)} />
+                        )}
+                        <span {...stylex.props(styles.annoLabel)}>
+                          {r.importance === 'high' ? 'IMPORTANT ·' : 'REMINDER ·'}
+                        </span>
+                        <span {...stylex.props(styles.annoText)}>{r.title}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
                 {(decos[e.entry_date] ?? []).map((dec) => {
                   const svg = sanitizeSvg(dec.svg);
                   if (!svg) return null;

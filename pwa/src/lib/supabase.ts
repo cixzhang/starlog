@@ -226,6 +226,21 @@ export async function fetchPrompts(
   )) as Prompt[];
 }
 
+/** Prompts for the given dates (prompt_date is unique per tenant). */
+export async function fetchPromptsByDates(
+  cfg: SbConfig,
+  tenantId: string,
+  dates: string[],
+): Promise<Prompt[]> {
+  if (dates.length === 0) return [];
+  const list = dates.join(',');
+  return (await sbFetch(
+    cfg,
+    `/prompts?tenant_id=eq.${tenantId}&prompt_date=in.(${list})` +
+      `&select=id,prompt_date,body,flavor`,
+  )) as Prompt[];
+}
+
 /** Open reminders with remind_at in [fromIso, toIso). */
 export async function fetchReminders(
   cfg: SbConfig,
