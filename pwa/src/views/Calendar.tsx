@@ -48,8 +48,6 @@ const styles = stylex.create({
     fontFamily: 'var(--font-heading)',
     fontSize: 24,
     fontWeight: 600,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
     margin: '0 0 12px',
     color: 'var(--color-text-primary)',
   },
