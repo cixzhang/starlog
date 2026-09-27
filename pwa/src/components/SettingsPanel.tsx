@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex';
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useEffect } from 'react';
 
 export type WeekStart = 1 | 7;
@@ -19,39 +19,48 @@ interface SettingsPanelProps {
 }
 
 const styles = stylex.create({
-  backdrop: {
+  overlay: {
     position: 'fixed',
     inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    zIndex: 50,
-    opacity: 1,
-    transition: 'opacity 0.2s ease',
-  },
-  panel: {
-    position: 'fixed',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 51,
+    zIndex: 10,
     backgroundColor: 'var(--color-surface)',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 8,
-    paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
-    maxHeight: '80vh',
-    overflowY: 'auto',
-    transform: 'translateY(0)',
-    transition: 'transform 0.25s ease',
+    display: 'flex',
+    flexDirection: 'column',
   },
-  handle: {
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 20,
+    paddingRight: 16,
+    paddingTop: 'max(16px, env(safe-area-inset-top))',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid',
+    borderBottomColor: 'var(--color-border)',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: 'var(--color-text)',
+    margin: 0,
+  },
+  closeButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'var(--color-border)',
-    margin: '8px auto 12px',
+    height: 36,
+    borderRadius: '50%',
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: 'var(--color-text)',
+    cursor: 'pointer',
   },
-  section: {
-    marginBottom: 8,
+  content: {
+    flex: 1,
+    overflowY: 'auto',
+    paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
   },
   sectionTitle: {
     fontSize: 13,
@@ -59,7 +68,7 @@ const styles = stylex.create({
     color: 'var(--color-text-secondary)',
     paddingLeft: 20,
     paddingRight: 20,
-    paddingTop: 12,
+    paddingTop: 20,
     paddingBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
@@ -71,17 +80,14 @@ const styles = stylex.create({
     width: '100%',
     paddingLeft: 20,
     paddingRight: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingTop: 14,
+    paddingBottom: 14,
     fontSize: 16,
     color: 'var(--color-text)',
     backgroundColor: 'transparent',
     border: 'none',
     cursor: 'pointer',
     textAlign: 'left',
-    ':active': {
-      backgroundColor: 'var(--color-surface-hover)',
-    },
   },
   itemDestructive: {
     color: 'var(--color-danger)',
@@ -95,25 +101,10 @@ const styles = stylex.create({
     backgroundColor: 'var(--color-border)',
     marginLeft: 20,
     marginRight: 20,
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: 12,
+    marginBottom: 12,
   },
 });
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div {...stylex.props(styles.section)}>
-      <div {...stylex.props(styles.sectionTitle)}>{title}</div>
-      {children}
-    </div>
-  );
-}
 
 function Item({
   label,
@@ -149,59 +140,65 @@ export default function SettingsPanel({
   buildHash,
   onCopyHash,
 }: SettingsPanelProps) {
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Lock body scroll while open
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <>
-      <div {...stylex.props(styles.backdrop)} onClick={onClose} />
-      <div
-        {...stylex.props(styles.panel)}
-        role="dialog"
-        aria-label="Settings"
-        aria-modal="true"
-      >
-        <div {...stylex.props(styles.handle)} />
+    <div {...stylex.props(styles.overlay)} role="dialog" aria-label="Settings" aria-modal="true">
+      <div {...stylex.props(styles.header)}>
+        <h2 {...stylex.props(styles.title)}>Settings</h2>
+        <button
+          {...stylex.props(styles.closeButton)}
+          onClick={onClose}
+          aria-label="Close settings"
+        >
+          <X size={22} />
+        </button>
+      </div>
 
-        <Section title="Week starts on">
-          <Item
-            label="Monday"
-            selected={weekStart === 1}
-            onClick={() => onWeekStart(1)}
-          />
-          <Item
-            label="Sunday"
-            selected={weekStart === 7}
-            onClick={() => onWeekStart(7)}
-          />
-        </Section>
+      <div {...stylex.props(styles.content)}>
+        <div {...stylex.props(styles.sectionTitle)}>Week starts on</div>
+        <Item
+          label="Monday"
+          selected={weekStart === 1}
+          onClick={() => onWeekStart(1)}
+        />
+        <Item
+          label="Sunday"
+          selected={weekStart === 7}
+          onClick={() => onWeekStart(7)}
+        />
 
-        <Section title="Theme">
-          <Item
-            label="Light"
-            selected={mode === 'light'}
-            onClick={() => onMode('light')}
-          />
-          <Item
-            label="Dark"
-            selected={mode === 'dark'}
-            onClick={() => onMode('dark')}
-          />
-          <Item
-            label="Auto"
-            selected={mode === 'auto'}
-            onClick={() => onMode('auto')}
-          />
-        </Section>
+        <div {...stylex.props(styles.sectionTitle)}>Theme</div>
+        <Item
+          label="Light"
+          selected={mode === 'light'}
+          onClick={() => onMode('light')}
+        />
+        <Item
+          label="Dark"
+          selected={mode === 'dark'}
+          onClick={() => onMode('dark')}
+        />
+        <Item
+          label="Auto"
+          selected={mode === 'auto'}
+          onClick={() => onMode('auto')}
+        />
 
         <div {...stylex.props(styles.divider)} />
 
@@ -215,10 +212,9 @@ export default function SettingsPanel({
           onClick={onDisconnect}
         />
 
-        <Section title="About">
-          <Item label={`Build ${buildHash}`} onClick={onCopyHash} />
-        </Section>
+        <div {...stylex.props(styles.sectionTitle)}>About</div>
+        <Item label={`Build ${buildHash}`} onClick={onCopyHash} />
       </div>
-    </>
+    </div>
   );
 }
