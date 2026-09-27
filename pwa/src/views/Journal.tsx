@@ -573,7 +573,6 @@ export default function Journal({
         </div>
         <ReminderRadar
           reminders={allReminders}
-          viewportRef={stripViewportRef}
           currentWeekday={weekday}
           anchorDate={anchors[weekday]}
           onPlanetTap={(date) => {

@@ -39,8 +39,6 @@ const EDGE_MARGIN = 8;
 
 interface ReminderRadarProps {
   reminders: Reminder[];
-  // Ref to the scroll viewport containing the sheets
-  viewportRef: React.RefObject<HTMLDivElement | null>;
   // Current weekday (1-7, 1=Monday)
   currentWeekday: number;
   // Anchor date for the current week (the current weekday's date)
@@ -146,7 +144,6 @@ const styles = stylex.create({
 
 export default function ReminderRadar({
   reminders,
-  viewportRef,
   currentWeekday,
   anchorDate,
   onPlanetTap,
@@ -223,34 +220,38 @@ export default function ReminderRadar({
       observer.disconnect();
       reminderObserverRef.current = null;
     };
-  }, [viewportRef, reminders, currentWeekday]);
+  }, [reminders, currentWeekday]);
 
   // Reposition planets on scroll: the shared scroll container drives updates.
   // The math-based directions only depend on the weekday grid; the
   // same-weekday planet uses live DOM geometry, so it needs scroll ticks.
+  // Track body scroll to update planet positions.
   useEffect(() => {
     let raf = 0;
-    const scroller = viewportRef.current;
-    if (!scroller) return;
     const onScroll = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => setScrollTick((t) => t + 1));
     };
-    scroller.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       cancelAnimationFrame(raf);
-      scroller.removeEventListener('scroll', onScroll);
+      window.removeEventListener('scroll', onScroll);
     };
-  }, [viewportRef]);
+  }, []);
 
   const planets = useMemo(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return [];
-
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    const viewportRect = viewport.getBoundingClientRect();
+    // Browser viewport (body is the scroll container).
+    const viewportRect = {
+      top: 0,
+      bottom: window.innerHeight,
+      left: 0,
+      right: window.innerWidth,
+      height: window.innerHeight,
+      width: window.innerWidth,
+    };
 
     return reminders
       .filter((r) => r.status === 'open')
@@ -286,12 +287,10 @@ export default function ReminderRadar({
         // dy is measured from THERE, not from the anchor, so the planet
         // reflects the current scroll position.
         let viewedDate: Date | null = null;
-        const scroller = viewportRef.current;
-        if (scroller) {
-          const scrollerRect = scroller.getBoundingClientRect();
-          const centerY = scrollerRect.top + scrollerRect.height / 2;
+        {
+          const centerY = window.innerHeight / 2;
           // Only consider dates in the active sheet (not the 6 off-screen ones).
-          const dateEls = scroller.querySelectorAll(
+          const dateEls = document.querySelectorAll(
             `[data-sheet-column="${currentWeekday}"] [data-sheet-iso]`,
           );
           let bestIso: string | null = null;
@@ -432,7 +431,7 @@ export default function ReminderRadar({
       })
       .filter((p): p is PlanetData => p !== null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reminders, viewportRef, currentWeekday, anchorDate, visibleReminderDates, scrollTick]);
+  }, [reminders, currentWeekday, anchorDate, visibleReminderDates, scrollTick]);
 
   if (planets.length === 0) return null;
 
