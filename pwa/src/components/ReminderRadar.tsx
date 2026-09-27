@@ -288,13 +288,14 @@ export default function ReminderRadar({
         // dy is measured from THERE, not from the anchor, so the planet
         // reflects the current scroll position.
         let viewedDate: Date | null = null;
-        const scroller = document.querySelector(
-          `[data-sheet-scroll="${currentWeekday}"]`,
-        );
+        const scroller = viewportRef.current;
         if (scroller) {
           const scrollerRect = scroller.getBoundingClientRect();
           const centerY = scrollerRect.top + scrollerRect.height / 2;
-          const dateEls = scroller.querySelectorAll('[data-sheet-iso]');
+          // Only consider dates in the active sheet (not the 6 off-screen ones).
+          const dateEls = scroller.querySelectorAll(
+            `[data-sheet-column="${currentWeekday}"] [data-sheet-iso]`,
+          );
           let bestIso: string | null = null;
           let bestDist = Infinity;
           for (const el of dateEls) {
