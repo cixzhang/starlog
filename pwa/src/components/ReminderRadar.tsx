@@ -140,17 +140,6 @@ const styles = stylex.create({
   },
 });
 
-/**
- * Check if a date's sheet is currently visible in the viewport.
- */
-function isDateVisible(dateIso: string, viewport: HTMLElement): boolean {
-  const el = document.getElementById(`sheet-${dateIso}`);
-  if (!el) return false;
-  const viewportRect = viewport.getBoundingClientRect();
-  const rect = el.getBoundingClientRect();
-  return rect.bottom > viewportRect.top && rect.top < viewportRect.bottom;
-}
-
 export default function ReminderRadar({
   reminders,
   viewportRef,
@@ -160,8 +149,31 @@ export default function ReminderRadar({
 }: ReminderRadarProps) {
   const [scrollTick, setScrollTick] = useState(0);
   const [selected, setSelected] = useState<Reminder | null>(null);
+  // Visible date ISOs, computed after DOM commit (not during render)
+  const [visibleIsos, setVisibleIsos] = useState<Set<string>>(new Set());
 
-  // Re-calculate on scroll (for visibility checks)
+  // Update visible ISOs after DOM commit (on scroll, reminders change, etc.)
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const visible = new Set<string>();
+
+    // Check all sheet elements
+    const sheets = document.querySelectorAll('[id^="sheet-"]');
+    sheets.forEach((el) => {
+      const iso = el.id.replace('sheet-', '');
+      const rect = (el as HTMLElement).getBoundingClientRect();
+      if (rect.bottom > viewportRect.top && rect.top < viewportRect.bottom) {
+        visible.add(iso);
+      }
+    });
+
+    setVisibleIsos(visible);
+  }, [viewportRef, scrollTick, reminders]);
+
+  // Re-calculate on scroll
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -201,7 +213,8 @@ export default function ReminderRadar({
         const dateIso = toISODate(remindDate);
 
         // If the date is visible, remove the planet entirely
-        if (isDateVisible(dateIso, viewport)) return null;
+        // (visibleIsos is computed after DOM commit, not during render)
+        if (visibleIsos.has(dateIso)) return null;
 
         // 2D vector on the endless sheet:
         // X = weekday axis (fixed columns: Mon=1..Sun=7, repeating endlessly)
@@ -278,7 +291,7 @@ export default function ReminderRadar({
       })
       .filter((p): p is PlanetData => p !== null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reminders, viewportRef, currentWeekday, anchorDate, scrollTick]);
+  }, [reminders, viewportRef, currentWeekday, anchorDate, visibleIsos]);
 
   if (planets.length === 0) return null;
 
