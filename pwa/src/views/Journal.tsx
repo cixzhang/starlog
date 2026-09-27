@@ -196,6 +196,9 @@ const styles = stylex.create({
     justifyContent: 'space-between',
     gap: 12,
     marginBottom: 12,
+    // Fixed height so date headers align vertically across sheets
+    // in the current week, regardless of pill/label presence.
+    minHeight: 32,
   },
   sheetDate: {
     fontFamily: 'var(--font-heading)',
@@ -324,12 +327,10 @@ export default function Journal({
   const [allReminders, setAllReminders] = useState<Reminder[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState<string | null>(null);
-  const [centerNonce, setCenterNonce] = useState(0);
 
   const now = useMemo(() => new Date(), []);
   const fetchedDates = useRef<Set<string>>(new Set());
   const reminderBounds = useRef<{ from: Date; to: Date } | null>(null);
-  const centerDate = useRef<string | null>(toISODate(now));
   const jumpPending = useRef(false);
   const scrollCooldown = useRef(0);
   // Anchor for prepend stability: the ISO of the topmost sheet and its
@@ -559,26 +560,14 @@ export default function Journal({
     return rb;
   }, [allReminders]);
 
-  // Center a sheet vertically in the visible area (below the app header).
-  const recenter = useCallback(() => {
-    const target = centerDate.current;
-    centerDate.current = null;
-    if (!target) return;
-    const el = document.getElementById(`sheet-${target}`);
-    if (!el) return;
-    el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
-    const header = document.getElementById('sl-app-header');
-    if (header) window.scrollBy(0, -header.offsetHeight / 2);
-  }, []);
-
+  // (Post-swipe auto-scroll to date removed: sheets stay where they are.)
   useLayoutEffect(() => {
-    recenter();
     if (jumpPending.current) {
       jumpPending.current = false;
       onJumpConsumed();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheets, centerNonce]);
+  }, [sheets]);
 
   // Keep the visual position stable when sheets are prepended above.
   // Anchors to the topmost sheet's position instead of measuring document
@@ -628,22 +617,17 @@ export default function Journal({
   }, []);
 
   const goWeekday = useCallback(
-    (w: number, recenter = true) => {
-      const a = addDays(startOfWeek(now, weekStart), weekOffset(w));
+    (w: number) => {
       setWeekday(w);
       setPast(INIT_PAST);
       setFuture(INIT_FUTURE);
-      if (recenter) {
-        centerDate.current = toISODate(a);
-        setCenterNonce((n) => n + 1);
-      }
     },
     [now, weekStart],
   );
 
   const move = useCallback(
-    (delta: number, recenter = true) => {
-      goWeekday(((weekday - 1 + delta + 7) % 7) + 1, recenter);
+    (delta: number) => {
+      goWeekday(((weekday - 1 + delta + 7) % 7) + 1);
     },
     [weekday, goWeekday],
   );
@@ -666,10 +650,13 @@ export default function Journal({
     setWeekday(jump.weekday);
     setPast((p) => Math.max(p, k < 0 ? -k + 2 : INIT_PAST));
     setFuture((f) => Math.max(f, k > 0 ? k + 2 : INIT_FUTURE));
-    centerDate.current = jump.date;
+    // Scroll to the jumped-to date after it renders.
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`sheet-${jump.date}`);
+      if (el) el.scrollIntoView({ block: 'start', behavior: 'auto' });
+    });
     jumpPending.current = true;
     setHighlighted(jump.date);
-    setCenterNonce((n) => n + 1);
   }, [jump, now]);
 
   // Finger-tracking weekday swipe: the sheets follow the finger, with the
@@ -764,7 +751,7 @@ export default function Journal({
         // Slide the preview fully into place (x=0 means dragX=-dir*w),
         // then commit the weekday without recentering.
         animateTo(dx, -dir * w, 180, () => {
-          move(dir, false);
+          move(dir);
           setDragX(null);
         });
       } else {
