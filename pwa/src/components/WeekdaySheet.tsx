@@ -402,7 +402,11 @@ const styles = stylex.create({
     borderRightColor: 'var(--sl-line)',
   },
   sheet: {
-    padding: '18px 20px 22px',
+    padding: '20px 20px 28px',
+    color: 'var(--sl-ink)',
+    // Each day holds its ground even when empty — the min-height is the
+    // breathing room between date headings.
+    minHeight: '20vh',
   },
   sheetMuted: {
     opacity: 0.62,
