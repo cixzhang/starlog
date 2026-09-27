@@ -399,6 +399,7 @@ const styles = stylex.create({
     width: 'calc(100% / 7)',
     flexShrink: 0,
     minHeight: 0,
+    height: '100%',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
