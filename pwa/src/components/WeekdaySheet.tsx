@@ -9,9 +9,8 @@
 // the `past`/`future` window, scroll-to-k=0 init, and infinite scroll.
 // This sheet only renders the canvas and positions its dates.
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { Divider } from '@astryxdesign/core';
 import { addDays, daysBetween, formatShort, parseISODate, toISODate } from '../lib/dates';
 import { Markdown } from '../lib/markdown';
 import { sanitizeSvg } from '../lib/svg';
@@ -232,7 +231,9 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     if (el && container) {
       const cRect = container.getBoundingClientRect();
       const eRect = (el as HTMLElement).getBoundingClientRect();
-      container.scrollTop += eRect.top - cRect.top;
+      // Top-align with 16px padding (not centered). Manual scrollTop ensures
+      // the top stays visible even if the content is taller than the viewport.
+      container.scrollTop += eRect.top - cRect.top - 16;
     }
     onJumpHandled();
   }, [jumpDate, dates, onJumpHandled, scrollContainerRef]);
@@ -263,19 +264,18 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
             const label = relativeLabel(k);
             const hasAnno = prompt != null || dayReminders.length > 0;
             return (
-              <Fragment key={iso}>
-                {i > 0 && <Divider />}
-                <article
-                  id={`sheet-${iso}`}
-                  data-sheet-iso={iso}
-                  data-sheet-k={k}
-                  data-muted={k !== 0 ? 'true' : undefined}
-                  {...stylex.props(
-                    styles.sheet,
-                    k !== 0 && styles.sheetMuted,
-                    highlighted === iso && styles.highlight,
-                  )}
-                >
+              <article
+                id={`sheet-${iso}`}
+                data-sheet-iso={iso}
+                data-sheet-k={k}
+                data-muted={k !== 0 ? 'true' : undefined}
+                {...stylex.props(
+                  styles.sheet,
+                  k !== 0 && styles.sheetMuted,
+                  highlighted === iso && styles.highlight,
+                  i > 0 && styles.sheetDivider,
+                )}
+              >
                   <div {...stylex.props(styles.sheetHead)}>
                     <h2
                       {...stylex.props(styles.sheetDate)}
@@ -334,7 +334,6 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                     <DecoView key={d.id} d={d} />
                   ))}
                 </article>
-              </Fragment>
             );
           })}
       </div>
@@ -368,6 +367,13 @@ const styles = stylex.create({
     // Each day holds its ground even when empty — the min-height is the
     // breathing room between date headings.
     minHeight: '20vh',
+  },
+  // Divider between dates: top border (longhands — StyleX drops the
+  // shorthand with var() colors). Applied to all but the first date.
+  sheetDivider: {
+    borderTopWidth: '1px',
+    borderTopStyle: 'solid',
+    borderTopColor: 'var(--sl-line)',
   },
   // Non-current weeks recede: dimmer text via secondary token.
   // The current week gets a lifted background per the plan mock

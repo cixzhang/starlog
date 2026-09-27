@@ -88,9 +88,11 @@ export default function Journal({
     // Use getBoundingClientRect for robust positioning: offsetTop is
     // relative to the offsetParent (the inner canvas div), not the scroll
     // container. The rect difference gives the true scroll adjustment.
+    // Top-align with 16px padding (not centered) — the top stays visible
+    // even if the content is taller than the viewport.
     const cRect = container.getBoundingClientRect();
     const eRect = k0El.getBoundingClientRect();
-    container.scrollTop += eRect.top - cRect.top;
+    container.scrollTop += eRect.top - cRect.top - 16;
   }, []);
 
   // Initial scroll: land on this week's date.
