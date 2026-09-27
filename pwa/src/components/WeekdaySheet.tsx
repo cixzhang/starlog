@@ -228,10 +228,16 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     // Initialize scroll so k=0 sits at the viewport top in every sheet.
     // Wait until alignOffset > 0 (all sheets have reported); otherwise we'd
     // pin scrollTop=0 and never show the current date.
+    // Defer via rAF so the browser applies the new positions/heights first —
+    // otherwise scrollTop gets clamped to the old (shorter) scrollHeight.
     // On prepend (alignOffset grows), increase scrollTop by the delta.
     if (!initializedRef.current && alignOffset > 0) {
       initializedRef.current = true;
-      container.scrollTop = alignOffset;
+      const target = alignOffset;
+      requestAnimationFrame(() => {
+        const c = scrollRef.current;
+        if (c) c.scrollTop = target;
+      });
     } else if (initializedRef.current) {
       const prevAlign = (container as any)._prevAlignOffset ?? alignOffset;
       const delta = alignOffset - prevAlign;
