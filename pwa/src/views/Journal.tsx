@@ -446,20 +446,22 @@ export default function Journal({
   }, []);
 
   const goWeekday = useCallback(
-    (w: number) => {
+    (w: number, recenter = true) => {
       const a = addDays(startOfWeek(now, weekStart), weekOffset(w));
       setWeekday(w);
       setPast(INIT_PAST);
       setFuture(INIT_FUTURE);
-      centerDate.current = toISODate(a);
-      setCenterNonce((n) => n + 1);
+      if (recenter) {
+        centerDate.current = toISODate(a);
+        setCenterNonce((n) => n + 1);
+      }
     },
     [now, weekStart],
   );
 
   const move = useCallback(
-    (delta: number) => {
-      goWeekday(((weekday - 1 + delta + 7) % 7) + 1);
+    (delta: number, recenter = true) => {
+      goWeekday(((weekday - 1 + delta + 7) % 7) + 1, recenter);
     },
     [weekday, goWeekday],
   );
@@ -572,9 +574,10 @@ export default function Journal({
       const w = getViewportWidth();
       if (Math.abs(dx) > SWIPE_THRESHOLD) {
         const dir = dx < 0 ? 1 : -1;
-        // Slide the preview fully into place, then commit the weekday.
+        // Slide the preview fully into place, then commit the weekday
+        // without recentering (the preview is already at the right scroll).
         animateTo(dx, dir * w, 180, () => {
-          move(dir);
+          move(dir, false);
           setDragX(null);
         });
       } else {
