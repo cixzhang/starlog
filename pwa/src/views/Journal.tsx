@@ -130,6 +130,10 @@ const styles = stylex.create({
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
     margin: 0,
+    color: 'var(--sl-ink)',
+  },
+  sheetDateMuted: {
+    color: 'var(--sl-ink-soft)',
   },
   relLabel: {
     fontFamily: 'var(--font-code)',
@@ -649,7 +653,12 @@ export default function Journal({
                   )}
                 >
                   <div {...stylex.props(styles.sheetHead)}>
-                    <h2 {...stylex.props(styles.sheetDate)}>
+                    <h2
+                      {...stylex.props(
+                        styles.sheetDate,
+                        k !== 0 && styles.sheetDateMuted,
+                      )}
+                    >
                       {formatShort(date)}
                     </h2>
                     {iso === todayIso ? (
@@ -753,7 +762,14 @@ export default function Journal({
               )}
             >
               <div {...stylex.props(styles.sheetHead)}>
-                <h2 {...stylex.props(styles.sheetDate)}>{formatShort(date)}</h2>
+                <h2
+                  {...stylex.props(
+                    styles.sheetDate,
+                    k !== 0 && styles.sheetDateMuted,
+                  )}
+                >
+                  {formatShort(date)}
+                </h2>
                 {iso === todayIso ? (
                   <span {...stylex.props(styles.todayPill)}>TODAY</span>
                 ) : (
