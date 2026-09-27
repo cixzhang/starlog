@@ -230,6 +230,18 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
       }
     }
     (container as any)._prevPastTotal = pastTotal;
+
+    // If content doesn't fill the viewport (no scrollbar), keep extending
+    // future so reaching the bottom can infinite-load. Guard against
+    // runaway by only extending when the wrapper actually grew.
+    const prevHeight = (container as any)._prevInnerHeight ?? 0;
+    if (
+      container.scrollHeight <= container.clientHeight + EDGE_PX &&
+      pastTotal + bottomTotal > prevHeight
+    ) {
+      setFuture((f) => f + EXTEND_FUTURE);
+    }
+    (container as any)._prevInnerHeight = pastTotal + bottomTotal;
   });
 
   // Jump-to-date: extend the window to include the target date, then scroll
