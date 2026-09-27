@@ -95,7 +95,7 @@ const styles = stylex.create({
     width: 5,
     height: 5,
     borderRadius: '50%',
-    backgroundColor: 'var(--color-accent)',
+    backgroundColor: 'var(--color-text-secondary)',
   },
   dotReminder: {
     width: 5,
