@@ -286,7 +286,7 @@ export default function App() {
         {!cfg && <Setup onDone={setCfg} initialUrl={initial.linkUrl} />}
         {cfg && (
           <>
-            <header {...stylex.props(styles.header)}>
+            <header id="sl-app-header" {...stylex.props(styles.header)}>
               <div {...stylex.props(styles.brand)}>
                 <StarlogMark size={30} />
                 <h1 {...stylex.props(styles.wordmark)}>Starlog</h1>
@@ -374,6 +374,7 @@ export default function App() {
                   tenantId={tenantId}
                   jump={jump}
                   onJumpConsumed={() => setJump(null)}
+                  onOpenCalendar={() => setTab('calendar')}
                 />
               )}
               {!tenantError && tenantId && tab === 'calendar' && (

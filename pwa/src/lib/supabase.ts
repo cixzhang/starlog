@@ -196,6 +196,22 @@ export async function fetchEntriesByWeekday(
   )) as Entry[];
 }
 
+/** Entries for the given dates (entry_date is unique per tenant). */
+export async function fetchEntriesByDates(
+  cfg: SbConfig,
+  tenantId: string,
+  dates: string[],
+): Promise<Entry[]> {
+  if (dates.length === 0) return [];
+  const list = dates.join(',');
+  return (await sbFetch(
+    cfg,
+    `/entries?tenant_id=eq.${tenantId}&entry_date=in.(${list})` +
+      `&order=entry_date.desc` +
+      `&select=id,entry_date,weekday,body_text,body_format`,
+  )) as Entry[];
+}
+
 /** Entry dates in [from, to] (inclusive) that have entries — for the calendar. */
 export async function fetchEntryDates(
   cfg: SbConfig,
