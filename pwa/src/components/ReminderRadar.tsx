@@ -99,7 +99,7 @@ const styles = stylex.create({
     width: size,
     height: size,
     borderRadius: '50%',
-    background: `radial-gradient(circle at 35% 35%, ${colorLight}, ${color})`,
+    backgroundColor: color,
     boxShadow: glow ? `0 0 12px ${color}a6` : 'none',
   }),
   // Detail popup when a planet is tapped
@@ -292,7 +292,9 @@ export default function ReminderRadar({
         // dy is measured from THERE, not from the anchor, so the planet
         // reflects the current scroll position.
         let viewedDate: Date | null = null;
-        const scroller = viewport.querySelector('[data-sheet-scroll]');
+        const scroller = viewport.querySelector(
+          `[data-sheet-scroll="${currentWeekday}"]`,
+        );
         if (scroller) {
           const scrollerRect = scroller.getBoundingClientRect();
           const centerY = scrollerRect.top + scrollerRect.height / 2;
