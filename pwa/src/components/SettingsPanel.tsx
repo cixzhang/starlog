@@ -1,6 +1,7 @@
 import * as stylex from '@stylexjs/stylex';
-import { Check, Sun, Moon, MonitorSmartphone, Palette, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Dialog, DialogHeader } from '@astryxdesign/core';
+import { Check, Sun, Moon, MonitorSmartphone, Palette, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 
 export type WeekStart = 1 | 7;
 export type ThemeMode = 'light' | 'dark' | 'auto' | 'custom';
@@ -24,47 +25,7 @@ interface SettingsPanelProps {
 }
 
 const styles = stylex.create({
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 10,
-    backgroundColor: 'var(--sl-paper-deep)',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 20,
-    paddingRight: 16,
-    paddingTop: 'max(16px, env(safe-area-inset-top))',
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomStyle: 'solid',
-    borderBottomColor: 'var(--sl-line)',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: 'var(--color-text)',
-    margin: 0,
-  },
-  closeButton: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 36,
-    height: 36,
-    borderRadius: '50%',
-    border: 'none',
-    backgroundColor: 'transparent',
-    color: 'var(--color-text)',
-    cursor: 'pointer',
-  },
   content: {
-    flex: 1,
-    overflowY: 'auto',
     paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
   },
   sectionTitle: {
@@ -88,7 +49,7 @@ const styles = stylex.create({
     paddingTop: 14,
     paddingBottom: 14,
     fontSize: 16,
-    color: 'var(--color-text)',
+    color: 'var(--sl-ink)',
     backgroundColor: 'transparent',
     border: 'none',
     cursor: 'pointer',
@@ -116,7 +77,7 @@ const styles = stylex.create({
     borderStyle: 'solid',
     borderColor: 'var(--sl-line)',
     backgroundColor: 'transparent',
-    color: 'var(--color-text)',
+    color: 'var(--sl-ink)',
     fontSize: 15,
     fontWeight: 500,
     cursor: 'pointer',
@@ -208,36 +169,22 @@ export default function SettingsPanel({
   onInstallCustomTheme,
 }: SettingsPanelProps) {
   const [themeError, setThemeError] = useState<string | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    // Lock body scroll while open
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
 
   return (
-    <div {...stylex.props(styles.overlay)} role="dialog" aria-label="Settings" aria-modal="true">
-      <div {...stylex.props(styles.header)}>
-        <h2 {...stylex.props(styles.title)}>Settings</h2>
-        <button
-          {...stylex.props(styles.closeButton)}
-          onClick={onClose}
-          aria-label="Close settings"
-        >
-          <X size={22} />
-        </button>
-      </div>
-
+    <Dialog
+      isOpen={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}
+      variant="fullscreen"
+      purpose="info"
+    >
+      <DialogHeader
+        title="Settings"
+        onOpenChange={(isOpen) => {
+          if (!isOpen) onClose();
+        }}
+      />
       <div {...stylex.props(styles.content)}>
         <div {...stylex.props(styles.sectionTitle)}>Week starts on</div>
         <div {...stylex.props(styles.tiles)}>
@@ -285,54 +232,54 @@ export default function SettingsPanel({
           <div style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 8 }}>
             {customTheme && (
               <>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingBottom: 8,
-                }}
-              >
-                <span style={{ fontSize: 14, color: 'var(--sl-ink-soft)' }}>
-                  Custom: {customTheme.name}
-                </span>
-                <button
-                  onClick={onRemoveCustomTheme}
+                <div
                   style={{
-                    border: 'none',
-                    background: 'none',
-                    color: 'var(--color-text-red)',
-                    fontSize: 14,
-                    cursor: 'pointer',
-                    padding: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingBottom: 8,
                   }}
                 >
-                  Clear
-                </button>
-              </div>
-              <input
-                readOnly
-                value={JSON.stringify(customTheme).slice(0, 80) + '…'}
-                onClick={(e) => {
-                  navigator.clipboard.writeText(JSON.stringify(customTheme)).catch(() => {});
-                  (e.target as HTMLInputElement).select();
-                }}
-                title="Tap to copy the full theme JSON"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  borderRadius: 12,
-                  border: '1px solid var(--sl-line)',
-                  backgroundColor: 'var(--sl-paper)',
-                  color: 'var(--sl-ink-faint)',
-                  fontSize: 13,
-                  padding: '10px 12px',
-                  fontFamily: 'monospace',
-                  marginBottom: 8,
-                  cursor: 'pointer',
-                  textOverflow: 'ellipsis',
-                }}
-              />
+                  <span style={{ fontSize: 14, color: 'var(--sl-ink-soft)' }}>
+                    Custom: {customTheme.name}
+                  </span>
+                  <button
+                    onClick={onRemoveCustomTheme}
+                    style={{
+                      border: 'none',
+                      background: 'none',
+                      color: 'var(--color-text-red)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      padding: 4,
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <input
+                  readOnly
+                  value={JSON.stringify(customTheme).slice(0, 80) + '…'}
+                  onClick={(e) => {
+                    navigator.clipboard.writeText(JSON.stringify(customTheme)).catch(() => {});
+                    (e.target as HTMLInputElement).select();
+                  }}
+                  title="Tap to copy the full theme JSON"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    borderRadius: 12,
+                    border: '1px solid var(--sl-line)',
+                    backgroundColor: 'var(--sl-paper)',
+                    color: 'var(--sl-ink-faint)',
+                    fontSize: 13,
+                    padding: '10px 12px',
+                    fontFamily: 'monospace',
+                    marginBottom: 8,
+                    cursor: 'pointer',
+                    textOverflow: 'ellipsis',
+                  }}
+                />
               </>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
@@ -413,6 +360,6 @@ export default function SettingsPanel({
         <div {...stylex.props(styles.sectionTitle)}>About</div>
         <Item label={`Build ${buildHash}`} onClick={onCopyHash} />
       </div>
-    </div>
+    </Dialog>
   );
 }
