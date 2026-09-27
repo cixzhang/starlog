@@ -133,14 +133,17 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onJumpHandled,
   } = props;
 
-  const [past, setPast] = useState(0);
+  const [past, setPast] = useState(INIT_PAST);
   const [future, setFuture] = useState(INIT_FUTURE);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
   const scrollCooldown = useRef(0);
-  const prependAnchor = useRef<{ iso: string; top: number } | null>(null);
   const datesRef = useRef<DateItem[]>([]);
-  const initialPrependDone = useRef(false);
+  // Latest bottom position for prepended content (negative offset above top:0).
+  // e.g. after prepending a 167px week, latestBottom = -167.
+  const latestBottomRef = useRef(0);
+  const initializedRef = useRef(false);
 
   const dates = useMemo<DateItem[]>(() => {
     const out: DateItem[] = [];
@@ -157,44 +160,75 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onNeedDates(dates.map((d) => d.iso));
   }, [dates, onNeedDates]);
 
-  // Initialize: k=0 renders at the top (past=0). After the first data
-  // arrives (so k=0's height is stable — previous weeks' data is variable),
-  // prepend the past weeks, pinning k=0 in place via the prepend anchor.
-  // The prepended content's bottom lands flush at k=0's top.
-  // Falls back to a timeout in case there's no data (empty journal).
-  useEffect(() => {
-    if (initialPrependDone.current) return;
-    const doPrepend = () => {
-      if (initialPrependDone.current) return;
-      const container = scrollRef.current;
-      if (!container) return;
-      const k0 = datesRef.current.find((d) => d.k === 0);
-      if (!k0) return;
-      const el = container.querySelector(
-        `[data-sheet-iso="${k0.iso}"]`,
+  // Absolute positioning: k=0 (this week) gets top:0. Previous weeks are
+  // positioned above with negative tops, tracked via latestBottomRef.
+  // Future weeks go below with positive tops. The inner wrapper gets an
+  // explicit height so the scroll container stays scrollable.
+  // Heights are measured from the DOM (data is variable).
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    const inner = innerRef.current;
+    if (!container || !inner) return;
+
+    // Measure each date's height and calculate tops.
+    // k=0 at top:0, k>0 below, k<0 above (negative).
+    let top = 0;
+    const tops = new Map<string, number>();
+    // First pass: k>=0 (top:0 and below)
+    for (const d of datesRef.current) {
+      if (d.k < 0) continue;
+      const el = inner.querySelector(
+        `[data-sheet-iso="${d.iso}"]`,
       ) as HTMLElement | null;
-      if (!el) return;
-      initialPrependDone.current = true;
-      prependAnchor.current = {
-        iso: k0.iso,
-        top: el.getBoundingClientRect().top,
-      };
-      setPast(INIT_PAST);
-    };
-    // If data has arrived for any date, prepend now.
-    const hasData =
-      Object.keys(entriesByDate).length > 0 ||
-      Object.keys(promptsByDate).length > 0 ||
-      Object.keys(decosByDate).length > 0 ||
-      Object.keys(remindersByDate).length > 0;
-    if (hasData) {
-      doPrepend();
-      return;
+      if (!el) continue;
+      tops.set(d.iso, top);
+      top += el.offsetHeight;
     }
-    // Otherwise wait for data, with a timeout fallback.
-    const t = setTimeout(doPrepend, 1500);
-    return () => clearTimeout(t);
-  }, [entriesByDate, promptsByDate, decosByDate, remindersByDate]);
+    const bottomTotal = top;
+    // Second pass: k<0 (above, negative tops). Work backwards from k=-1.
+    let negTop = 0;
+    const negDates = datesRef.current.filter((d) => d.k < 0).sort((a, b) => b.k - a.k);
+    for (const d of negDates) {
+      const el = inner.querySelector(
+        `[data-sheet-iso="${d.iso}"]`,
+      ) as HTMLElement | null;
+      if (!el) continue;
+      negTop -= el.offsetHeight;
+      tops.set(d.iso, negTop);
+    }
+    const pastTotal = -negTop;
+    latestBottomRef.current = negTop;
+
+    // Apply positions and wrapper height.
+    for (const [iso, t] of tops) {
+      const el = inner.querySelector(
+        `[data-sheet-iso="${iso}"]`,
+      ) as HTMLElement | null;
+      if (el) {
+        el.style.position = 'absolute';
+        el.style.top = `${t}px`;
+        el.style.left = '0';
+        el.style.right = '0';
+      }
+    }
+    inner.style.position = 'relative';
+    inner.style.height = `${pastTotal + bottomTotal}px`;
+
+    // Initialize scroll so k=0 (top:0) sits at the viewport top.
+    // On prepend (pastTotal grows), increase scrollTop by the delta to
+    // keep the visual position stable.
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      container.scrollTop = pastTotal;
+    } else {
+      const prevPast = (container as any)._prevPastTotal ?? pastTotal;
+      const delta = pastTotal - prevPast;
+      if (Math.abs(delta) > 1) {
+        container.scrollTop += delta;
+      }
+    }
+    (container as any)._prevPastTotal = pastTotal;
+  });
 
   // Jump-to-date: extend the window to include the target date, then scroll
   // this sheet (and only this sheet) to it.
@@ -218,21 +252,9 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onJumpHandled();
   }, [jumpDate, dates, onJumpHandled]);
 
-  // Prepend stability: after older dates are added above, restore the
-  // anchored element to its previous position so the visible content
-  // doesn't move.
-  useLayoutEffect(() => {
-    const a = prependAnchor.current;
-    if (a) {
-      prependAnchor.current = null;
-      const container = scrollRef.current;
-      const el = container?.querySelector(`[data-sheet-iso="${a.iso}"]`);
-      if (el && container) {
-        const delta = (el as HTMLElement).getBoundingClientRect().top - a.top;
-        if (Math.abs(delta) > 1) container.scrollTop += delta;
-      }
-    }
-  });
+  // (Prepend stability via absolute positioning: the layout effect above
+  // recalculates all tops on every render, so k=0 never shifts. Scroll
+  // adjustment for prepend happens there via pastTotal delta.)
 
   // Infinite scroll inside this sheet's own scroll container.
   useEffect(() => {
@@ -246,19 +268,9 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
         container.scrollTop + container.clientHeight > container.scrollHeight - EDGE_PX;
       if (!nearTop && !nearBottom) return;
       scrollCooldown.current = t;
-      if (nearTop) {
-        const first = datesRef.current[0];
-        if (first) {
-          const el = container.querySelector(`[data-sheet-iso="${first.iso}"]`);
-          if (el) {
-            prependAnchor.current = {
-              iso: first.iso,
-              top: (el as HTMLElement).getBoundingClientRect().top,
-            };
-          }
-        }
-        setPast((p) => p + EXTEND_PAST);
-      }
+      // With absolute positioning, prepending just extends the window;
+      // the layout effect recalculates tops and adjusts scrollTop.
+      if (nearTop) setPast((p) => p + EXTEND_PAST);
       if (nearBottom) setFuture((f) => f + EXTEND_FUTURE);
     };
     container.addEventListener('scroll', onScroll, { passive: true });
@@ -268,7 +280,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
   return (
     <div {...stylex.props(styles.column)} data-sheet-column={weekday}>
       <div {...stylex.props(styles.scroll)} ref={scrollRef} data-sheet-scroll={weekday}>
-        <div {...stylex.props(styles.inner)}>
+        <div {...stylex.props(styles.inner)} ref={innerRef}>
           {fetchError && (
             <div {...stylex.props(styles.fetchError)}>
               <ErrorNote title="Couldn't load entries." detail={fetchError} />
