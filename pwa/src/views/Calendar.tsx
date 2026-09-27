@@ -90,6 +90,7 @@ const styles = stylex.create({
     fontWeight: 700,
     color: 'var(--color-text-primary)',
     boxShadow: 'inset 0 0 0 1.5px var(--color-accent)',
+    borderRadius: 'var(--radius-md)',
   },
   cellMuted: {
     color: 'var(--color-text-secondary)',
