@@ -85,7 +85,12 @@ export default function Journal({
       `[data-sheet-column="${wd}"] [data-sheet-k="0"]`,
     ) as HTMLElement | null;
     if (!k0El) return;
-    container.scrollTop = k0El.offsetTop;
+    // Use getBoundingClientRect for robust positioning: offsetTop is
+    // relative to the offsetParent (the inner canvas div), not the scroll
+    // container. The rect difference gives the true scroll adjustment.
+    const cRect = container.getBoundingClientRect();
+    const eRect = k0El.getBoundingClientRect();
+    container.scrollTop += eRect.top - cRect.top;
   }, []);
 
   // Initial scroll: land on this week's date.
@@ -96,6 +101,8 @@ export default function Journal({
       const k0El = container?.querySelector(
         `[data-sheet-column="${weekday}"] [data-sheet-k="0"]`,
       ) as HTMLElement | null;
+      // Check if the element has been positioned (absolute positioning applied).
+      // offsetTop will be MIDDLE (15000) once laid out, 0 before.
       if (!k0El || k0El.offsetTop === 0) {
         requestAnimationFrame(tryInit);
         return;
