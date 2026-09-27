@@ -3,11 +3,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { DropdownMenu, IconButton } from '@astryxdesign/core';
+import { IconButton } from '@astryxdesign/core';
+import SettingsPanel from './components/SettingsPanel';
 import {
   BookOpen,
   Calendar as CalendarIcon,
-  Check,
   ChevronLeft,
   ChevronRight,
   Ellipsis,
@@ -250,9 +250,9 @@ export default function App() {
     setTab('journal');
   }, []);
 
-  // Settings lives behind the ⋯ trigger as an Astryx DropdownMenu in a
-  // bottom-sheet panel (mobile and desktop). Disconnect is destructive and
-  // two-tap: arm, then confirm.
+  // Settings lives behind the ⋯ trigger as a custom bottom-sheet panel.
+  // (Astryx DropdownMenu section headings are misaligned; see filed issue.)
+  // Disconnect is destructive and two-tap: arm, then confirm.
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const [weekStart, setWeekStartState] = useState<WeekStart>(() => getWeekStart());
@@ -338,108 +338,40 @@ export default function App() {
                     setTab((t) => (t === 'journal' ? 'calendar' : 'journal'))
                   }
                 />
-              <DropdownMenu
-                button={{
-                  icon: <Ellipsis size={19} />,
-                  label: 'Settings',
-                  isIconOnly: true,
-                  variant: 'ghost',
+              <IconButton
+                icon={<Ellipsis size={19} />}
+                label="Settings"
+                variant="ghost"
+                onClick={() => setMenuOpen(true)}
+              />
+              <SettingsPanel
+                open={menuOpen}
+                onClose={() => {
+                  setMenuOpen(false);
+                  setConfirmingDisconnect(false);
                 }}
-                presentation="bottom-sheet"
-                isMenuOpen={menuOpen}
-                onOpenChange={(open) => {
-                  setMenuOpen(open);
-                  if (!open) setConfirmingDisconnect(false);
+                weekStart={weekStart}
+                onWeekStart={chooseWeekStart}
+                mode={mode}
+                onMode={setMode}
+                confirmingDisconnect={confirmingDisconnect}
+                onDisconnect={() => {
+                  if (confirmingDisconnect) {
+                    setMenuOpen(false);
+                    setConfirmingDisconnect(false);
+                    disconnect();
+                  } else {
+                    setConfirmingDisconnect(true);
+                  }
                 }}
-                items={[
-                  {
-                    type: 'section',
-                    title: 'Week starts on',
-                    items: [
-                      {
-                        id: 'week-start-mon',
-                        label: 'Monday',
-                        endContent:
-                          weekStart === 1 ? <Check size={16} /> : null,
-                        hasCloseOnSelect: false,
-                        onClick: () => chooseWeekStart(1),
-                      },
-                      {
-                        id: 'week-start-sun',
-                        label: 'Sunday',
-                        endContent:
-                          weekStart === 7 ? <Check size={16} /> : null,
-                        hasCloseOnSelect: false,
-                        onClick: () => chooseWeekStart(7),
-                      },
-                    ],
-                  },
-                  {
-                    type: 'section',
-                    title: 'Theme',
-                    items: [
-                      {
-                        id: 'theme-light',
-                        label: 'Light',
-                        endContent:
-                          mode === 'light' ? <Check size={16} /> : null,
-                        hasCloseOnSelect: false,
-                        onClick: () => setMode('light'),
-                      },
-                      {
-                        id: 'theme-dark',
-                        label: 'Dark',
-                        endContent:
-                          mode === 'dark' ? <Check size={16} /> : null,
-                        hasCloseOnSelect: false,
-                        onClick: () => setMode('dark'),
-                      },
-                      {
-                        id: 'theme-auto',
-                        label: 'Auto',
-                        endContent:
-                          mode === 'auto' ? <Check size={16} /> : null,
-                        hasCloseOnSelect: false,
-                        onClick: () => setMode('auto'),
-                      },
-                    ],
-                  },
-                  {
-                    id: 'disconnect',
-                    label: confirmingDisconnect
-                      ? 'Tap again to disconnect'
-                      : 'Disconnect project…',
-                    variant: 'destructive',
-                    hasCloseOnSelect: false,
-                    onClick: () => {
-                      if (confirmingDisconnect) {
-                        setMenuOpen(false);
-                        setConfirmingDisconnect(false);
-                        disconnect();
-                      } else {
-                        setConfirmingDisconnect(true);
-                      }
-                    },
-                  },
-                  {
-                    type: 'section',
-                    title: 'About',
-                    items: [
-                      {
-                        id: 'build-hash',
-                        label: `Build ${__COMMIT_HASH__}`,
-                        hasCloseOnSelect: false,
-                        onClick: () => {
-                          try {
-                            navigator.clipboard.writeText(__COMMIT_HASH__);
-                          } catch {
-                            /* clipboard unavailable */
-                          }
-                        },
-                      },
-                    ],
-                  },
-                ]}
+                buildHash={__COMMIT_HASH__}
+                onCopyHash={() => {
+                  try {
+                    navigator.clipboard.writeText(__COMMIT_HASH__);
+                  } catch {
+                    /* clipboard unavailable */
+                  }
+                }}
               />
             </div>
             </header>
