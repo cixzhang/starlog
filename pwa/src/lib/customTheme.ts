@@ -15,6 +15,11 @@ const THEME_KEY = 'starlog.customTheme';
 export interface CustomTheme {
   name: string;
   tokens: Record<string, string>;
+  fonts?: {
+    body?: string;
+    heading?: string;
+    code?: string;
+  };
 }
 
 function sanitizeTokens(source: unknown): Record<string, string> | null {
@@ -30,16 +35,31 @@ function sanitizeTokens(source: unknown): Record<string, string> | null {
   return Object.keys(tokens).length > 0 ? tokens : null;
 }
 
+function sanitizeFonts(source: unknown): CustomTheme['fonts'] | undefined {
+  if (typeof source !== 'object' || !source) return undefined;
+  const fonts: Record<string, string> = {};
+  for (const role of ['body', 'heading', 'code'] as const) {
+    const v = (source as Record<string, unknown>)[role];
+    // Google Font names: letters, numbers, spaces, hyphens
+    if (typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9 \-]{0,40}$/.test(v.trim())) {
+      fonts[role] = v.trim();
+    }
+  }
+  return Object.keys(fonts).length > 0 ? (fonts as CustomTheme['fonts']) : undefined;
+}
+
 function decodeThemeParam(param: string): CustomTheme | null {
   try {
     const b64 = param.replace(/-/g, '+').replace(/_/g, '/');
     const data = JSON.parse(atob(b64));
     if (typeof data !== 'object' || !data) return null;
     const tokens = sanitizeTokens(data.tokens ?? data);
-    if (!tokens) return null;
+    const fonts = sanitizeFonts(data.fonts);
+    if (!tokens && !fonts) return null;
     return {
       name: typeof data.name === 'string' ? data.name : 'Custom',
-      tokens,
+      tokens: tokens ?? {},
+      fonts,
     };
   } catch {
     return null;
@@ -56,6 +76,7 @@ function loadStored(): CustomTheme | null {
         return {
           name: typeof data.name === 'string' ? data.name : 'Custom',
           tokens,
+          fonts: sanitizeFonts(data?.fonts),
         };
       }
     }
@@ -102,7 +123,45 @@ export function useCustomTheme(active: boolean) {
       name: `starlog-custom-${customTheme.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       extends: starlogTheme,
       tokens: customTheme.tokens,
+      ...(customTheme.fonts && {
+        typography: {
+          ...(customTheme.fonts.body && {
+            body: { family: customTheme.fonts.body },
+          }),
+          ...(customTheme.fonts.heading && {
+            heading: { family: customTheme.fonts.heading },
+          }),
+          ...(customTheme.fonts.code && {
+            code: { family: customTheme.fonts.code },
+          }),
+        },
+      }),
     });
+  }, [active, customTheme]);
+
+  // Load Google Fonts for the custom theme's font families.
+  useEffect(() => {
+    if (!active || !customTheme?.fonts) return;
+    const families = Object.values(customTheme.fonts);
+    if (families.length === 0) return;
+    const id = 'starlog-custom-fonts';
+    let link = document.getElementById(id) as HTMLLinkElement | null;
+    const href =
+      'https://fonts.googleapis.com/css2?' +
+      families
+        .map((f) => `family=${encodeURIComponent(f)}:wght@400;500;600;700`)
+        .join('&') +
+      '&display=swap';
+    if (!link) {
+      link = document.createElement('link');
+      link.id = id;
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+    }
+    link.href = href;
+    return () => {
+      document.getElementById(id)?.remove();
+    };
   }, [active, customTheme]);
 
   const removeCustomTheme = () => {
@@ -123,10 +182,12 @@ export function useCustomTheme(active: boolean) {
       try {
         const data = JSON.parse(trimmed);
         const tokens = sanitizeTokens(data.tokens ?? data);
-        if (!tokens) return 'No usable --color-* tokens found.';
+        const fonts = sanitizeFonts(data.fonts);
+        if (!tokens && !fonts) return 'No usable --color-* tokens or fonts found.';
         theme = {
           name: typeof data.name === 'string' ? data.name : 'Custom',
-          tokens,
+          tokens: tokens ?? {},
+          fonts,
         };
       } catch {
         return 'That is not valid JSON.';
