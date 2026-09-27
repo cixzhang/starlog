@@ -50,7 +50,15 @@ const styles = stylex.create({
   // Weekday token: Manrope semibold, neutral gray
   weekdayToken: {
     fontFamily: 'Manrope, sans-serif',
-    fontWeight: 600,
+    fontWeight: 700,
+    fontSize: 11,
+    letterSpacing: '0.08em',
+    borderRadius: 999,
+    padding: '3px 10px',
+  },
+  weekdayTokenToday: {
+    backgroundColor: 'var(--color-accent)',
+    color: 'var(--color-on-accent)',
   },
   header: {
     display: 'grid',
@@ -295,7 +303,11 @@ export default function App() {
                       description={`${WEEKDAY_NAMES[weekdayCtl.weekday - 1]} — back to today`}
                       size="sm"
                       color="gray"
-                      xstyle={styles.weekdayToken}
+                      xstyle={[
+                        styles.weekdayToken,
+                        weekdayCtl.weekday === isoWeekday(new Date()) &&
+                          styles.weekdayTokenToday,
+                      ]}
                     />
                     <button
                       {...stylex.props(styles.arrow)}
