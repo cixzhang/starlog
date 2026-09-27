@@ -104,11 +104,6 @@ const styles = stylex.create({
     width: '100%',
     maxWidth: 680,
   },
-  previewSheet: {
-    padding: '20px 20px 28px',
-    minHeight: '20vh',
-    color: 'var(--sl-ink-faint)',
-  },
   sheet: {
     padding: '20px 20px 28px',
     color: 'var(--sl-ink)',
@@ -271,13 +266,36 @@ export default function Journal({
     return out;
   }, [anchor, past, future]);
 
+  // Adjacent weekdays for the swipe previews (1-7, wrapping).
+  const prevWeekday = ((weekday - 2 + 7) % 7) + 1;
+  const nextWeekday = (weekday % 7) + 1;
+
+  // Anchor date for a given weekday: its date in the current week.
+  const anchorFor = (w: number) =>
+    addDays(startOfWeek(now, weekStart), weekOffset(w));
+
+  // Dates for the swipe previews (3 sheets around each adjacent anchor).
+  // Fetched alongside the main sheets so previews show full content.
+  const previewDates = useMemo(() => {
+    const out: string[] = [];
+    for (const w of [prevWeekday, nextWeekday]) {
+      const a = anchorFor(w);
+      for (const k of [-1, 0, 1]) {
+        out.push(toISODate(addDays(a, k * 7)));
+      }
+    }
+    return out;
+  }, [prevWeekday, nextWeekday, now, weekStart, weekday]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   // Entries, prompts, decorations for sheets we haven't fetched yet.
   // Sheets render from the calendar regardless — data fills in.
+  // Includes swipe-preview dates so adjacent weekdays show full content.
   useEffect(() => {
     let alive = true;
-    const dates = sheets
-      .map((s) => s.iso)
-      .filter((d) => !fetchedDates.current.has(d));
+    const dates = [...sheets.map((s) => s.iso), ...previewDates].filter(
+      (d) => !fetchedDates.current.has(d),
+    );
     if (dates.length === 0) return;
     dates.forEach((d) => fetchedDates.current.add(d));
     (async () => {
@@ -320,7 +338,7 @@ export default function Journal({
     return () => {
       alive = false;
     };
-  }, [cfg, tenantId, sheets]);
+  }, [cfg, tenantId, sheets, previewDates]);
 
   // Reminders across the visible window (plus margin for the compass).
   // The window only grows, so merge by id and expand the tracked bounds.
@@ -484,14 +502,6 @@ export default function Journal({
 
   const SWIPE_THRESHOLD = 80;
 
-  // Adjacent weekdays for the previews (1-7, wrapping).
-  const prevWeekday = ((weekday - 2 + 7) % 7) + 1;
-  const nextWeekday = (weekday % 7) + 1;
-
-  // Anchor date for a given weekday: its date in the current week.
-  const anchorFor = (w: number) =>
-    addDays(startOfWeek(now, weekStart), weekOffset(w));
-
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -602,8 +612,8 @@ export default function Journal({
   const todayIso = toISODate(now);
 
   // Preview sheets for the adjacent weekday, shown off-screen during a swipe.
-  // Lightweight: date headers only, no data fetching — it's a gesture hint,
-  // not a full render. The real content loads when the swipe commits.
+  // Full sheet content (entries, prompts, etc.) so the days visibly fall
+  // into place under the finger. Data is pre-fetched via previewDates.
   const renderPreview = (targetWeekday: number, dir: 1 | -1) => {
     if (dragX == null) return null;
     const vw = viewportRef.current?.clientWidth ?? 0;
@@ -622,14 +632,79 @@ export default function Journal({
         <div {...stylex.props(styles.previewInner)}>
           {[-1, 0, 1].map((k) => {
             const date = addDays(targetAnchor, k * 7);
+            const iso = toISODate(date);
+            const entry = entriesByDate[iso];
+            const prompt = promptsByDate[iso];
+            const dayReminders = remindersByDate[iso] ?? [];
+            const decos = decosByDate[iso] ?? [];
+            const label = relativeLabel(k);
+            const hasAnno = prompt != null || dayReminders.length > 0;
             return (
-              <div key={k} {...stylex.props(styles.previewSheet)}>
-                <div {...stylex.props(styles.sheetHead)}>
-                  <h2 {...stylex.props(styles.sheetDate)}>
-                    {formatShort(date)}
-                  </h2>
-                </div>
-              </div>
+              <Fragment key={iso}>
+                {k > -1 && <Divider />}
+                <article
+                  {...stylex.props(
+                    styles.sheet,
+                    k !== 0 && styles.sheetMuted,
+                  )}
+                >
+                  <div {...stylex.props(styles.sheetHead)}>
+                    <h2 {...stylex.props(styles.sheetDate)}>
+                      {formatShort(date)}
+                    </h2>
+                    {iso === todayIso ? (
+                      <span {...stylex.props(styles.todayPill)}>TODAY</span>
+                    ) : (
+                      label != null && (
+                        <span {...stylex.props(styles.relLabel)}>{label}</span>
+                      )
+                    )}
+                  </div>
+                  {iso === todayIso && entry == null && (
+                    <div {...stylex.props(styles.emptyState)}>
+                      Nothing here yet.
+                      <br />
+                      Ask your agent to add an entry for today.
+                    </div>
+                  )}
+                  {entry != null && <Markdown source={entry.body_text} />}
+                  {hasAnno && (
+                    <div {...stylex.props(styles.anno)}>
+                      {prompt != null && (
+                        <div {...stylex.props(styles.annoLine)}>
+                          <span {...stylex.props(styles.annoLabel)}>
+                            AI PROMPT ·
+                          </span>
+                          <span>{prompt.body}</span>
+                        </div>
+                      )}
+                      {dayReminders.map((r) => (
+                        <div key={r.id} {...stylex.props(styles.annoLine)}>
+                          {r.importance === 'high' ? (
+                            <span {...stylex.props(styles.annoDot)} />
+                          ) : (
+                            <span {...stylex.props(styles.annoLabel)}>
+                              {r.urgency === 'high' ? 'IMPORTANT ·' : 'REMINDER ·'}
+                            </span>
+                          )}
+                          <span>{r.title}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {decos.map((d) => {
+                    const svg = sanitizeSvg(d.svg);
+                    if (!svg) return null;
+                    return (
+                      <div
+                        key={d.id}
+                        {...stylex.props(styles.deco)}
+                        dangerouslySetInnerHTML={{ __html: svg }}
+                      />
+                    );
+                  })}
+                </article>
+              </Fragment>
             );
           })}
         </div>
