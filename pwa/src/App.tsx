@@ -13,19 +13,14 @@ import {
   saveConfig,
   type SbConfig,
 } from './lib/supabase';
-import { isoWeekday, parseISODate } from './lib/dates';
+import { isoWeekday, parseISODate, WEEKDAY_NAMES } from './lib/dates';
 import { StarlogMark } from './components/mark';
 import { ErrorNote, Loading } from './components/ui';
 import Setup from './views/Setup';
-import Journal from './views/Journal';
+import Journal, { type WeekdayControls } from './views/Journal';
 import Calendar from './views/Calendar';
 
 type Tab = 'journal' | 'calendar';
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'journal', label: 'Journal' },
-  { id: 'calendar', label: 'Calendar' },
-];
 
 const MODE_KEY = 'starlog:mode';
 type Mode = 'light' | 'dark';
@@ -39,21 +34,23 @@ const styles = stylex.create({
     color: 'var(--sl-ink)',
   },
   header: {
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto 1fr',
     alignItems: 'center',
-    gap: 10,
-    padding: '12px 16px',
+    gap: 8,
+    padding: '10px 16px',
     borderBottom: '1px solid var(--sl-line)',
     position: 'sticky',
     top: 0,
     backgroundColor: 'var(--sl-paper)',
     zIndex: 10,
   },
-  brand: {
+  brandCell: {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    marginRight: 'auto',
+    justifySelf: 'start',
+    minWidth: 0,
   },
   wordmark: {
     fontFamily: 'var(--font-heading)',
@@ -61,30 +58,49 @@ const styles = stylex.create({
     fontWeight: 700,
     letterSpacing: '0.02em',
     margin: 0,
-  },
-  desktopNav: {
-    display: 'none',
-    '@media (min-width: 761px)': {
-      display: 'flex',
-      gap: 2,
+    whiteSpace: 'nowrap',
+    '@media (max-width: 600px)': {
+      display: 'none',
     },
   },
-  tab: {
+  weekdayCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+    justifySelf: 'center',
+  },
+  pill: {
+    appearance: 'none',
+    background: 'transparent',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--sl-ink)',
+    color: 'var(--sl-ink)',
+    borderRadius: 999,
+    padding: '7px 16px',
+    fontFamily: 'var(--font-code)',
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  arrow: {
     appearance: 'none',
     border: 'none',
     background: 'transparent',
-    fontFamily: 'var(--font-body)',
-    fontSize: 14.5,
-    fontWeight: 600,
-    color: 'var(--sl-ink-faint)',
-    padding: '8px 14px',
-    borderRadius: 999,
+    color: 'var(--sl-ink-soft)',
+    fontSize: 20,
+    lineHeight: 1,
+    padding: '8px 10px',
+    borderRadius: 8,
     cursor: 'pointer',
-    ':hover': { color: 'var(--sl-ink)' },
   },
-  tabActive: {
-    color: 'var(--sl-ink)',
-    backgroundColor: 'var(--sl-paper-deep)',
+  rightCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    justifySelf: 'end',
   },
   iconBtn: {
     appearance: 'none',
@@ -141,44 +157,6 @@ const styles = stylex.create({
     flex: 1,
     minHeight: 0,
   },
-  mobileNav: {
-    display: 'flex',
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    backgroundColor: 'var(--sl-paper)',
-    borderTop: '1px solid var(--sl-line)',
-    paddingBottom: 'env(safe-area-inset-bottom)',
-    '@media (min-width: 761px)': {
-      display: 'none',
-    },
-  },
-  mobileTab: {
-    appearance: 'none',
-    border: 'none',
-    background: 'transparent',
-    flex: 1,
-    fontFamily: 'var(--font-body)',
-    fontSize: 12,
-    fontWeight: 600,
-    letterSpacing: '0.03em',
-    color: 'var(--sl-ink-faint)',
-    padding: '12px 0 10px',
-    cursor: 'pointer',
-  },
-  mobileTabActive: {
-    color: 'var(--sl-ink)',
-  },
-  mobileDot: {
-    display: 'block',
-    width: 4,
-    height: 4,
-    borderRadius: '50%',
-    backgroundColor: 'var(--sl-gold)',
-    margin: '5px auto 0',
-  },
 });
 
 function initialMode(): Mode {
@@ -187,6 +165,44 @@ function initialMode(): Mode {
   } catch {
     return 'light';
   }
+}
+
+function CalendarIcon() {
+  return (
+    <svg
+      width="19"
+      height="19"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      aria-hidden="true"
+    >
+      <rect x="2.5" y="4" width="15" height="13" rx="2.5" />
+      <line x1="2.5" y1="8" x2="17.5" y2="8" />
+      <line x1="6.5" y1="2" x2="6.5" y2="5.5" />
+      <line x1="13.5" y1="2" x2="13.5" y2="5.5" />
+    </svg>
+  );
+}
+
+function JournalIcon() {
+  return (
+    <svg
+      width="19"
+      height="19"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      aria-hidden="true"
+    >
+      <rect x="4" y="2.5" width="12" height="15" rx="2" />
+      <line x1="7.5" y1="7" x2="12.5" y2="7" />
+      <line x1="7.5" y1="10.5" x2="12.5" y2="10.5" />
+      <line x1="7.5" y1="14" x2="11" y2="14" />
+    </svg>
+  );
 }
 
 export default function App() {
@@ -208,7 +224,14 @@ export default function App() {
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('journal');
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [jump, setJump] = useState<{ weekday: number; date: string } | null>(null);
+  const [jump, setJump] = useState<{ weekday: number; date: string } | null>(
+    null,
+  );
+  // Weekday navigation lives in the top bar; Journal hands its controls up.
+  const [weekdayCtl, setWeekdayCtl] = useState<WeekdayControls | null>(null);
+  const handleControls = useCallback((ctl: WeekdayControls | null) => {
+    setWeekdayCtl(ctl);
+  }, []);
 
   useEffect(() => {
     try {
@@ -287,38 +310,63 @@ export default function App() {
         {cfg && (
           <>
             <header id="sl-app-header" {...stylex.props(styles.header)}>
-              <div {...stylex.props(styles.brand)}>
+              <div {...stylex.props(styles.brandCell)}>
                 <StarlogMark size={30} />
                 <h1 {...stylex.props(styles.wordmark)}>Starlog</h1>
               </div>
-              <nav
-                {...stylex.props(styles.desktopNav)}
-                aria-label="Sections"
-              >
-                {TABS.map((t) => (
-                  <button
-                    key={t.id}
-                    {...stylex.props(
-                      styles.tab,
-                      tab === t.id && styles.tabActive,
-                    )}
-                    onClick={() => setTab(t.id)}
-                    aria-current={tab === t.id ? 'page' : undefined}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </nav>
-              <button
-                {...stylex.props(styles.iconBtn)}
-                onClick={() => setMode((m) => (m === 'light' ? 'dark' : 'light'))}
-                aria-label={
-                  mode === 'light' ? 'Switch to night' : 'Switch to day'
-                }
-                title={mode === 'light' ? 'Night' : 'Day'}
-              >
-                {mode === 'light' ? '☾' : '☀'}
-              </button>
+              <div {...stylex.props(styles.weekdayCell)}>
+                {tab === 'journal' && weekdayCtl && (
+                  <>
+                    <button
+                      {...stylex.props(styles.arrow)}
+                      onClick={() => weekdayCtl.move(-1)}
+                      aria-label="Previous weekday"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      {...stylex.props(styles.pill)}
+                      onClick={weekdayCtl.goToday}
+                      aria-label={`${WEEKDAY_NAMES[weekdayCtl.weekday - 1]} — back to today`}
+                      title="Back to today"
+                    >
+                      {WEEKDAY_NAMES[weekdayCtl.weekday - 1].toUpperCase()}
+                    </button>
+                    <button
+                      {...stylex.props(styles.arrow)}
+                      onClick={() => weekdayCtl.move(1)}
+                      aria-label="Next weekday"
+                    >
+                      ›
+                    </button>
+                  </>
+                )}
+              </div>
+              <div {...stylex.props(styles.rightCell)}>
+                <button
+                  {...stylex.props(styles.iconBtn)}
+                  onClick={() =>
+                    setTab((t) => (t === 'journal' ? 'calendar' : 'journal'))
+                  }
+                  aria-label={
+                    tab === 'journal' ? 'Open calendar' : 'Back to journal'
+                  }
+                  title={tab === 'journal' ? 'Calendar' : 'Journal'}
+                >
+                  {tab === 'journal' ? <CalendarIcon /> : <JournalIcon />}
+                </button>
+                <button
+                  {...stylex.props(styles.iconBtn)}
+                  onClick={() =>
+                    setMode((m) => (m === 'light' ? 'dark' : 'light'))
+                  }
+                  aria-label={
+                    mode === 'light' ? 'Switch to night' : 'Switch to day'
+                  }
+                  title={mode === 'light' ? 'Night' : 'Day'}
+                >
+                  {mode === 'light' ? '☾' : '☀'}
+                </button>
               <div {...stylex.props(styles.menuWrap)} ref={menuRef}>
                 <button
                   {...stylex.props(styles.iconBtn)}
@@ -358,6 +406,7 @@ export default function App() {
                   </div>
                 )}
               </div>
+            </div>
             </header>
 
             <main {...stylex.props(styles.main)}>
@@ -374,30 +423,13 @@ export default function App() {
                   tenantId={tenantId}
                   jump={jump}
                   onJumpConsumed={() => setJump(null)}
-                  onOpenCalendar={() => setTab('calendar')}
+                  onControls={handleControls}
                 />
               )}
               {!tenantError && tenantId && tab === 'calendar' && (
                 <Calendar cfg={cfg} tenantId={tenantId} onPickDay={pickDay} />
               )}
             </main>
-
-            <nav {...stylex.props(styles.mobileNav)} aria-label="Sections">
-              {TABS.map((t) => (
-                <button
-                  key={t.id}
-                  {...stylex.props(
-                    styles.mobileTab,
-                    tab === t.id && styles.mobileTabActive,
-                  )}
-                  onClick={() => setTab(t.id)}
-                  aria-current={tab === t.id ? 'page' : undefined}
-                >
-                  {t.label}
-                  {tab === t.id && <span {...stylex.props(styles.mobileDot)} />}
-                </button>
-              ))}
-            </nav>
           </>
         )}
       </div>

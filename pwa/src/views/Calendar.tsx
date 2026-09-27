@@ -2,7 +2,7 @@
 // a quiet gold dot; tapping a day jumps to the journal for its weekday,
 // highlighting that date.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import {
   fetchEntryDates,
@@ -22,6 +22,9 @@ const styles = stylex.create({
     maxWidth: 560,
     margin: '0 auto',
     padding: '16px 20px 80px',
+    // Horizontal swipes switch months; keep vertical pans native so the
+    // browser can't hijack a diagonal swipe for scrolling.
+    touchAction: 'pan-y pinch-zoom',
   },
   head: {
     display: 'flex',
@@ -155,14 +158,35 @@ export default function Calendar({ cfg, tenantId, onPickDay }: Props) {
 
   const todayIso = toISODate(today);
 
+  const moveMonth = (delta: number) =>
+    setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
+
+  // Horizontal swipe switches months; vertical scroll is untouched.
+  const touchX = useRef<number | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchX.current = e.touches[0].clientX;
+  };
+  const onTouchCancel = () => {
+    touchX.current = null;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchX.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    touchX.current = null;
+    if (Math.abs(dx) > 60) moveMonth(dx < 0 ? 1 : -1);
+  };
+
   return (
-    <div {...stylex.props(styles.wrap)}>
+    <div
+      {...stylex.props(styles.wrap)}
+      onTouchStart={onTouchStart}
+      onTouchCancel={onTouchCancel}
+      onTouchEnd={onTouchEnd}
+    >
       <div {...stylex.props(styles.head)}>
         <button
           {...stylex.props(styles.arrow)}
-          onClick={() =>
-            setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))
-          }
+          onClick={() => moveMonth(-1)}
           aria-label="Previous month"
         >
           ‹
@@ -170,9 +194,7 @@ export default function Calendar({ cfg, tenantId, onPickDay }: Props) {
         <h2 {...stylex.props(styles.month)}>{formatMonth(cursor)}</h2>
         <button
           {...stylex.props(styles.arrow)}
-          onClick={() =>
-            setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))
-          }
+          onClick={() => moveMonth(1)}
           aria-label="Next month"
         >
           ›

@@ -29,7 +29,6 @@ import {
   type SbConfig,
 } from '../lib/supabase';
 import {
-  WEEKDAY_NAMES,
   addDays,
   daysBetween,
   formatShort,
@@ -72,59 +71,14 @@ function relativeLabel(k: number): string | null {
 }
 
 const styles = stylex.create({
-  canvasHead: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 2,
-    padding: '10px 16px',
-    borderBottom: '1px solid var(--sl-line)',
-  },
-  pill: {
-    appearance: 'none',
-    background: 'transparent',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--sl-ink)',
-    color: 'var(--sl-ink)',
-    borderRadius: 999,
-    padding: '7px 16px',
-    fontFamily: 'var(--font-code)',
-    fontSize: 13,
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    cursor: 'pointer',
-  },
-  spacer: {
-    flex: 1,
-  },
-  toolBtn: {
-    appearance: 'none',
-    border: 'none',
-    background: 'transparent',
-    color: 'var(--sl-ink)',
-    width: 34,
-    height: 34,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    borderRadius: 8,
-  },
-  arrow: {
-    appearance: 'none',
-    border: 'none',
-    background: 'transparent',
-    color: 'var(--sl-ink-soft)',
-    fontSize: 20,
-    lineHeight: 1,
-    padding: '8px 12px',
-    borderRadius: 8,
-    cursor: 'pointer',
-  },
   sheets: {
     maxWidth: 680,
     margin: '0 auto',
-    padding: '4px 20px 120px',
+    padding: '4px 20px 72px',
+    // Let horizontal swipes reach JS reliably: the browser only takes
+    // vertical pans, so iOS can't hijack a diagonal swipe for scrolling
+    // (which would cancel our touchend and "lose" the gesture).
+    touchAction: 'pan-y pinch-zoom',
   },
   sheet: {
     padding: '26px 0 34px',
@@ -212,18 +166,25 @@ interface Sheet {
   iso: string;
 }
 
+/** Weekday navigation controls, rendered by the app shell's top bar. */
+export interface WeekdayControls {
+  weekday: number;
+  move: (delta: number) => void;
+  goToday: () => void;
+}
+
 export default function Journal({
   cfg,
   tenantId,
   jump,
   onJumpConsumed,
-  onOpenCalendar,
+  onControls,
 }: {
   cfg: SbConfig;
   tenantId: string;
   jump: { weekday: number; date: string } | null;
   onJumpConsumed: () => void;
-  onOpenCalendar: () => void;
+  onControls: (ctl: WeekdayControls | null) => void;
 }) {
   const [weekday, setWeekday] = useState<number>(() => isoWeekday(new Date()));
   const [past, setPast] = useState(INIT_PAST);
@@ -440,6 +401,12 @@ export default function Journal({
     goWeekday(isoWeekday(now));
   }, [goWeekday, now]);
 
+  // Hand the weekday controls to the app shell's top bar.
+  useEffect(() => {
+    onControls({ weekday, move, goToday });
+    return () => onControls(null);
+  }, [weekday, move, goToday, onControls]);
+
   // Calendar jump: make sure the date is in the window, then center it.
   useEffect(() => {
     if (!jump) return;
@@ -459,6 +426,9 @@ export default function Journal({
   const onTouchStart = (e: React.TouchEvent) => {
     touchX.current = e.touches[0].clientX;
   };
+  const onTouchCancel = () => {
+    touchX.current = null;
+  };
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchX.current == null) return;
     const dx = e.changedTouches[0].clientX - touchX.current;
@@ -475,61 +445,14 @@ export default function Journal({
     return () => window.removeEventListener('keydown', onKey);
   }, [move]);
 
-  const weekdayName = WEEKDAY_NAMES[weekday - 1].toUpperCase();
   const todayIso = toISODate(now);
 
   return (
     <div>
-      <div {...stylex.props(styles.canvasHead)}>
-        <button
-          {...stylex.props(styles.arrow)}
-          onClick={() => move(-1)}
-          aria-label="Previous weekday"
-        >
-          ‹
-        </button>
-        <button
-          {...stylex.props(styles.pill)}
-          onClick={goToday}
-          aria-label={`${WEEKDAY_NAMES[weekday - 1]} — back to today`}
-          title="Back to today"
-        >
-          {weekdayName}
-        </button>
-        <button
-          {...stylex.props(styles.arrow)}
-          onClick={() => move(1)}
-          aria-label="Next weekday"
-        >
-          ›
-        </button>
-        <div {...stylex.props(styles.spacer)} />
-        <button
-          {...stylex.props(styles.toolBtn)}
-          onClick={onOpenCalendar}
-          aria-label="Open calendar"
-          title="Calendar"
-        >
-          <svg
-            width="19"
-            height="19"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            aria-hidden="true"
-          >
-            <rect x="2.5" y="4" width="15" height="13" rx="2.5" />
-            <line x1="2.5" y1="8" x2="17.5" y2="8" />
-            <line x1="6.5" y1="2" x2="6.5" y2="5.5" />
-            <line x1="13.5" y1="2" x2="13.5" y2="5.5" />
-          </svg>
-        </button>
-      </div>
-
       <div
         {...stylex.props(styles.sheets)}
         onTouchStart={onTouchStart}
+        onTouchCancel={onTouchCancel}
         onTouchEnd={onTouchEnd}
       >
 
