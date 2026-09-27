@@ -107,6 +107,28 @@ export default function Setup({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // A one-tap setup link pasted into the URL field fills in both fields.
+  // This is the way to configure the installed PWA, whose storage is
+  // separate from Safari's — tapping the link only sets up Safari.
+  function handleUrlChange(v: string) {
+    const qIndex = v.indexOf('?');
+    if (qIndex >= 0) {
+      try {
+        const q = new URLSearchParams(v.slice(qIndex + 1));
+        const linkUrl = (q.get('supabase_url') ?? '').trim().replace(/\/+$/, '');
+        const linkKey = (q.get('anon_key') ?? '').trim();
+        if (linkUrl || linkKey) {
+          if (linkUrl) setUrl(linkUrl);
+          if (linkKey) setKey(linkKey);
+          return;
+        }
+      } catch {
+        /* fall through and keep the raw text */
+      }
+    }
+    setUrl(v);
+  }
+
   async function connect() {
     setError(null);
     const cfg: SbConfig = {
@@ -151,7 +173,7 @@ export default function Setup({
           <br />
           {initialUrl
             ? 'Your project link filled in the URL — just add the anon key.'
-            : 'Point it at your own Supabase project to begin.'}
+            : 'Point it at your own Supabase project to begin. Have a setup link? Paste the whole link into the URL field.'}
         </p>
         {error && (
           <p {...stylex.props(styles.error)} role="alert">
@@ -166,8 +188,8 @@ export default function Setup({
             id="sl-url"
             {...stylex.props(styles.input)}
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://xyz.supabase.co"
+            onChange={(e) => handleUrlChange(e.target.value)}
+            placeholder="https://xyz.supabase.co — or paste a setup link"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
