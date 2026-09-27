@@ -287,26 +287,31 @@ export default function ReminderRadar({
         if (dx > 3) dx -= 7;
         if (dx < -3) dx += 7;
 
-        // Find the date currently at the viewport center of the active sheet.
+        // Find the date closest to the viewport center of the active sheet.
         // dy is measured from THERE, not from the anchor, so the planet
         // reflects the current scroll position.
         let viewedDate: Date | null = null;
-        const scroller = viewport.querySelector(
+        const scroller = document.querySelector(
           `[data-sheet-scroll="${currentWeekday}"]`,
         );
         if (scroller) {
           const scrollerRect = scroller.getBoundingClientRect();
           const centerY = scrollerRect.top + scrollerRect.height / 2;
           const dateEls = scroller.querySelectorAll('[data-sheet-iso]');
+          let bestIso: string | null = null;
+          let bestDist = Infinity;
           for (const el of dateEls) {
             const rect = (el as HTMLElement).getBoundingClientRect();
-            if (rect.top <= centerY && rect.bottom >= centerY) {
-              const iso = (el as HTMLElement).dataset.sheetIso;
-              if (iso) {
-                viewedDate = new Date(iso + 'T00:00:00');
-                break;
-              }
+            // Distance from element center to viewport center
+            const elCenterY = rect.top + rect.height / 2;
+            const dist = Math.abs(elCenterY - centerY);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestIso = (el as HTMLElement).dataset.sheetIso ?? null;
             }
+          }
+          if (bestIso) {
+            viewedDate = new Date(bestIso + 'T00:00:00');
           }
         }
         // Fallback to anchor if we can't determine the viewed date
@@ -384,7 +389,7 @@ export default function ReminderRadar({
               : `${EDGE_MARGIN}px`;
             // Vertical offset based on dy: positive dy (future) shifts down,
             // negative dy (past) shifts up. Clamp to avoid edges.
-            const verticalShift = Math.max(-30, Math.min(30, dy * 15));
+            const verticalShift = Math.max(-40, Math.min(40, dy * 20));
             const basePct = 50 + verticalShift;
             top = `${Math.max(10, Math.min(90, basePct))}%`;
           } else {
