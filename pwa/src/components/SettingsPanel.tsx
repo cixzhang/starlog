@@ -30,6 +30,7 @@ const styles = stylex.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: 600,
+    fontFamily: 'var(--font-heading)',
     color: 'var(--color-text-secondary)',
     paddingLeft: 20,
     paddingRight: 20,
@@ -73,6 +74,7 @@ const styles = stylex.create({
     gap: 6,
     fontSize: 15,
     fontWeight: 500,
+    color: 'var(--color-text-primary)',
   },
   itemDestructive: {
     color: 'var(--color-text-red)',

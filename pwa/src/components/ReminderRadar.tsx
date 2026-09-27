@@ -232,19 +232,34 @@ export default function ReminderRadar({
   // grid; the same-weekday planet uses live DOM geometry, so it needs
   // scroll ticks.
   useEffect(() => {
-    const scroller = document.querySelector(
-      `[data-sheet-scroll="${currentWeekday}"]`,
-    );
-    if (!scroller) return;
     let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setScrollTick((t) => t + 1));
+    let scroller: Element | null = null;
+    let cleanup: (() => void) | null = null;
+
+    const attach = () => {
+      scroller = document.querySelector(
+        `[data-sheet-scroll="${currentWeekday}"]`,
+      );
+      if (!scroller) {
+        // Sheet not mounted yet — retry next frame.
+        raf = requestAnimationFrame(attach);
+        return;
+      }
+      const onScroll = () => {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => setScrollTick((t) => t + 1));
+      };
+      scroller.addEventListener('scroll', onScroll, { passive: true });
+      cleanup = () => {
+        cancelAnimationFrame(raf);
+        scroller?.removeEventListener('scroll', onScroll);
+      };
     };
-    scroller.addEventListener('scroll', onScroll, { passive: true });
+    attach();
+
     return () => {
       cancelAnimationFrame(raf);
-      scroller.removeEventListener('scroll', onScroll);
+      cleanup?.();
     };
   }, [currentWeekday]);
 
@@ -332,7 +347,9 @@ export default function ReminderRadar({
           if (el) {
             const rect = (el as HTMLElement).getBoundingClientRect();
             sheetCenterX = rect.left + rect.width / 2;
-            sheetCenterY = rect.top + rect.height / 2;
+            // Use the top of the date (where the header is), not the center —
+            // the center of a tall date sheet sits lower than the eye goes.
+            sheetCenterY = rect.top;
           }
         }
 
@@ -351,6 +368,10 @@ export default function ReminderRadar({
 
         if (sheetCenterX !== null && sheetCenterY !== null) {
           // Use actual sheet position for nearest-edge placement.
+          // Positions are in px (screen coordinates from getBoundingClientRect),
+          // not % — the radar container is position:fixed covering the full
+          // screen, so % would be relative to the screen, not the strip
+          // below the header.
           if (absSin > absCos) {
             const isBelow = sin > 0;
             top = isBelow
@@ -360,9 +381,7 @@ export default function ReminderRadar({
               viewportRect.left + EDGE_MARGIN + 12,
               Math.min(viewportRect.right - EDGE_MARGIN - 12, sheetCenterX),
             );
-            const pct =
-              ((clampedX - viewportRect.left) / viewportRect.width) * 100;
-            left = `${Math.max(5, Math.min(95, pct))}%`;
+            left = `${clampedX}px`;
           } else {
             const isRight = cos > 0;
             left = isRight
@@ -372,9 +391,7 @@ export default function ReminderRadar({
               viewportRect.top + EDGE_MARGIN + 20,
               Math.min(viewportRect.bottom - EDGE_MARGIN - 20, sheetCenterY),
             );
-            const pct =
-              ((clampedY - viewportRect.top) / viewportRect.height) * 100;
-            top = `${Math.max(5, Math.min(95, pct))}%`;
+            top = `${clampedY}px`;
           }
         } else {
           // Estimate from the 2D vector.
@@ -388,10 +405,16 @@ export default function ReminderRadar({
               ? `calc(100% - ${EDGE_MARGIN + 24}px)`
               : `${EDGE_MARGIN}px`;
             // Vertical offset based on dy: positive dy (future) shifts down,
-            // negative dy (past) shifts up. Clamp to avoid edges.
+            // negative dy (past) shifts up. Position in px relative to the
+            // strip viewport (not % of the full screen).
             const verticalShift = Math.max(-40, Math.min(40, dy * 20));
             const basePct = 50 + verticalShift;
-            top = `${Math.max(10, Math.min(90, basePct))}%`;
+            const y =
+              viewportRect.top + (viewportRect.height * basePct) / 100;
+            top = `${Math.max(
+              viewportRect.top + EDGE_MARGIN,
+              Math.min(viewportRect.bottom - EDGE_MARGIN, y),
+            )}px`;
           } else {
             const isBelow = dy > 0;
             top = isBelow

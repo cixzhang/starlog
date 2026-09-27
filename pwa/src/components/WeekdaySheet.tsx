@@ -146,6 +146,10 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
   const scrollCooldown = useRef(0);
   const datesRef = useRef<DateItem[]>([]);
   const initializedRef = useRef(false);
+  // Rendered content edges (in container coordinates). The infinite scroll
+  // triggers off these, not the 30,000px container edges.
+  const contentTopRef = useRef(MIDDLE);
+  const contentBottomRef = useRef(MIDDLE);
 
   const dates = useMemo<DateItem[]>(() => {
     const out: DateItem[] = [];
@@ -200,6 +204,9 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     // Position relative to the fixed MIDDLE: k=0's virtual top:0 becomes
     // MIDDLE in the DOM. Past weeks go above, future below. The container
     // has a fixed tall height, so no height recalculation jank.
+    // Track the rendered content edges for the infinite scroll triggers.
+    contentTopRef.current = MIDDLE + negTop;
+    contentBottomRef.current = MIDDLE + top;
     for (const [iso, t] of tops) {
       const el = inner.querySelector(
         `[data-sheet-iso="${iso}"]`,
@@ -215,12 +222,24 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     // (height is set declaratively in the JSX — fixed tall container.)
 
     // Initialize scroll to MIDDLE so k=0 is at the viewport top.
-    // The container height is fixed from the first paint, so no clamping.
+    // The container height is fixed from the first paint, so no clamping
+    // in theory — but iOS may not have laid out the scrollable area yet on
+    // the first layout effect. Retry via rAF until scrollTop sticks.
     // On prepend, the layout effect re-runs; k=0 stays at MIDDLE, so no
     // scroll adjustment is needed — the visual position never moves.
     if (!initializedRef.current) {
-      initializedRef.current = true;
-      container.scrollTop = MIDDLE;
+      const tryInit = () => {
+        if (container.scrollTop !== MIDDLE) {
+          container.scrollTop = MIDDLE;
+          // If it didn't stick (not yet scrollable), try next frame.
+          if (container.scrollTop !== MIDDLE) {
+            requestAnimationFrame(tryInit);
+            return;
+          }
+        }
+        initializedRef.current = true;
+      };
+      tryInit();
     }
   });
 
@@ -251,15 +270,18 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
   // adjustment for prepend happens there via pastTotal delta.)
 
   // Infinite scroll inside this sheet's own scroll container.
+  // Triggers off the RENDERED content edges (contentTopRef/contentBottomRef),
+  // not the 30,000px container edges — otherwise the user scrolls through
+  // ~14,000px of blank space before more dates load.
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
     const onScroll = () => {
       const t = Date.now();
       if (t - scrollCooldown.current < SCROLL_COOLDOWN_MS) return;
-      const nearTop = container.scrollTop < EDGE_PX;
+      const nearTop = container.scrollTop < contentTopRef.current + EDGE_PX;
       const nearBottom =
-        container.scrollTop + container.clientHeight > container.scrollHeight - EDGE_PX;
+        container.scrollTop + container.clientHeight > contentBottomRef.current - EDGE_PX;
       if (!nearTop && !nearBottom) return;
       scrollCooldown.current = t;
       // With absolute positioning, prepending just extends the window;
