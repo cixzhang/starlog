@@ -203,20 +203,38 @@ export default function ReminderRadar({
         // If the date is visible, remove the planet entirely
         if (isDateVisible(dateIso, viewport)) return null;
 
-        // 2D vector: dx = weekday distance, dy = week distance
-        const remindWeekday = isoWeekday(remindDate);
-
-        // Shortest weekday path (signed: + = via nextWeekday/swipe left,
-        // - = via prevWeekday/swipe right)
-        const forward = (remindWeekday - currentWeekday + 7) % 7;
-        const backward = (currentWeekday - remindWeekday + 7) % 7;
-        const dx = forward <= backward ? forward : -backward;
-
-        // Week distance: positive = future (below), negative = past (above)
-        // Use day difference / 7 for smooth positioning
+        // 2D vector on the endless sheet:
+        // X = weekday axis (fixed columns: Mon=1..Sun=7, repeating endlessly)
+        // Y = week axis (continuous)
+        //
+        // The X position is ABSOLUTE, not shortest-path. Thursday is always
+        // at the Thursday column. From Sunday (X=7), Thursday (X=4) is at
+        // X=-3 if we go left, but on the endless sheet we use the actual
+        // column offset based on the date difference.
+        //
+        // Simpler: dx = (reminder weekday - current weekday), normalized to
+        // [-3, 3] range for the closest column, BUT the Y must correspond to
+        // the ACTUAL date, not the closest weekday occurrence.
+        //
+        // Correct approach: calculate the target's (x, y) from the date diff.
+        // x = weekday offset, y = week offset. The date diff in days gives us
+        // both: we decompose it into weekday and week components.
         const dayDiff =
           (remindDate.getTime() - anchorDate.getTime()) / (1000 * 60 * 60 * 24);
-        const dy = dayDiff / 7;
+
+        // On the endless sheet, moving dx weekdays accounts for dx days.
+        // The remaining days determine the week displacement.
+        // Example: Sun Sep 27 → Thu Oct 8 (11 days).
+        // dx=-3 (via Sat): remaining = 11-(-3) = 14 days → dy=2.0 weeks.
+        // dx=+4 (via Mon): remaining = 11-4 = 7 days → dy=1.0 weeks.
+        const remindWeekday = isoWeekday(remindDate);
+        let dx = remindWeekday - currentWeekday;
+        // Normalize to [-3, 3] for the closest column on the endless sheet
+        if (dx > 3) dx -= 7;
+        if (dx < -3) dx += 7;
+
+        // Y is the week displacement after accounting for weekday movement
+        const dy = (dayDiff - dx) / 7;
 
         // Angle in screen coordinates (0 = right, 90 = down)
         // dx: + = right (swipe left goes to next weekday which is... hmm)
@@ -351,7 +369,13 @@ export default function ReminderRadar({
           >
             <div {...stylex.props(styles.arrow(color))}>▲</div>
             <div
-              {...stylex.props(styles.planet(size, color, colorLight, glow))}
+              style={{
+                width: size,
+                height: size,
+                borderRadius: '50%',
+                background: `radial-gradient(circle at 35% 35%, ${colorLight}, ${color})`,
+                boxShadow: glow ? `0 0 12px ${color}a6` : 'none',
+              }}
             />
           </div>
         );
