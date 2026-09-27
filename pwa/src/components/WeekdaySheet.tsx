@@ -303,6 +303,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                   {...stylex.props(
                     styles.sheet,
                     k !== 0 && styles.sheetMuted,
+                    k === 0 && styles.sheetCurrent,
                     highlighted === iso && styles.highlight,
                   )}
                 >
@@ -409,10 +410,15 @@ const styles = stylex.create({
     // breathing room between date headings.
     minHeight: '20vh',
   },
-  // Non-current weeks recede via foreground only: dimmer text,
-  // background stays identical for visual consistency.
+  // Non-current weeks recede: dimmer text via secondary token.
+  // The current week gets a lifted background per the plan mock
+  // (translucent white overlay on the viewport's paper).
   sheetMuted: {
     color: 'var(--color-text-secondary)',
+  },
+  sheetCurrent: {
+    backgroundColor: 'var(--color-background-card)',
+    borderRadius: 12,
   },
   sheetHead: {
     display: 'flex',
