@@ -6,6 +6,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { Divider } from '@astryxdesign/core';
+import { createClient } from '@supabase/supabase-js';
 import {
   fetchEntryDates,
   type SbConfig,
@@ -125,6 +126,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
   const [past, setPast] = useState(INIT_PAST);
   const [future, setFuture] = useState(INIT_FUTURE);
   const [dates, setDates] = useState<Set<string> | null>(null);
+  const [realtimeNonce, setRealtimeNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const fetchedRef = useRef<{ from: string; to: string } | null>(null);
@@ -177,7 +179,29 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
     return () => {
       alive = false;
     };
-  }, [cfg, tenantId, months]);
+  }, [cfg, tenantId, months, realtimeNonce]);
+
+  // Realtime: invalidate the entry-dates cache when entries change, so the
+  // gold dots update live.
+  useEffect(() => {
+    const sb = createClient(cfg.url, cfg.anonKey);
+    const channel = sb
+      .channel('calendar-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'entries' },
+        () => {
+          fetchedRef.current = null;
+          // Trigger a refetch by forcing the months effect to re-run.
+          // We do this by updating a nonce state.
+          setRealtimeNonce((n) => n + 1);
+        },
+      )
+      .subscribe();
+    return () => {
+      sb.removeChannel(channel);
+    };
+  }, [cfg]);
 
   // Infinite scroll: grow the window near either edge.
   useEffect(() => {

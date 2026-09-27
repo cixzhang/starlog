@@ -17,6 +17,7 @@ import {
   useState,
   Fragment,
 } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import * as stylex from '@stylexjs/stylex';
 import { Divider } from '@astryxdesign/core';
 import {
@@ -340,6 +341,75 @@ export default function Journal({
       alive = false;
     };
   }, [cfg, tenantId, sheets, previewDates]);
+
+  // Realtime: listen for DB changes (entries, prompts, reminders) via
+  // Supabase Realtime websocket. When the agent writes (e.g. from the
+  // journaling chat), the UI updates live without a refresh.
+  useEffect(() => {
+    if (!cfg) return;
+    const sb = createClient(cfg.url, cfg.anonKey);
+    const channel = sb
+      .channel('starlog-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'entries' },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Entry | null;
+          if (!row) return;
+          const date = (row as Entry).entry_date;
+          if (payload.eventType === 'DELETE') {
+            setEntriesByDate((prev) => {
+              const next = { ...prev };
+              delete next[date];
+              return next;
+            });
+          } else {
+            setEntriesByDate((prev) => ({ ...prev, [date]: row as Entry }));
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'prompts' },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Prompt | null;
+          if (!row) return;
+          const date = (row as Prompt).prompt_date;
+          if (payload.eventType === 'DELETE') {
+            setPromptsByDate((prev) => {
+              const next = { ...prev };
+              delete next[date];
+              return next;
+            });
+          } else {
+            setPromptsByDate((prev) => ({ ...prev, [date]: row as Prompt }));
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reminders' },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Reminder | null;
+          if (!row?.id) return;
+          if (payload.eventType === 'DELETE') {
+            setAllReminders((prev) => prev.filter((r) => r.id !== row.id));
+          } else if (payload.eventType === 'INSERT') {
+            setAllReminders((prev) =>
+              prev.some((r) => r.id === row.id) ? prev : [...prev, row],
+            );
+          } else {
+            setAllReminders((prev) =>
+              prev.map((r) => (r.id === row.id ? row : r)),
+            );
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      sb.removeChannel(channel);
+    };
+  }, [cfg]);
 
   // Reminders across the visible window (plus margin for the compass).
   // The window only grows, so merge by id and expand the tracked bounds.
