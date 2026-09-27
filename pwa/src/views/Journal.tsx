@@ -576,9 +576,9 @@ export default function Journal({
       const w = getViewportWidth();
       if (Math.abs(dx) > SWIPE_THRESHOLD) {
         const dir = dx < 0 ? 1 : -1;
-        // Slide the preview fully into place, then commit the weekday
-        // without recentering (the preview is already at the right scroll).
-        animateTo(dx, dir * w, 180, () => {
+        // Slide the preview fully into place (x=0 means dragX=-dir*w),
+        // then commit the weekday without recentering.
+        animateTo(dx, -dir * w, 180, () => {
           move(dir, false);
           setDragX(null);
         });
