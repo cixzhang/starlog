@@ -182,22 +182,6 @@ export default function Journal({
   const [radarJump, setRadarJump] = useState<{ weekday: number; date: string } | null>(null);
   const [fetchVersion, setFetchVersion] = useState(0);
 
-  // Callbacks for the sound-snippet recorder (per-date, via WeekdaySheet).
-  const handleEntryCreated = useCallback((entry: Entry) => {
-    setEntriesByDate((prev) =>
-      prev[entry.entry_date] ? prev : { ...prev, [entry.entry_date]: entry },
-    );
-  }, []);
-  const handleAttachmentAdded = useCallback((attachment: Attachment) => {
-    setAttachmentsByEntryId((prev) => {
-      const list = prev[attachment.entry_id] ?? [];
-      if (list.some((a) => a.id === attachment.id)) return prev;
-      return {
-        ...prev,
-        [attachment.entry_id]: [...list, attachment],
-      };
-    });
-  }, []);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = setInterval(() => {
@@ -665,9 +649,6 @@ export default function Journal({
               remindersByDate={remindersByDate}
               attachmentsByEntryId={attachmentsByEntryId}
               cfg={cfg}
-              tenantId={tenantId}
-              onEntryCreated={handleEntryCreated}
-              onAttachmentAdded={handleAttachmentAdded}
               onNeedDates={onNeedDates}
               jumpDate={
                 (jump && jump.weekday === w ? jump.date : null) ||

@@ -50,9 +50,6 @@ interface WeekdaySheetProps {
   remindersByDate: Record<string, Reminder[]>;
   attachmentsByEntryId: Record<string, Attachment[]>;
   cfg: SbConfig;
-  tenantId: string;
-  onEntryCreated: (entry: Entry) => void;
-  onAttachmentAdded: (attachment: Attachment) => void;
   onNeedDates: (dates: string[]) => void;
   /** ISO date to jump to. Only set on the sheet whose weekday matches. */
   jumpDate: string | null;
@@ -142,9 +139,6 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     remindersByDate,
     attachmentsByEntryId,
     cfg,
-    tenantId,
-    onEntryCreated,
-    onAttachmentAdded,
     onNeedDates,
     jumpDate,
     onJumpHandled,
@@ -344,14 +338,9 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                   ))}
                   <SoundSnippets
                     cfg={cfg}
-                    tenantId={tenantId}
-                    dateIso={iso}
-                    entry={entry ?? null}
                     attachments={
                       entry ? (attachmentsByEntryId[entry.id] ?? []) : []
                     }
-                    onEntryCreated={onEntryCreated}
-                    onAttachmentAdded={onAttachmentAdded}
                   />
                 </article>
             );
