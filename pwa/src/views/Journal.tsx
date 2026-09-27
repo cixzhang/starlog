@@ -82,9 +82,20 @@ const styles = stylex.create({
   },
   sheet: {
     padding: '26px 0 34px',
+    // Each day holds its ground even when empty — the min-height is the
+    // breathing room between date headings.
+    minHeight: '30vh',
+  },
+  // Weeks other than this one recede into a muted full-bleed band.
+  sheetMuted: {
+    backgroundColor: 'var(--sl-paper-deep)',
+    marginLeft: -20,
+    marginRight: -20,
+    paddingLeft: 20,
+    paddingRight: 20,
   },
   sheetDivided: {
-    borderTop: '1px dashed var(--sl-line-strong)',
+    borderTop: '1px solid var(--sl-line)',
   },
   sheetHead: {
     display: 'flex',
@@ -475,6 +486,7 @@ export default function Journal({
               id={`sheet-${iso}`}
               {...stylex.props(
                 styles.sheet,
+                k !== 0 && styles.sheetMuted,
                 i > 0 && styles.sheetDivided,
                 highlighted === iso && styles.highlight,
               )}
