@@ -86,7 +86,7 @@ body {
 .sl-md a {
   color: var(--color-text-primary);
   text-decoration: underline;
-  text-decoration-color: var(--sl-gold);
+  text-decoration-color: var(--color-accent);
   text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
 }
@@ -114,7 +114,7 @@ body {
 .sl-md blockquote {
   margin: 0 0 1.1em;
   padding: 2px 0 2px 18px;
-  border-left: 2px solid var(--sl-gold);
+  border-left: 2px solid var(--color-accent);
   color: var(--color-text-secondary);
   font-style: italic;
 }
@@ -148,7 +148,7 @@ body {
 
 @keyframes sl-flash {
   0% {
-    background-color: color-mix(in srgb, var(--sl-gold-soft) 28%, transparent);
+    background-color: color-mix(in srgb, var(--color-accent-muted) 28%, transparent);
     border-radius: 12px;
   }
   100% {

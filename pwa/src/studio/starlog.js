@@ -103,7 +103,7 @@ export const starlogTheme = {
     "--color-background-popover": "light-dark(#ffffff, #1b1b1b)",
     "--color-background-muted": "light-dark(#f1f1f1, #1b1b1b)",
     "--color-accent": "light-dark(#f16e56, #f0856d)",
-    "--color-accent-muted": "light-dark(#f1f1f1, #262626)",
+    "--color-accent-muted": "light-dark(#f9ddd6, #3d231e)",
     "--color-neutral": "light-dark(#0000000F, #ffffff1A)",
     "--color-overlay": "light-dark(#00000080, #000000CC)",
     "--color-overlay-hover": "light-dark(#0000000D, #ffffff0D)",
@@ -198,10 +198,7 @@ export const starlogTheme = {
     "--astryx-theme-neutral-color-on-tint-overlay-hover": "light-dark(#fafafa1A, #0a0a0a1A)",
     "--astryx-theme-neutral-color-on-tint-overlay-pressed": "light-dark(#fafafa33, #0a0a0a33)",
     "--astryx-theme-neutral-color-destructive-overlay-hover": "light-dark(#ff7f770D, #ee736c0D)",
-    "--astryx-theme-neutral-color-destructive-overlay-pressed": "light-dark(#ff7f771A, #ee736c1A)",
-    "--sl-gold": "light-dark(#d9a83e, #d9a83e)",
-    "--sl-gold-soft": "light-dark(#f2c85b, #f2c85b)",
-    "--sl-mark-tile": "light-dark(#ece9dd, #193346)"
+    "--astryx-theme-neutral-color-destructive-overlay-pressed": "light-dark(#ff7f771A, #ee736c1A)"
   },
   __localTokenOwners: {
     "--astryx-theme-neutral-color-status-fill-accent": "neutral",
@@ -213,10 +210,7 @@ export const starlogTheme = {
     "--astryx-theme-neutral-color-on-tint-overlay-hover": "neutral",
     "--astryx-theme-neutral-color-on-tint-overlay-pressed": "neutral",
     "--astryx-theme-neutral-color-destructive-overlay-hover": "neutral",
-    "--astryx-theme-neutral-color-destructive-overlay-pressed": "neutral",
-    "--sl-gold": "starlog",
-    "--sl-gold-soft": "starlog",
-    "--sl-mark-tile": "starlog"
+    "--astryx-theme-neutral-color-destructive-overlay-pressed": "neutral"
   },
   __localTokenLineage: ["neutral","starlog"],
   components: {

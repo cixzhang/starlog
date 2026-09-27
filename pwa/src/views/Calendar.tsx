@@ -91,13 +91,13 @@ const styles = stylex.create({
   cellToday: {
     fontWeight: 700,
     color: 'var(--color-text-primary)',
-    boxShadow: 'inset 0 0 0 1.5px var(--sl-gold)',
+    boxShadow: 'inset 0 0 0 1.5px var(--color-accent)',
   },
   dot: {
     width: 5,
     height: 5,
     borderRadius: '50%',
-    backgroundColor: 'var(--sl-gold)',
+    backgroundColor: 'var(--color-accent)',
   },
   dotReminder: {
     width: 5,

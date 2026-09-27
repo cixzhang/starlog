@@ -35,13 +35,9 @@ export const starlogTheme = defineTheme({
       fallbacks: 'ui-monospace, SFMono-Regular, Menlo, monospace',
     },
   },
-  // Starlog brand tokens: colors with no Astryx equivalent.
-  // Everything else uses Astryx semantic tokens (--color-*) directly.
-  localTokens: {
-    '--sl-gold': ['#d9a83e', '#d9a83e'],
-    '--sl-gold-soft': ['#f2c85b', '#f2c85b'],
-    '--sl-mark-tile': ['#ece9dd', '#193346'],
-  },
+  // No brand-specific local tokens remain: everything uses Astryx
+  // semantic tokens (--color-*) directly.
+  localTokens: {},
   // Astryx semantic tokens mapped to Starlog's lunar palette.
   tokens: {
     '--color-background-body': ['#f5f3ec', '#141a17'],
@@ -53,5 +49,6 @@ export const starlogTheme = defineTheme({
     '--color-text-secondary': ['#3d4a44', '#c2cabd'],
     '--color-text-disabled': ['#8a938c', '#7d877e'],
     '--color-accent': ['#f16e56', '#f0856d'],
+    '--color-accent-muted': ['#f9ddd6', '#3d231e'],
   },
 });

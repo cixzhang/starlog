@@ -74,7 +74,7 @@ function urgencyToColor(urgency: Reminder['urgency']): {
     case 'high':
       return { color: CORAL, light: CORAL_LIGHT, glow: true };
     case 'normal':
-      return { color: 'var(--sl-gold)', light: 'color-mix(in srgb, var(--sl-gold), white 35%)', glow: false };
+      return { color: 'var(--color-accent)', light: 'color-mix(in srgb, var(--color-accent), white 35%)', glow: false };
     case 'low':
     default:
       return { color: STONE, light: STONE_LIGHT, glow: false };

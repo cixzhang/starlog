@@ -142,7 +142,7 @@ export default function Compass({
           cy={C}
           r={13 * k}
           fill="none"
-          stroke="var(--sl-gold)"
+          stroke="var(--color-accent)"
           strokeWidth="1.5"
         />
         <circle
