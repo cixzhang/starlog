@@ -73,7 +73,7 @@ const styles = stylex.create({
     justifyContent: 'center',
     gap: 6,
     fontSize: 15,
-    fontWeight: 500,
+    fontWeight: 600,
     color: 'var(--color-text-primary)',
   },
   itemDestructive: {

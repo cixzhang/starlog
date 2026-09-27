@@ -1,10 +1,12 @@
 // Starlog app shell: setup gate, tenant resolution, header, tab navigation.
 // Read-only by design — the anon key this app holds has SELECT grants only.
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { IconButton, Token } from '@astryxdesign/core';
-import SettingsPanel from './components/SettingsPanel';
+// Code-split: Calendar and Settings load on demand, not in the initial bundle.
+const Calendar = lazy(() => import('./views/Calendar'));
+const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
 import {
   BookOpen,
   Calendar as CalendarIcon,
@@ -28,7 +30,6 @@ import { useCustomTheme } from './lib/customTheme';
 import { StarlogMark } from './components/mark';
 import { ErrorNote, Loading } from './components/ui';
 import Journal, { type WeekdayControls } from './views/Journal';
-import Calendar from './views/Calendar';
 
 // Whether the app is running as an installed PWA (vs in the browser).
 function isStandalone(): boolean {
@@ -308,11 +309,12 @@ export default function App() {
                 variant="ghost"
                 onClick={() => setMenuOpen(true)}
               />
-              <SettingsPanel
-                open={menuOpen}
-                onClose={() => {
-                  setMenuOpen(false);
-                }}
+              <Suspense fallback={null}>
+                <SettingsPanel
+                  open={menuOpen}
+                  onClose={() => {
+                    setMenuOpen(false);
+                  }}
                 weekStart={weekStart}
                 onWeekStart={chooseWeekStart}
                 mode={mode}
@@ -333,6 +335,7 @@ export default function App() {
                 onRemoveCustomTheme={removeCustomTheme}
                 onInstallCustomTheme={installCustomTheme}
               />
+              </Suspense>
             </div>
             </header>
 
@@ -355,12 +358,14 @@ export default function App() {
                 />
               )}
               {!tenantError && tenantId && tab === 'calendar' && (
-                <Calendar
-                  cfg={cfg}
-                  tenantId={tenantId}
-                  onPickDay={pickDay}
-                  weekStart={weekStart}
-                />
+                <Suspense fallback={<Loading />}>
+                  <Calendar
+                    cfg={cfg}
+                    tenantId={tenantId}
+                    onPickDay={pickDay}
+                    weekStart={weekStart}
+                  />
+                </Suspense>
               )}
             </main>
           </>
