@@ -192,19 +192,32 @@ export default function ReminderRadar({
 
     reminderObserverRef.current = observer;
 
-    // Observe the sheet elements for each reminder date.
-    // Use requestAnimationFrame to ensure sheets are in the DOM.
+    // Observe the sheet elements containing each reminder date.
+    // Sheets are week-based, so find the sheet whose 7-day range
+    // contains the reminder date.
     const raf = requestAnimationFrame(() => {
       const seen = new Set<string>();
       for (const r of reminders) {
-        const dateIso = toISODate(new Date(r.remind_at));
+        const remindDate = new Date(r.remind_at);
+        remindDate.setHours(0, 0, 0, 0);
+        const dateIso = toISODate(remindDate);
         if (seen.has(dateIso)) continue;
         seen.add(dateIso);
-        const el = document.getElementById(`sheet-${dateIso}`);
-        if (el) {
-          // Tag it so the observer can identify it
-          (el as HTMLElement).dataset.reminderDate = dateIso;
-          observer.observe(el);
+
+        const sheetElements = document.querySelectorAll('[data-sheet-iso]');
+        for (const el of sheetElements) {
+          const sheetIso = (el as HTMLElement).dataset.sheetIso;
+          if (!sheetIso) continue;
+          const sheetDate = new Date(sheetIso + 'T00:00:00');
+          const diffDays = Math.round(
+            (remindDate.getTime() - sheetDate.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          if (diffDays >= 0 && diffDays < 7) {
+            // Tag it so the observer can identify it
+            (el as HTMLElement).dataset.reminderDate = dateIso;
+            observer.observe(el);
+            break;
+          }
         }
       }
     });
@@ -262,10 +275,25 @@ export default function ReminderRadar({
         // If the date is visible, remove the planet entirely
         if (visibleReminderDates.has(dateIso)) return null;
 
-        // Find the actual sheet element for this date and get its position.
-        // The planet positions itself at the screen edge nearest to the sheet,
-        // with the arrow pointing toward it.
-        const sheetEl = document.getElementById(`sheet-${dateIso}`);
+        // Find the sheet containing this reminder date.
+        // Sheets are week-based (7 days each), so the reminder date falls
+        // within a sheet's week range, not necessarily matching its ID.
+        let sheetEl: HTMLElement | null = null;
+        const sheetElements = document.querySelectorAll('[data-sheet-iso]');
+        for (const el of sheetElements) {
+          const sheetIso = (el as HTMLElement).dataset.sheetIso;
+          if (!sheetIso) continue;
+          const sheetDate = new Date(sheetIso + 'T00:00:00');
+          const diffDays = Math.round(
+            (remindDate.getTime() - sheetDate.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          // The sheet covers its date ± 3 days (a week centered on the weekday)
+          // Actually: sheets are 7 days apart, so check if within 0-6 days
+          if (diffDays >= 0 && diffDays < 7) {
+            sheetEl = el as HTMLElement;
+            break;
+          }
+        }
 
         let sheetCenterX: number;
         let sheetCenterY: number;
