@@ -3,6 +3,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
+import {
+  BookOpen,
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Ellipsis,
+  Moon,
+  Sun,
+} from 'lucide-react';
 import { Theme } from '@astryxdesign/core/theme';
 import { starlogTheme } from './studio/starlog.js';
 import {
@@ -90,16 +99,17 @@ const styles = stylex.create({
     border: 'none',
     background: 'transparent',
     color: 'var(--sl-ink-soft)',
-    fontSize: 20,
-    lineHeight: 1,
     padding: '8px 10px',
     borderRadius: 8,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rightCell: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 0,
     justifySelf: 'end',
   },
   iconBtn: {
@@ -165,44 +175,6 @@ function initialMode(): Mode {
   } catch {
     return 'light';
   }
-}
-
-function CalendarIcon() {
-  return (
-    <svg
-      width="19"
-      height="19"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      aria-hidden="true"
-    >
-      <rect x="2.5" y="4" width="15" height="13" rx="2.5" />
-      <line x1="2.5" y1="8" x2="17.5" y2="8" />
-      <line x1="6.5" y1="2" x2="6.5" y2="5.5" />
-      <line x1="13.5" y1="2" x2="13.5" y2="5.5" />
-    </svg>
-  );
-}
-
-function JournalIcon() {
-  return (
-    <svg
-      width="19"
-      height="19"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      aria-hidden="true"
-    >
-      <rect x="4" y="2.5" width="12" height="15" rx="2" />
-      <line x1="7.5" y1="7" x2="12.5" y2="7" />
-      <line x1="7.5" y1="10.5" x2="12.5" y2="10.5" />
-      <line x1="7.5" y1="14" x2="11" y2="14" />
-    </svg>
-  );
 }
 
 export default function App() {
@@ -322,7 +294,7 @@ export default function App() {
                       onClick={() => weekdayCtl.move(-1)}
                       aria-label="Previous weekday"
                     >
-                      ‹
+                      <ChevronLeft size={20} />
                     </button>
                     <button
                       {...stylex.props(styles.pill)}
@@ -337,7 +309,7 @@ export default function App() {
                       onClick={() => weekdayCtl.move(1)}
                       aria-label="Next weekday"
                     >
-                      ›
+                      <ChevronRight size={20} />
                     </button>
                   </>
                 )}
@@ -353,7 +325,11 @@ export default function App() {
                   }
                   title={tab === 'journal' ? 'Calendar' : 'Journal'}
                 >
-                  {tab === 'journal' ? <CalendarIcon /> : <JournalIcon />}
+                  {tab === 'journal' ? (
+                    <CalendarIcon size={19} />
+                  ) : (
+                    <BookOpen size={19} />
+                  )}
                 </button>
                 <button
                   {...stylex.props(styles.iconBtn)}
@@ -365,7 +341,7 @@ export default function App() {
                   }
                   title={mode === 'light' ? 'Night' : 'Day'}
                 >
-                  {mode === 'light' ? '☾' : '☀'}
+                  {mode === 'light' ? <Moon size={19} /> : <Sun size={19} />}
                 </button>
               <div {...stylex.props(styles.menuWrap)} ref={menuRef}>
                 <button
@@ -379,7 +355,7 @@ export default function App() {
                   aria-expanded={menuOpen}
                   title="Menu"
                 >
-                  ⋯
+                  <Ellipsis size={19} />
                 </button>
                 {menuOpen && (
                   <div {...stylex.props(styles.menuPanel)} role="menu">
