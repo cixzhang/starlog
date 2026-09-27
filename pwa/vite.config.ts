@@ -16,6 +16,6 @@ export default defineConfig({
   define: {
     __COMMIT_HASH__: JSON.stringify(commitHash),
   },
-  // Inline font files as data URIs so the PWA works fully offline.
-  build: { assetsInlineLimit: 1024 * 1024 },
+  // Fonts are served as separate files from /fonts/ (see public/fonts/),
+  // preloaded in index.html. No inlining.
 });

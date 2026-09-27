@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { defineTheme, type DefinedTheme } from '@astryxdesign/core/theme';
+import { defineTheme, type DefinedTheme } from '@astryxdesign/core';
 import { starlogTheme } from '../studio/starlog.js';
 
 // Custom themes progressively extend the Starlog theme via defineTheme.

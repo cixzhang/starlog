@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { Button } from '@astryxdesign/core/Button';
+import { Button } from '@astryxdesign/core';
 import { StarlogMark } from '../components/mark';
 
 const styles = stylex.create({

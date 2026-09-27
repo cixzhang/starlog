@@ -12,7 +12,7 @@ import {
   ChevronRight,
   Ellipsis,
 } from 'lucide-react';
-import { Theme } from '@astryxdesign/core/theme';
+import { Theme } from '@astryxdesign/core';
 import { starlogTheme } from './studio/starlog.js';
 import {
   clearConfig,
