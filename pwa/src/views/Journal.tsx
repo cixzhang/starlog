@@ -297,8 +297,7 @@ export default function Journal({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'reminders' },
-        (payload) => {
-          const row = (payload.new ?? payload.old) as Reminder | null;
+        (payload) => {          const row = (payload.new ?? payload.old) as Reminder | null;
           if (!row?.id) return;
           if (payload.eventType === 'DELETE') {
             setAllReminders((prev) => prev.filter((r) => r.id !== row.id));
@@ -310,6 +309,37 @@ export default function Journal({
             setAllReminders((prev) =>
               prev.map((r) => (r.id === row.id ? row : r)),
             );
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'decorations' },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Decoration | null;
+          if (!row?.id) return;
+          const date = (row as Decoration).entry_date ?? '';
+          if (!date) return;
+          if (payload.eventType === 'DELETE') {
+            setDecosByDate((prev) => {
+              const next = { ...prev };
+              next[date] = (next[date] ?? []).filter((d) => d.id !== row.id);
+              return next;
+            });
+          } else if (payload.eventType === 'INSERT') {
+            setDecosByDate((prev) => {
+              const list = prev[date] ?? [];
+              if (list.some((d) => d.id === row.id)) return prev;
+              return { ...prev, [date]: [...list, row as Decoration] };
+            });
+          } else {
+            setDecosByDate((prev) => {
+              const next = { ...prev };
+              next[date] = (next[date] ?? []).map((d) =>
+                d.id === row.id ? (row as Decoration) : d,
+              );
+              return next;
+            });
           }
         },
       )
