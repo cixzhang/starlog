@@ -15,7 +15,15 @@ import { addDays, daysBetween, formatShort, parseISODate, toISODate } from '../l
 import { Markdown } from '../lib/markdown';
 import { sanitizeSvg } from '../lib/svg';
 import { ErrorNote } from './ui';
-import type { Decoration, Entry, Prompt, Reminder } from '../lib/supabase';
+import SoundSnippets from './SoundSnippets';
+import type {
+  Attachment,
+  Decoration,
+  Entry,
+  Prompt,
+  Reminder,
+  SbConfig,
+} from '../lib/supabase';
 
 const CONTAINER_HEIGHT = 30000;
 const MIDDLE = CONTAINER_HEIGHT / 2;
@@ -40,6 +48,11 @@ interface WeekdaySheetProps {
   promptsByDate: Record<string, Prompt>;
   decosByDate: Record<string, Decoration[]>;
   remindersByDate: Record<string, Reminder[]>;
+  attachmentsByEntryId: Record<string, Attachment[]>;
+  cfg: SbConfig;
+  tenantId: string;
+  onEntryCreated: (entry: Entry) => void;
+  onAttachmentAdded: (attachment: Attachment) => void;
   onNeedDates: (dates: string[]) => void;
   /** ISO date to jump to. Only set on the sheet whose weekday matches. */
   jumpDate: string | null;
@@ -127,6 +140,11 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     promptsByDate,
     decosByDate,
     remindersByDate,
+    attachmentsByEntryId,
+    cfg,
+    tenantId,
+    onEntryCreated,
+    onAttachmentAdded,
     onNeedDates,
     jumpDate,
     onJumpHandled,
@@ -324,6 +342,17 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                   {decos.map((d) => (
                     <DecoView key={d.id} d={d} />
                   ))}
+                  <SoundSnippets
+                    cfg={cfg}
+                    tenantId={tenantId}
+                    dateIso={iso}
+                    entry={entry ?? null}
+                    attachments={
+                      entry ? (attachmentsByEntryId[entry.id] ?? []) : []
+                    }
+                    onEntryCreated={onEntryCreated}
+                    onAttachmentAdded={onAttachmentAdded}
+                  />
                 </article>
             );
           })}

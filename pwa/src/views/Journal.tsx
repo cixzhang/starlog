@@ -23,10 +23,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import * as stylex from '@stylexjs/stylex';
 import {
+  fetchAttachmentsByEntryIds,
   fetchDecorations,
   fetchEntriesByDates,
   fetchPromptsByDates,
   fetchReminders,
+  type Attachment,
   type Decoration,
   type Entry,
   type Prompt,
@@ -170,6 +172,9 @@ export default function Journal({
   const [entriesByDate, setEntriesByDate] = useState<Record<string, Entry>>({});
   const [promptsByDate, setPromptsByDate] = useState<Record<string, Prompt>>({});
   const [decosByDate, setDecosByDate] = useState<Record<string, Decoration[]>>({});
+  const [attachmentsByEntryId, setAttachmentsByEntryId] = useState<
+    Record<string, Attachment[]>
+  >({});
   const [allReminders, setAllReminders] = useState<Reminder[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState<string | null>(null);
@@ -177,7 +182,22 @@ export default function Journal({
   const [radarJump, setRadarJump] = useState<{ weekday: number; date: string } | null>(null);
   const [fetchVersion, setFetchVersion] = useState(0);
 
-  // "Now" refreshes if the day rolls over while the app is open/suspended.
+  // Callbacks for the sound-snippet recorder (per-date, via WeekdaySheet).
+  const handleEntryCreated = useCallback((entry: Entry) => {
+    setEntriesByDate((prev) =>
+      prev[entry.entry_date] ? prev : { ...prev, [entry.entry_date]: entry },
+    );
+  }, []);
+  const handleAttachmentAdded = useCallback((attachment: Attachment) => {
+    setAttachmentsByEntryId((prev) => {
+      const list = prev[attachment.entry_id] ?? [];
+      if (list.some((a) => a.id === attachment.id)) return prev;
+      return {
+        ...prev,
+        [attachment.entry_id]: [...list, attachment],
+      };
+    });
+  }, []);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = setInterval(() => {
@@ -220,6 +240,11 @@ export default function Journal({
             fetchPromptsByDates(cfg, tenantId, fresh),
             fetchDecorations(cfg, tenantId, fresh),
           ]);
+          const as = await fetchAttachmentsByEntryIds(
+            cfg,
+            tenantId,
+            es.map((e) => e.id),
+          );
           if (!mountedRef.current) return;
           setEntriesByDate((prev) => {
             const next = { ...prev };
@@ -238,6 +263,15 @@ export default function Journal({
               if (!key || fetchedDates.current.has(`deco:${d.id}`)) continue;
               fetchedDates.current.add(`deco:${d.id}`);
               (next[key] ??= []).push(d);
+            }
+            return next;
+          });
+          setAttachmentsByEntryId((prev) => {
+            const next = { ...prev };
+            for (const a of as) {
+              if (fetchedDates.current.has(`att:${a.id}`)) continue;
+              fetchedDates.current.add(`att:${a.id}`);
+              (next[a.entry_id] ??= []).push(a);
             }
             return next;
           });
@@ -337,6 +371,39 @@ export default function Journal({
               const next = { ...prev };
               next[date] = (next[date] ?? []).map((d) =>
                 d.id === row.id ? (row as Decoration) : d,
+              );
+              return next;
+            });
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attachments' },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Attachment | null;
+          if (!row?.id) return;
+          const entryId = (row as Attachment).entry_id;
+          if (!entryId) return;
+          if (payload.eventType === 'DELETE') {
+            setAttachmentsByEntryId((prev) => {
+              const next = { ...prev };
+              next[entryId] = (next[entryId] ?? []).filter(
+                (a) => a.id !== row.id,
+              );
+              return next;
+            });
+          } else if (payload.eventType === 'INSERT') {
+            setAttachmentsByEntryId((prev) => {
+              const list = prev[entryId] ?? [];
+              if (list.some((a) => a.id === row.id)) return prev;
+              return { ...prev, [entryId]: [...list, row as Attachment] };
+            });
+          } else {
+            setAttachmentsByEntryId((prev) => {
+              const next = { ...prev };
+              next[entryId] = (next[entryId] ?? []).map((a) =>
+                a.id === row.id ? (row as Attachment) : a,
               );
               return next;
             });
@@ -596,6 +663,11 @@ export default function Journal({
               promptsByDate={promptsByDate}
               decosByDate={decosByDate}
               remindersByDate={remindersByDate}
+              attachmentsByEntryId={attachmentsByEntryId}
+              cfg={cfg}
+              tenantId={tenantId}
+              onEntryCreated={handleEntryCreated}
+              onAttachmentAdded={handleAttachmentAdded}
               onNeedDates={onNeedDates}
               jumpDate={
                 (jump && jump.weekday === w ? jump.date : null) ||

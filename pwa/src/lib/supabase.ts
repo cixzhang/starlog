@@ -151,6 +151,16 @@ export interface Decoration {
   z: number;
 }
 
+export interface Attachment {
+  id: string;
+  entry_id: string;
+  type: 'audio';
+  storage_path: string;
+  duration_ms: number | null;
+  mime_type: string | null;
+  created_at: string;
+}
+
 export interface Capabilities {
   spec_version: string;
   operations: string[];
@@ -273,4 +283,105 @@ export async function fetchDecorations(
       `&entry_date=in.(${list})&order=z` +
       `&select=id,entry_date,kind,svg,z`,
   )) as Decoration[];
+}
+
+/** Audio attachments for the given entry ids, oldest first. */
+export async function fetchAttachmentsByEntryIds(
+  cfg: SbConfig,
+  tenantId: string,
+  entryIds: string[],
+): Promise<Attachment[]> {
+  if (entryIds.length === 0) return [];
+  const list = entryIds.join(',');
+  return (await sbFetch(
+    cfg,
+    `/attachments?tenant_id=eq.${tenantId}&entry_id=in.(${list})` +
+      `&order=created_at` +
+      `&select=id,entry_id,type,storage_path,duration_ms,mime_type,created_at`,
+  )) as Attachment[];
+}
+
+/**
+ * Get the entry for a date, creating an empty one if needed.
+ * Recording a sound on a dateless day creates its entry first.
+ */
+export async function ensureEntry(
+  cfg: SbConfig,
+  tenantId: string,
+  date: string,
+): Promise<Entry> {
+  const existing = await fetchEntriesByDates(cfg, tenantId, [date]);
+  if (existing.length > 0) return existing[0];
+  const created = (await sbFetch(cfg, '/entries', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      tenant_id: tenantId,
+      entry_date: date,
+      body_text: '',
+      created_by: 'human',
+    }),
+  })) as Entry[];
+  if (created.length === 0) throw new SbError(500, 'Could not create entry');
+  return created[0];
+}
+
+/** Upload an audio blob to the audio-snippets bucket. */
+export async function uploadAudio(
+  cfg: SbConfig,
+  storagePath: string,
+  blob: Blob,
+): Promise<void> {
+  const res = await fetch(
+    `${cfg.url}/storage/v1/object/audio-snippets/${storagePath}`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: cfg.anonKey,
+        Authorization: `Bearer ${cfg.anonKey}`,
+        'Content-Type': blob.type || 'application/octet-stream',
+        'x-upsert': 'false',
+      },
+      body: blob,
+    },
+  );
+  if (!res.ok) {
+    throw new SbError(res.status, `Audio upload failed (${res.status})`);
+  }
+}
+
+/** Insert an attachment row pointing at an uploaded audio file. */
+export async function insertAttachment(
+  cfg: SbConfig,
+  tenantId: string,
+  entryId: string,
+  storagePath: string,
+  durationMs: number,
+  mimeType: string,
+): Promise<Attachment> {
+  const rows = (await sbFetch(cfg, '/attachments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      tenant_id: tenantId,
+      entry_id: entryId,
+      type: 'audio',
+      storage_path: storagePath,
+      duration_ms: Math.round(durationMs),
+      mime_type: mimeType,
+    }),
+  })) as Attachment[];
+  if (rows.length === 0) throw new SbError(500, 'Could not save snippet');
+  return rows[0];
+}
+
+/** Public URL for a stored audio file (bucket is public-read). */
+export function audioPublicUrl(cfg: SbConfig, storagePath: string): string {
+  return `${cfg.url}/storage/v1/object/public/audio-snippets/${storagePath}`;
 }

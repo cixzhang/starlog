@@ -166,6 +166,20 @@ body {
   }
 }
 
+@keyframes sl-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+
+@keyframes sl-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes sl-eq-bounce {
+  0%, 100% { background-size: 3px 35%; }
+  50% { background-size: 3px 100%; }
+}
+
 /* Astryx Button restyle hook: keep the brand quiet */
 button {
   font-family: var(--font-body);
