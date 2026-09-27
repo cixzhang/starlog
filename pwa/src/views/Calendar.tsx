@@ -9,6 +9,8 @@ import { Divider } from '@astryxdesign/core';
 import { createClient } from '@supabase/supabase-js';
 import {
   fetchEntryDates,
+  fetchReminders,
+  type Reminder,
   type SbConfig,
 } from '../lib/supabase';
 import {
@@ -97,6 +99,13 @@ const styles = stylex.create({
     borderRadius: '50%',
     backgroundColor: 'var(--sl-gold)',
   },
+  dotReminder: {
+    width: 5,
+    height: 5,
+    borderRadius: '50%',
+    backgroundColor: '#F16E56',
+    marginLeft: 3,
+  },
   dotEmpty: {
     width: 5,
     height: 5,
@@ -126,6 +135,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
   const [past, setPast] = useState(INIT_PAST);
   const [future, setFuture] = useState(INIT_FUTURE);
   const [dates, setDates] = useState<Set<string> | null>(null);
+  const [reminders, setReminders] = useState<Map<string, Reminder[]>>(new Map());
   const [realtimeNonce, setRealtimeNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -157,7 +167,10 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
     let alive = true;
     (async () => {
       try {
-        const ds = await fetchEntryDates(cfg, tenantId, from, to);
+        const [ds, rs] = await Promise.all([
+          fetchEntryDates(cfg, tenantId, from, to),
+          fetchReminders(cfg, tenantId, from, to),
+        ]);
         if (!alive) return;
         fetchedRef.current = {
           from: f ? (from < f.from ? from : f.from) : from,
@@ -166,6 +179,17 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
         setDates((prev) => {
           const next = new Set(prev ?? []);
           for (const d of ds) next.add(d);
+          return next;
+        });
+        setReminders((prev) => {
+          const next = new Map(prev);
+          for (const r of rs) {
+            const date = toISODate(new Date(r.remind_at));
+            const list = next.get(date) ?? [];
+            if (!list.some((x) => x.id === r.id)) {
+              next.set(date, [...list, r]);
+            }
+          }
           return next;
         });
         setError(null);
@@ -194,6 +218,14 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
           fetchedRef.current = null;
           // Trigger a refetch by forcing the months effect to re-run.
           // We do this by updating a nonce state.
+          setRealtimeNonce((n) => n + 1);
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reminders' },
+        () => {
+          fetchedRef.current = null;
           setRealtimeNonce((n) => n + 1);
         },
       )
@@ -315,11 +347,13 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                   // immediately so month heights (and scroll position)
                   // stay stable from the first paint.
                   const hasEntry = dates !== null && dates.has(iso);
+                  const dayReminders = reminders.get(iso) ?? [];
+                  const hasReminder = dayReminders.length > 0;
                   return (
                     <button
                       key={iso}
                       role="gridcell"
-                      aria-label={`${iso}${hasEntry ? ', has entry' : ''}`}
+                      aria-label={`${iso}${hasEntry ? ', has entry' : ''}${hasReminder ? `, ${dayReminders.length} reminder${dayReminders.length > 1 ? 's' : ''}` : ''}`}
                       {...stylex.props(
                         styles.cell,
                         !inMonth && styles.cellDim,
@@ -329,8 +363,19 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                     >
                       {d.getDate()}
                       <span
-                        {...stylex.props(hasEntry ? styles.dot : styles.dotEmpty)}
-                      />
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <span
+                          {...stylex.props(hasEntry ? styles.dot : styles.dotEmpty)}
+                        />
+                        {hasReminder && (
+                          <span {...stylex.props(styles.dotReminder)} />
+                        )}
+                      </span>
                     </button>
                   );
                 })}
