@@ -43,6 +43,8 @@ const styles = stylex.create({
   // background stays identical for visual consistency.
   monthMuted: {
     color: 'var(--color-text-secondary)',
+    backgroundColor: 'var(--color-background-surface)',
+    borderRadius: 12,
   },
   monthTitle: {
     fontFamily: 'var(--font-heading)',
