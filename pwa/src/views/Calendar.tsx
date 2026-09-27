@@ -104,6 +104,8 @@ const styles = stylex.create({
     height: 5,
     borderRadius: '50%',
     backgroundColor: '#F16E56',
+  },
+  dotReminderOffset: {
     marginLeft: 3,
   },
   dotEmpty: {
@@ -343,6 +345,13 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                 {cells.map((d) => {
                   const iso = toISODate(d);
                   const inMonth = d.getMonth() === start.getMonth();
+                  // Out-of-month leading cells stay empty: the previous month
+                  // is visible right above, so muted dates are redundant.
+                  if (!inMonth && d < start) {
+                    return (
+                      <span key={iso} {...stylex.props(styles.cell)} aria-hidden="true" />
+                    );
+                  }
                   // Dots fill in when entry dates arrive; cells render
                   // immediately so month heights (and scroll position)
                   // stay stable from the first paint.
@@ -369,11 +378,18 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                           justifyContent: 'center',
                         }}
                       >
-                        <span
-                          {...stylex.props(hasEntry ? styles.dot : styles.dotEmpty)}
-                        />
+                        {hasEntry ? (
+                          <span {...stylex.props(styles.dot)} />
+                        ) : !hasReminder ? (
+                          <span {...stylex.props(styles.dotEmpty)} />
+                        ) : null}
                         {hasReminder && (
-                          <span {...stylex.props(styles.dotReminder)} />
+                          <span
+                            {...stylex.props(
+                              styles.dotReminder,
+                              hasEntry && styles.dotReminderOffset,
+                            )}
+                          />
                         )}
                       </span>
                     </button>

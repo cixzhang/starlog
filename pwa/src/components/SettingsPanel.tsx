@@ -27,7 +27,7 @@ const styles = stylex.create({
     position: 'fixed',
     inset: 0,
     zIndex: 10,
-    backgroundColor: 'var(--color-background-body)',
+    backgroundColor: 'var(--color-background-surface)',
     display: 'flex',
     flexDirection: 'column',
   },
