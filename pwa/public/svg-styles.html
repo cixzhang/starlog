@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starlog Decoration Styles</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, sans-serif;
+    max-width: 900px; margin: 0 auto; padding: 24px;
+    background: #faf8f3; color: #1a1a1a;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #f0f0f0; }
+  }
+  h1 { font-size: 22px; margin-bottom: 8px; }
+  p.sub { color: #666; margin-bottom: 32px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid #ddd; border-radius: 12px; padding: 20px;
+    background: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    .card { background: #2a2a2a; border-color: #444; }
+  }
+  .card h2 { font-size: 16px; margin: 0 0 4px; }
+  .card p { font-size: 13px; color: #666; margin: 0 0 16px; }
+  .preview {
+    display: flex; justify-content: center; align-items: center;
+    min-height: 200px; background: #faf8f3; border-radius: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .preview { background: #222; }
+  }
+  .preview svg { max-width: 180px; max-height: 180px; }
+</style>
+</head>
+<body>
+<h1>Starlog Decoration Styles</h1>
+<p class="sub">Mooncake sketches in 6 styles. Pick one for the style guide.</p>
+<div class="grid">
+
+<div class="card">
+<h2>1. Minimalist Line Art</h2>
+<p>Clean even-weight outlines, no fill. Current default.</p>
+<div class="preview">
+<svg viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="3">
+  <circle cx="100" cy="100" r="70"/>
+  <circle cx="100" cy="100" r="52"/>
+  <path d="M30 100 a70 70 0 0 1 140 0" stroke-dasharray="8 6"/>
+  <path d="M30 100 a70 70 0 0 0 140 0" stroke-dasharray="8 6"/>
+  <text x="100" y="92" text-anchor="middle" font-size="28" fill="currentColor" stroke="none">家好</text>
+  <text x="100" y="122" text-anchor="middle" font-size="28" fill="currentColor" stroke="none">月圆</text>
+</svg>
+</div>
+</div>
+
+<div class="card">
+<h2>2. Hand-Drawn Sketchy</h2>
+<p>Loose wobbly lines, slight overshoot. Feels hand-made.</p>
+<div class="preview">
+<svg viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+  <path d="M32 98 C30 60, 60 28, 102 30 C142 32, 172 62, 170 100 C168 140, 138 170, 98 168 C60 166, 32 138, 32 98"/>
+  <path d="M35 102 C36 66, 64 36, 104 37" opacity="0.5"/>
+  <circle cx="100" cy="100" r="50" stroke-dasharray="1 0"/>
+  <path d="M52 100 C52 72, 74 52, 102 52" opacity="0.4"/>
+  <text x="100" y="95" text-anchor="middle" font-size="26" fill="currentColor" stroke="none" font-family="cursive">家好</text>
+  <text x="100" y="125" text-anchor="middle" font-size="26" fill="currentColor" stroke="none" font-family="cursive">月圆</text>
+  <path d="M60 160 L140 155" opacity="0.3" stroke-width="1.5"/>
+  <path d="M65 165 L135 160" opacity="0.2" stroke-width="1.5"/>
+</svg>
+</div>
+</div>
+
+<div class="card">
+<h2>3. Flat Geometric</h2>
+<p>Bold solid shapes, no outlines. Poster-like.</p>
+<div class="preview">
+<svg viewBox="0 0 200 200">
+  <circle cx="100" cy="100" r="75" fill="#F16E56"/>
+  <circle cx="100" cy="100" r="55" fill="#fff"/>
+  <circle cx="100" cy="100" r="55" fill="none" stroke="#193346" stroke-width="4"/>
+  <text x="100" y="95" text-anchor="middle" font-size="30" fill="#193346" font-weight="bold">家好</text>
+  <text x="100" y="128" text-anchor="middle" font-size="30" fill="#193346" font-weight="bold">月圆</text>
+</svg>
+</div>
+</div>
+
+<div class="card">
+<h2>4. Continuous Line</h2>
+<p>One unbroken path. Elegant and abstract.</p>
+<div class="preview">
+<svg viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+  <path d="M100 30 C140 30, 170 60, 170 100 C170 140, 140 170, 100 170 C60 170, 30 140, 30 100 C30 65, 55 35, 95 32 C120 30, 145 45, 150 70 C155 95, 140 115, 115 118 C95 120, 80 110, 82 95 C84 82, 100 78, 110 85 C118 91, 116 104, 105 108 M70 130 Q100 145, 130 130"/>
+</svg>
+</div>
+</div>
+
+<div class="card">
+<h2>5. Ink Wash / Sumi-e</h2>
+<p>Brush strokes, translucent washes. Meditative.</p>
+<div class="preview">
+<svg viewBox="0 0 200 200" fill="none" stroke="currentColor">
+  <circle cx="100" cy="100" r="65" stroke-width="8" opacity="0.9" stroke-linecap="round"
+    stroke-dasharray="380 30" transform="rotate(-20 100 100)"/>
+  <circle cx="100" cy="100" r="65" stroke-width="3" opacity="0.3"/>
+  <circle cx="100" cy="100" r="45" stroke-width="2" opacity="0.5"/>
+  <text x="100" y="98" text-anchor="middle" font-size="32" fill="currentColor" stroke="none" opacity="0.85">家好</text>
+  <text x="100" y="132" text-anchor="middle" font-size="32" fill="currentColor" stroke="none" opacity="0.85">月圆</text>
+  <rect x="148" y="148" width="28" height="28" fill="#F16E56" opacity="0.9"/>
+  <text x="162" y="168" text-anchor="middle" font-size="18" fill="#fff">秋</text>
+</svg>
+</div>
+</div>
+
+<div class="card">
+<h2>6. Doodle / Sticker</h2>
+<p>Chunky outlines, white halo, playful tilt.</p>
+<div class="preview">
+<svg viewBox="0 0 200 200" transform="rotate(-8 100 100)">
+  <circle cx="100" cy="100" r="72" fill="#fff" stroke="#fff" stroke-width="12"/>
+  <circle cx="100" cy="100" r="65" fill="#F5E6C8" stroke="currentColor" stroke-width="4"/>
+  <circle cx="100" cy="100" r="48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="6 4"/>
+  <text x="100" y="95" text-anchor="middle" font-size="28" fill="currentColor">家好</text>
+  <text x="100" y="125" text-anchor="middle" font-size="28" fill="currentColor">月圆</text>
+  <path d="M45 55 l4 8 8 4 -8 4 -4 8 -4 -8 -8 -4 8 -4 z" fill="#F16E56" stroke="none"/>
+  <path d="M160 140 l3 6 6 3 -6 3 -3 6 -3 -6 -6 -3 6 -3 z" fill="#F16E56" stroke="none" opacity="0.7"/>
+</svg>
+</div>
+</div>
+
+</div>
+</body>
+</html>

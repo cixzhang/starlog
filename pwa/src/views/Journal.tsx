@@ -58,6 +58,17 @@ const DECO_PALETTE: Record<string, string> = {
   muted: '--color-text-secondary',
   coral: '--color-coral',
   navy: '--color-navy',
+  // Astryx non-semantic icon colors
+  red: '--color-icon-red',
+  orange: '--color-icon-orange',
+  yellow: '--color-icon-yellow',
+  green: '--color-icon-green',
+  teal: '--color-icon-teal',
+  cyan: '--color-icon-cyan',
+  blue: '--color-icon-blue',
+  purple: '--color-icon-purple',
+  pink: '--color-icon-pink',
+  gray: '--color-icon-gray',
 };
 
 // Agent-controlled decoration presentation via meta:
