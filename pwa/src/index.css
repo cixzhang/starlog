@@ -1,0 +1,183 @@
+/* Starlog base styles: the lunar palette, Markdown typography, keyframes.
+   Astryx theme tokens (--color-*, --font-*) come from src/studio/starlog.css.
+   Domain colors live here as --sl-*. */
+
+:root {
+  --sl-paper: #f5f3ec;
+  --sl-paper-deep: #ece9dd;
+  --sl-ink: #17231f;
+  --sl-ink-soft: #3d4a44;
+  --sl-ink-faint: #8a938c;
+  --sl-line: #ddd8c8;
+  --sl-line-strong: #c4bda6;
+  --sl-coral: #f16e56;
+  --sl-coral-deep: #c24e37;
+  --sl-gold: #d9a83e;
+  --sl-gold-soft: #f2c85b;
+  --sl-green: #1e3a2f;
+  --sl-navy: #1f2a44;
+
+  --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-code: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --sl-paper: #141a17;
+  --sl-paper-deep: #1c2420;
+  --sl-ink: #ece9dd;
+  --sl-ink-soft: #c2cabd;
+  --sl-ink-faint: #7d877e;
+  --sl-line: #2b342f;
+  --sl-line-strong: #3d473f;
+  --sl-coral: #f0856d;
+  --sl-coral-deep: #f0856d;
+  --sl-gold: #d9a83e;
+  --sl-gold-soft: #f2c85b;
+
+  color-scheme: dark;
+}
+
+/* PWA: html always fills the viewport; match the app background so the
+   home-indicator zone never shows a dead band. */
+html {
+  background-color: var(--sl-paper);
+}
+html,
+body,
+#root {
+  height: 100%;
+  height: -webkit-fill-available;
+}
+@media (display-mode: standalone) {
+  html,
+  body,
+  #root {
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background-color: var(--sl-paper);
+  color: var(--sl-ink);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* ---------- starlog-md-1 typography ---------- */
+
+.sl-md {
+  font-size: 16.5px;
+  line-height: 1.75;
+  color: var(--sl-ink-soft);
+  overflow-wrap: break-word;
+}
+.sl-md > *:first-child {
+  margin-top: 0;
+}
+.sl-md > *:last-child {
+  margin-bottom: 0;
+}
+.sl-md h1,
+.sl-md h2,
+.sl-md h3 {
+  font-family: var(--font-heading);
+  color: var(--sl-ink);
+  line-height: 1.35;
+  margin: 1.4em 0 0.6em;
+  font-weight: 650;
+}
+.sl-md h1 {
+  font-size: 1.5em;
+}
+.sl-md h2 {
+  font-size: 1.25em;
+}
+.sl-md h3 {
+  font-size: 1.1em;
+}
+.sl-md p {
+  margin: 0 0 1em;
+}
+.sl-md a {
+  color: var(--sl-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--sl-gold);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+.sl-md code {
+  font-family: var(--font-code);
+  font-size: 0.86em;
+  background: var(--sl-paper-deep);
+  padding: 0.15em 0.4em;
+  border-radius: 5px;
+}
+.sl-md pre {
+  background: var(--sl-paper-deep);
+  border: 1px solid var(--sl-line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0 0 1.1em;
+}
+.sl-md pre code {
+  background: none;
+  padding: 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.sl-md blockquote {
+  margin: 0 0 1.1em;
+  padding: 2px 0 2px 18px;
+  border-left: 2px solid var(--sl-gold);
+  color: var(--sl-ink-soft);
+  font-style: italic;
+}
+.sl-md blockquote > *:last-child {
+  margin-bottom: 0;
+}
+.sl-md ul,
+.sl-md ol {
+  margin: 0 0 1.1em;
+  padding-left: 1.5em;
+}
+.sl-md li {
+  margin: 0.3em 0;
+}
+.sl-md li > ul,
+.sl-md li > ol {
+  margin-bottom: 0.2em;
+}
+.sl-md hr {
+  border: none;
+  border-top: 1px solid var(--sl-line-strong);
+  margin: 1.8em auto;
+  width: 38%;
+}
+.sl-md strong {
+  color: var(--sl-ink);
+  font-weight: 700;
+}
+
+/* ---------- keyframes (plain CSS: the build drops stylex keyframes) ---------- */
+
+@keyframes sl-flash {
+  0% {
+    background-color: color-mix(in srgb, var(--sl-gold-soft) 28%, transparent);
+    border-radius: 12px;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Astryx Button restyle hook: keep the brand quiet */
+button {
+  font-family: var(--font-body);
+}

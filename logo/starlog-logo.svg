@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Starlog logo">
+  <title>Starlog</title>
+  <!-- badge -->
+  <circle cx="120" cy="120" r="100" fill="#f4f6f1"/>
+  <circle cx="120" cy="120" r="100" fill="none" stroke="#17231f" stroke-width="12"/>
+  <!-- orbit ring -->
+  <ellipse cx="120" cy="118" rx="84" ry="30" fill="none" stroke="#f2c85b" stroke-width="9" transform="rotate(-18 120 118)"/>
+  <!-- open notebook -->
+  <path d="M58 148 L113 137 L113 173 L58 184 Z" fill="#17231f"/>
+  <path d="M182 148 L127 137 L127 173 L182 184 Z" fill="#17231f"/>
+  <rect x="117" y="136" width="6" height="40" fill="#f4f6f1"/>
+  <!-- star rising from the fold -->
+  <path d="M120 46 C124 66 130 72 152 77 C130 82 124 88 120 106 C116 88 110 82 88 77 C110 72 116 66 120 46 Z" fill="#f16e56"/>
+  <!-- small accent sparkle -->
+  <path d="M180 48 C182 56 185 59 193 61 C185 63 182 66 180 74 C178 66 175 63 167 61 C175 59 178 56 180 48 Z" fill="#f2c85b"/>
+</svg>
