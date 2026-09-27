@@ -281,12 +281,12 @@ export default function Journal({
     const out: string[] = [];
     for (const w of [prevWeekday, nextWeekday]) {
       const a = anchorFor(w);
-      for (const k of [-1, 0, 1]) {
+      for (let k = -past; k <= future; k++) {
         out.push(toISODate(addDays(a, k * 7)));
       }
     }
     return out;
-  }, [prevWeekday, nextWeekday, now, weekStart, weekday]);
+  }, [prevWeekday, nextWeekday, now, weekStart, weekday, past, future]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Entries, prompts, decorations for sheets we haven't fetched yet.
@@ -631,7 +631,7 @@ export default function Journal({
         aria-hidden="true"
       >
         <div {...stylex.props(styles.previewInner)}>
-          {[-1, 0, 1].map((k) => {
+          {sheets.map(({ k }) => {
             const date = addDays(targetAnchor, k * 7);
             const iso = toISODate(date);
             const entry = entriesByDate[iso];
@@ -642,7 +642,7 @@ export default function Journal({
             const hasAnno = prompt != null || dayReminders.length > 0;
             return (
               <Fragment key={iso}>
-                {k > -1 && <Divider />}
+                {k > -past && <Divider />}
                 <article
                   {...stylex.props(
                     styles.sheet,
