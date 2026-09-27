@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex';
-import { Dialog, DialogHeader, AlertDialog } from '@astryxdesign/core';
+import { Dialog, DialogHeader, AlertDialog, SelectableCard } from '@astryxdesign/core';
 import { Check, Sun, Moon, MonitorSmartphone, Palette, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -30,7 +30,7 @@ const styles = stylex.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: 600,
-    color: 'var(--sl-ink-soft)',
+    color: 'var(--color-text-secondary)',
     paddingLeft: 20,
     paddingRight: 20,
     paddingTop: 20,
@@ -48,7 +48,7 @@ const styles = stylex.create({
     paddingTop: 14,
     paddingBottom: 14,
     fontSize: 16,
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
     backgroundColor: 'transparent',
     border: 'none',
     cursor: 'pointer',
@@ -62,39 +62,28 @@ const styles = stylex.create({
     paddingTop: 4,
     paddingBottom: 4,
   },
-  tile: {
+  tileXstyle: {
     flex: 1,
+  },
+  tileContent: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingTop: 14,
-    paddingBottom: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderStyle: 'solid',
-    borderColor: 'var(--sl-line)',
-    backgroundColor: 'transparent',
-    color: 'var(--sl-ink)',
     fontSize: 15,
     fontWeight: 500,
-    cursor: 'pointer',
-  },
-  tileSelected: {
-    borderColor: 'var(--sl-coral)',
-    backgroundColor: 'color-mix(in srgb, var(--sl-coral) 10%, transparent)',
   },
   itemDestructive: {
     color: 'var(--color-text-red)',
   },
   check: {
-    color: 'var(--sl-ink-soft)',
+    color: 'var(--color-text-secondary)',
     flexShrink: 0,
   },
   divider: {
     height: 1,
-    backgroundColor: 'var(--sl-line)',
+    backgroundColor: 'var(--color-border)',
     marginLeft: 20,
     marginRight: 20,
     marginTop: 12,
@@ -141,14 +130,17 @@ function Tile({
   onClick: () => void;
 }) {
   return (
-    <button
-      {...stylex.props(styles.tile, selected && styles.tileSelected)}
-      onClick={onClick}
-      aria-pressed={selected}
+    <SelectableCard
+      label={label}
+      isSelected={!!selected}
+      onChange={() => onClick()}
+      xstyle={styles.tileXstyle}
     >
-      {icon}
-      <span>{label}</span>
-    </button>
+      <div {...stylex.props(styles.tileContent)}>
+        {icon}
+        <span>{label}</span>
+      </div>
+    </SelectableCard>
   );
 }
 
@@ -239,7 +231,7 @@ export default function SettingsPanel({
                     paddingBottom: 8,
                   }}
                 >
-                  <span style={{ fontSize: 14, color: 'var(--sl-ink-soft)' }}>
+                  <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
                     Custom: {customTheme.name}
                   </span>
                   <button
@@ -268,9 +260,9 @@ export default function SettingsPanel({
                     width: '100%',
                     boxSizing: 'border-box',
                     borderRadius: 12,
-                    border: '1px solid var(--sl-line)',
-                    backgroundColor: 'var(--sl-paper)',
-                    color: 'var(--sl-ink-faint)',
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--color-background-body)',
+                    color: 'var(--color-text-disabled)',
                     fontSize: 13,
                     padding: '10px 12px',
                     fontFamily: 'monospace',
@@ -297,9 +289,9 @@ export default function SettingsPanel({
                   flex: 1,
                   padding: '10px 12px',
                   borderRadius: 12,
-                  border: '1px solid var(--sl-line)',
-                  backgroundColor: 'var(--sl-paper)',
-                  color: 'var(--sl-ink)',
+                  border: '1px solid var(--color-border)',
+                  backgroundColor: 'var(--color-background-body)',
+                  color: 'var(--color-text-primary)',
                   fontSize: 14,
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -337,7 +329,7 @@ export default function SettingsPanel({
                 {themeError}
               </div>
             )}
-            <div style={{ fontSize: 13, color: 'var(--sl-ink-faint)', paddingTop: 8, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 13, color: 'var(--color-text-disabled)', paddingTop: 8, lineHeight: 1.5 }}>
               Copy the prompt, ask your agent to make a theme, then paste the JSON back here.
             </div>
           </div>

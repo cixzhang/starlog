@@ -27,10 +27,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Reminder } from '../lib/supabase';
 import { toISODate, isoWeekday } from '../lib/dates';
 
-const CORAL = 'var(--sl-coral)';
-const CORAL_LIGHT = 'color-mix(in srgb, var(--sl-coral), white 35%)';
-const STONE = 'var(--sl-ink-faint)';
-const STONE_LIGHT = 'color-mix(in srgb, var(--sl-ink-faint), white 25%)';
+const CORAL = 'var(--color-accent)';
+const CORAL_LIGHT = 'color-mix(in srgb, var(--color-accent), white 35%)';
+const STONE = 'var(--color-text-disabled)';
+const STONE_LIGHT = 'color-mix(in srgb, var(--color-text-disabled), white 25%)';
 
 const MAX_SIZE = 24;
 const MIN_SIZE = 12;
@@ -107,10 +107,10 @@ const styles = stylex.create({
     position: 'fixed',
     zIndex: 20,
     pointerEvents: 'auto',
-    backgroundColor: 'var(--sl-paper-deep)',
+    backgroundColor: 'var(--color-background-surface)',
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--sl-line)',
+    borderColor: 'var(--color-border)',
     borderRadius: 12,
     padding: '12px 14px',
     maxWidth: 260,
@@ -120,16 +120,16 @@ const styles = stylex.create({
     fontSize: 14,
     fontWeight: 600,
     marginBottom: 4,
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
   },
   popupDate: {
     fontSize: 12,
-    color: 'var(--sl-ink-soft)',
+    color: 'var(--color-text-secondary)',
     marginBottom: 6,
   },
   popupDetail: {
     fontSize: 13,
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
     lineHeight: 1.4,
   },
   popupClose: {
@@ -137,7 +137,7 @@ const styles = stylex.create({
     top: 8,
     right: 8,
     fontSize: 16,
-    color: 'var(--sl-ink-soft)',
+    color: 'var(--color-text-secondary)',
     background: 'none',
     border: 'none',
     cursor: 'pointer',

@@ -22,7 +22,7 @@ html[data-theme='dark'] .sl-mark-dark { display: block; }
 /* PWA: html always fills the viewport; match the app background so the
    home-indicator zone never shows a dead band. */
 html {
-  background-color: var(--sl-paper);
+  background-color: var(--color-background-body);
 }
 html,
 body,
@@ -42,8 +42,8 @@ body,
 body {
   margin: 0;
   font-family: var(--font-body);
-  background-color: var(--sl-paper);
-  color: var(--sl-ink);
+  background-color: var(--color-background-body);
+  color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
 }
@@ -53,7 +53,7 @@ body {
 .sl-md {
   font-size: 16.5px;
   line-height: 1.75;
-  color: var(--sl-ink-soft);
+  color: var(--color-text-secondary);
   overflow-wrap: break-word;
 }
 .sl-md > *:first-child {
@@ -66,7 +66,7 @@ body {
 .sl-md h2,
 .sl-md h3 {
   font-family: var(--font-heading);
-  color: var(--sl-ink);
+  color: var(--color-text-primary);
   line-height: 1.35;
   margin: 1.4em 0 0.6em;
   font-weight: 650;
@@ -84,7 +84,7 @@ body {
   margin: 0 0 1em;
 }
 .sl-md a {
-  color: var(--sl-ink);
+  color: var(--color-text-primary);
   text-decoration: underline;
   text-decoration-color: var(--sl-gold);
   text-decoration-thickness: 1.5px;
@@ -93,13 +93,13 @@ body {
 .sl-md code {
   font-family: var(--font-code);
   font-size: 0.86em;
-  background: var(--sl-paper-deep);
+  background: var(--color-background-surface);
   padding: 0.15em 0.4em;
   border-radius: 5px;
 }
 .sl-md pre {
-  background: var(--sl-paper-deep);
-  border: 1px solid var(--sl-line);
+  background: var(--color-background-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 14px 16px;
   overflow-x: auto;
@@ -115,7 +115,7 @@ body {
   margin: 0 0 1.1em;
   padding: 2px 0 2px 18px;
   border-left: 2px solid var(--sl-gold);
-  color: var(--sl-ink-soft);
+  color: var(--color-text-secondary);
   font-style: italic;
 }
 .sl-md blockquote > *:last-child {
@@ -135,12 +135,12 @@ body {
 }
 .sl-md hr {
   border: none;
-  border-top: 1px solid var(--sl-line-strong);
+  border-top: 1px solid var(--color-border-emphasized);
   margin: 1.8em auto;
   width: 38%;
 }
 .sl-md strong {
-  color: var(--sl-ink);
+  color: var(--color-text-primary);
   font-weight: 700;
 }
 

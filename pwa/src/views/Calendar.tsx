@@ -37,12 +37,12 @@ const styles = stylex.create({
   },
   monthSheet: {
     padding: '20px 20px 28px',
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
   },
   // Months other than this one recede via foreground only: dimmer text,
   // background stays identical for visual consistency.
   monthMuted: {
-    color: 'var(--sl-ink-soft)',
+    color: 'var(--color-text-secondary)',
   },
   monthTitle: {
     fontFamily: 'var(--font-heading)',
@@ -51,7 +51,7 @@ const styles = stylex.create({
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
     margin: '0 0 12px',
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
   },
   grid: {
     display: 'grid',
@@ -64,7 +64,7 @@ const styles = stylex.create({
     fontWeight: 600,
     letterSpacing: '0.06em',
     textTransform: 'uppercase',
-    color: 'var(--sl-ink-faint)',
+    color: 'var(--color-text-disabled)',
     padding: '8px 0',
   },
   cell: {
@@ -80,17 +80,17 @@ const styles = stylex.create({
     justifyContent: 'center',
     gap: 3,
     fontSize: 15,
-    color: 'var(--sl-ink-soft)',
+    color: 'var(--color-text-secondary)',
     fontFamily: 'var(--font-body)',
-    ':hover': { backgroundColor: 'var(--sl-paper-deep)' },
+    ':hover': { backgroundColor: 'var(--color-background-surface)' },
   },
   cellDim: {
-    color: 'var(--sl-ink-faint)',
+    color: 'var(--color-text-disabled)',
     opacity: 0.45,
   },
   cellToday: {
     fontWeight: 700,
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
     boxShadow: 'inset 0 0 0 1.5px var(--sl-gold)',
   },
   dot: {
@@ -103,7 +103,7 @@ const styles = stylex.create({
     width: 5,
     height: 5,
     borderRadius: '50%',
-    backgroundColor: 'var(--sl-coral)',
+    backgroundColor: 'var(--color-accent)',
   },
   dotReminderOffset: {
     marginLeft: 3,
@@ -326,7 +326,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                 {...stylex.props(styles.monthTitle)}
                 style={
                   k !== 0
-                    ? { color: 'var(--sl-ink-soft)' }
+                    ? { color: 'var(--color-text-secondary)' }
                     : undefined
                 }
               >

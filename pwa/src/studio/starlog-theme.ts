@@ -35,33 +35,23 @@ export const starlogTheme = defineTheme({
       fallbacks: 'ui-monospace, SFMono-Regular, Menlo, monospace',
     },
   },
-  // Starlog domain tokens: the lunar palette. Theme-local, so custom
-  // themes can override them via defineTheme({ extends: starlogTheme }).
+  // Starlog brand tokens: colors with no Astryx equivalent.
+  // Everything else uses Astryx semantic tokens (--color-*) directly.
   localTokens: {
-    '--sl-paper': ['#f5f3ec', '#141a17'],
-    '--sl-paper-deep': ['#ece9dd', '#1c2420'],
-    '--sl-ink': ['#17231f', '#ece9dd'],
-    '--sl-ink-soft': ['#3d4a44', '#c2cabd'],
-    '--sl-ink-faint': ['#8a938c', '#7d877e'],
-    '--sl-line': ['#ddd8c8', '#2b342f'],
-    '--sl-line-strong': ['#c4bda6', '#3d473f'],
-    '--sl-coral': ['#f16e56', '#f0856d'],
-    '--sl-coral-deep': ['#c24e37', '#f0856d'],
     '--sl-gold': ['#d9a83e', '#d9a83e'],
     '--sl-gold-soft': ['#f2c85b', '#f2c85b'],
-    '--sl-band': ['#ece9dd', '#1c2420'],
-    '--sl-surface': ['#ece9dd', '#1c2420'],
     '--sl-mark-tile': ['#ece9dd', '#193346'],
   },
-  // Astryx surface colors: map Starlog's palette onto Astryx's semantic
-  // tokens so the app background, cards, borders, and text use the
-  // lunar palette instead of neutral defaults.
+  // Astryx semantic tokens mapped to Starlog's lunar palette.
   tokens: {
     '--color-background-body': ['#f5f3ec', '#141a17'],
     '--color-background-card': ['#ece9dd', '#1c2420'],
     '--color-background-surface': ['#ece9dd', '#1c2420'],
     '--color-border': ['#ddd8c8', '#2b342f'],
+    '--color-border-emphasized': ['#c4bda6', '#3d473f'],
     '--color-text-primary': ['#17231f', '#ece9dd'],
     '--color-text-secondary': ['#3d4a44', '#c2cabd'],
+    '--color-text-disabled': ['#8a938c', '#7d877e'],
+    '--color-accent': ['#f16e56', '#f0856d'],
   },
 });

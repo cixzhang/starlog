@@ -12,7 +12,7 @@ const styles = stylex.create({
     gap: 12,
     padding: '48px 24px',
     textAlign: 'center',
-    color: 'var(--sl-ink-faint)',
+    color: 'var(--color-text-disabled)',
     fontSize: 14,
   },
 });

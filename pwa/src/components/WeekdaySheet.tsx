@@ -309,7 +309,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                     <h2
                       {...stylex.props(styles.sheetDate)}
                       style={
-                        k !== 0 ? { color: 'var(--sl-ink-soft)' } : undefined
+                        k !== 0 ? { color: 'var(--color-text-secondary)' } : undefined
                       }
                     >
                       {formatShort(date)}
@@ -396,14 +396,14 @@ const styles = stylex.create({
     padding: '4px 0 72px',
     borderLeftWidth: 1,
     borderLeftStyle: 'solid',
-    borderLeftColor: 'var(--sl-line)',
+    borderLeftColor: 'var(--color-border)',
     borderRightWidth: 1,
     borderRightStyle: 'solid',
-    borderRightColor: 'var(--sl-line)',
+    borderRightColor: 'var(--color-border)',
   },
   sheet: {
     padding: '20px 20px 28px',
-    color: 'var(--sl-ink)',
+    color: 'var(--color-text-primary)',
     // Each day holds its ground even when empty — the min-height is the
     // breathing room between date headings.
     minHeight: '20vh',
@@ -411,7 +411,7 @@ const styles = stylex.create({
   // Non-current weeks recede via foreground only: dimmer text,
   // background stays identical for visual consistency.
   sheetMuted: {
-    color: 'var(--sl-ink-faint)',
+    color: 'var(--color-text-disabled)',
   },
   sheetHead: {
     display: 'flex',
@@ -442,8 +442,8 @@ const styles = stylex.create({
     fontWeight: 700,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
-    color: 'var(--sl-accent-ink)',
-    backgroundColor: 'var(--sl-accent)',
+    color: 'var(--color-on-accent)',
+    backgroundColor: 'var(--color-accent)',
     borderRadius: 999,
     padding: '3px 10px',
     whiteSpace: 'nowrap',
@@ -479,7 +479,7 @@ const styles = stylex.create({
     width: 6,
     height: 6,
     borderRadius: '50%',
-    backgroundColor: 'var(--sl-coral)',
+    backgroundColor: 'var(--color-accent)',
     flexShrink: 0,
     alignSelf: 'center',
   },
