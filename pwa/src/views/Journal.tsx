@@ -90,6 +90,14 @@ const styles = stylex.create({
     // (which would cancel our touchend and "lose" the gesture).
     touchAction: 'pan-y',
     willChange: 'transform',
+    // Vertical dividers framing the weekday column (2D sheet model:
+    // X=weekdays, Y=weeks). Subtle 1px lines on left/right edges.
+    borderLeftWidth: 1,
+    borderLeftStyle: 'solid',
+    borderLeftColor: 'var(--color-border)',
+    borderRightWidth: 1,
+    borderRightStyle: 'solid',
+    borderRightColor: 'var(--color-border)',
   },
   // Off-screen weekday preview, slides in under the finger during a swipe.
   preview: {
@@ -858,6 +866,34 @@ export default function Journal({
   // IntersectionObserver: track which sheets are near the viewport.
   // Only ~7 sheets stay "visible" in Activity; the rest are hidden
   // (state preserved) for performance.
+  // Uses a callback ref (not querySelectorAll) so sheets are observed
+  // as soon as they mount, even on first render.
+  const observeSheet = useCallback((el: HTMLElement | null) => {
+    const observer = observerRef.current;
+    if (!observer || !el) return;
+    observer.observe(el);
+    // Also mark as active immediately if it's already in view
+    // (handles the case where observer hasn't fired yet)
+    const iso = el.dataset.sheetIso;
+    if (iso) {
+      const rect = el.getBoundingClientRect();
+      const viewport = viewportRef.current;
+      if (viewport) {
+        const vpRect = viewport.getBoundingClientRect();
+        // Check with 200% margin (matches observer rootMargin)
+        const margin = vpRect.height * 2;
+        if (rect.bottom > vpRect.top - margin && rect.top < vpRect.bottom + margin) {
+          setActiveSheets((prev) => {
+            if (prev.has(iso)) return prev;
+            const next = new Set(prev);
+            next.add(iso);
+            return next;
+          });
+        }
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -866,18 +902,23 @@ export default function Journal({
       (entries) => {
         setActiveSheets((prev) => {
           const next = new Set(prev);
+          let changed = false;
           for (const entry of entries) {
             const iso = (entry.target as HTMLElement).dataset.sheetIso;
             if (!iso) continue;
             if (entry.isIntersecting) {
-              next.add(iso);
+              if (!next.has(iso)) {
+                next.add(iso);
+                changed = true;
+              }
             } else {
-              // Keep a buffer: only remove if far from viewport
-              // (IntersectionObserver with rootMargin handles this)
-              next.delete(iso);
+              if (next.has(iso)) {
+                next.delete(iso);
+                changed = true;
+              }
             }
           }
-          return next;
+          return changed ? next : prev;
         });
       },
       {
@@ -889,13 +930,11 @@ export default function Journal({
     );
 
     observerRef.current = observer;
-
-    // Observe all current sheets
-    const sheets = viewport.querySelectorAll('[data-sheet-iso]');
-    sheets.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, [sheets.length]); // Re-run when sheets change
+    return () => {
+      observer.disconnect();
+      observerRef.current = null;
+    };
+  }, []); // Create once, callback refs handle the observing
 
   return (
     <div {...stylex.props(styles.swipeViewport)} ref={viewportRef}>
@@ -930,6 +969,7 @@ export default function Journal({
               <article
               id={`sheet-${iso}`}
               data-sheet-iso={iso}
+              ref={observeSheet}
               {...stylex.props(
                 styles.sheet,
                 k !== 0 && styles.sheetMuted,
