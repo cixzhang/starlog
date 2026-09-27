@@ -1,10 +1,18 @@
 // ReminderRadar: supplementary ambient overlay showing upcoming reminders as
-// planets on an endless 2D sheet.
+// planets on the edges of the journal's 7-sheet carousel.
 //
-// Each reminder's planet positions itself at the screen edge nearest to the
-// actual date sheet's position (via getBoundingClientRect), with the arrow
-// pointing toward the sheet. If the date is visible on screen, the planet is
-// removed entirely. Planets reposition on scroll as sheets move.
+// The journal mounts one WeekdaySheet per weekday; each reminder's planet
+// positions itself at the screen edge nearest to its date sheet's position
+// (via getBoundingClientRect), with the arrow pointing toward the sheet. If
+// the exact date is visible in the current sheet, the planet is removed
+// entirely. Planets reposition on scroll of the current sheet.
+//
+// Direction model: 2D over the week grid.
+//   dx = weekday displacement (reminder weekday − current weekday),
+//   dy = week displacement (how many 7-day rows below the current week).
+// The planet sits at the screen edge in the (dx, dy) direction and the arrow
+// points along it. When dx is 0 (same weekday as the sheet in view), the
+// planet uses the actual date element's DOM position when available.
 //
 // Visual encoding:
 // - Size (12-24px): soonness — larger = sooner
@@ -17,7 +25,7 @@
 import * as stylex from '@stylexjs/stylex';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Reminder } from '../lib/supabase';
-import { toISODate } from '../lib/dates';
+import { toISODate, isoWeekday } from '../lib/dates';
 
 const CORAL = 'var(--sl-coral)';
 const CORAL_LIGHT = 'color-mix(in srgb, var(--sl-coral), white 35%)';
@@ -192,9 +200,9 @@ export default function ReminderRadar({
 
     reminderObserverRef.current = observer;
 
-    // Observe the sheet elements containing each reminder date.
-    // Sheets are week-based, so find the sheet whose 7-day range
-    // contains the reminder date.
+    // Observe the date elements containing each reminder date. All seven
+    // weekday sheets stay mounted, so an exact ISO match finds the date in
+    // its own sheet (e.g. Oct 8 lives in the Thursday sheet).
     const raf = requestAnimationFrame(() => {
       const seen = new Set<string>();
       for (const r of reminders) {
@@ -204,20 +212,11 @@ export default function ReminderRadar({
         if (seen.has(dateIso)) continue;
         seen.add(dateIso);
 
-        const sheetElements = document.querySelectorAll('[data-sheet-iso]');
-        for (const el of sheetElements) {
-          const sheetIso = (el as HTMLElement).dataset.sheetIso;
-          if (!sheetIso) continue;
-          const sheetDate = new Date(sheetIso + 'T00:00:00');
-          const diffDays = Math.round(
-            (remindDate.getTime() - sheetDate.getTime()) / (1000 * 60 * 60 * 24),
-          );
-          if (diffDays >= 0 && diffDays < 7) {
-            // Tag it so the observer can identify it
-            (el as HTMLElement).dataset.reminderDate = dateIso;
-            observer.observe(el);
-            break;
-          }
+        const el = document.querySelector(`[data-sheet-iso="${dateIso}"]`);
+        if (el) {
+          // Tag it so the observer can identify it
+          (el as HTMLElement).dataset.reminderDate = dateIso;
+          observer.observe(el);
         }
       }
     });
@@ -227,25 +226,28 @@ export default function ReminderRadar({
       observer.disconnect();
       reminderObserverRef.current = null;
     };
-  }, [viewportRef, reminders, currentWeekday, anchorDate]);
+  }, [viewportRef, reminders, currentWeekday]);
 
-  // Reposition planets on scroll: sheet positions change as the user scrolls.
+  // Reposition planets on scroll: the current sheet's own scroll container
+  // drives updates. The math-based directions only depend on the weekday
+  // grid; the same-weekday planet uses live DOM geometry, so it needs
+  // scroll ticks.
   useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
+    const scroller = document.querySelector(
+      `[data-sheet-scroll="${currentWeekday}"]`,
+    );
+    if (!scroller) return;
     let raf = 0;
     const onScroll = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => setScrollTick((t) => t + 1));
     };
-    viewport.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('scroll', onScroll, { passive: true });
+    scroller.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       cancelAnimationFrame(raf);
-      viewport.removeEventListener('scroll', onScroll);
-      window.removeEventListener('scroll', onScroll);
+      scroller.removeEventListener('scroll', onScroll);
     };
-  }, [viewportRef]);
+  }, [currentWeekday]);
 
   const planets = useMemo(() => {
     const viewport = viewportRef.current;
@@ -255,8 +257,6 @@ export default function ReminderRadar({
     now.setHours(0, 0, 0, 0);
 
     const viewportRect = viewport.getBoundingClientRect();
-    const viewportCenterX = viewportRect.left + viewportRect.width / 2;
-    const viewportCenterY = viewportRect.top + viewportRect.height / 2;
 
     return reminders
       .filter((r) => r.status === 'open')
@@ -275,53 +275,41 @@ export default function ReminderRadar({
         // If the date is visible, remove the planet entirely
         if (visibleReminderDates.has(dateIso)) return null;
 
-        // Find the sheet containing this reminder date.
-        // Sheets are week-based (7 days each), so the reminder date falls
-        // within a sheet's week range, not necessarily matching its ID.
-        let sheetEl: HTMLElement | null = null;
-        const sheetElements = document.querySelectorAll('[data-sheet-iso]');
-        for (const el of sheetElements) {
-          const sheetIso = (el as HTMLElement).dataset.sheetIso;
-          if (!sheetIso) continue;
-          const sheetDate = new Date(sheetIso + 'T00:00:00');
-          const diffDays = Math.round(
-            (remindDate.getTime() - sheetDate.getTime()) / (1000 * 60 * 60 * 24),
-          );
-          // The sheet covers its date ± 3 days (a week centered on the weekday)
-          // Actually: sheets are 7 days apart, so check if within 0-6 days
-          if (diffDays >= 0 && diffDays < 7) {
-            sheetEl = el as HTMLElement;
-            break;
+        // 2D grid position: X = weekday axis, Y = week axis.
+        // The reminder may be on a different weekday view (not rendered),
+        // so we calculate the direction mathematically.
+        //
+        // Example: Sun Sep 27 → Thu Oct 8.
+        // dx = 4 - 7 = -3 (Thursday is 3 swipes left from Sunday)
+        // dy = 1 (Oct 8 is in the week starting Oct 4, one week down)
+        const remindWeekday = isoWeekday(remindDate);
+        let dx = remindWeekday - currentWeekday;
+        // Normalize to [-3, 3] for the shortest swipe direction
+        if (dx > 3) dx -= 7;
+        if (dx < -3) dx += 7;
+
+        // Week offset: which week the reminder is in relative to the anchor week
+        const dayDiff =
+          (remindDate.getTime() - anchorDate.getTime()) / (1000 * 60 * 60 * 24);
+        const dy = (dayDiff - dx) / 7;
+
+        // If the user is on the reminder's weekday, try DOM position for
+        // precise nearest-edge placement. Otherwise use the math vector.
+        let sheetCenterX: number | null = null;
+        let sheetCenterY: number | null = null;
+        if (dx === 0) {
+          const el = document.querySelector(`[data-sheet-iso="${dateIso}"]`);
+          if (el) {
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            sheetCenterX = rect.left + rect.width / 2;
+            sheetCenterY = rect.top + rect.height / 2;
           }
         }
 
-        let sheetCenterX: number;
-        let sheetCenterY: number;
-
-        if (sheetEl) {
-          const sheetRect = sheetEl.getBoundingClientRect();
-          sheetCenterX = sheetRect.left + sheetRect.width / 2;
-          sheetCenterY = sheetRect.top + sheetRect.height / 2;
-        } else {
-          // Sheet not rendered (outside the current window): estimate position.
-          // Future dates are below, past dates are above. Center horizontally.
-          const isFuture = daysUntil >= 0;
-          sheetCenterX = viewportCenterX;
-          sheetCenterY = isFuture
-            ? viewportRect.bottom + 1000  // Below the viewport
-            : viewportRect.top - 1000;     // Above the viewport
-        }
-
-        // Vector from viewport center to sheet center
-        const dx = sheetCenterX - viewportCenterX;
-        const dy = sheetCenterY - viewportCenterY;
-
-        // Angle in screen coordinates (0 = right, 90 = down)
+        // Angle in screen coordinates (0 = right, 90 = down).
+        // +dx = right (next weekday), +dy = down (future week).
         const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
 
-        // Determine the nearest edge: project the direction onto the viewport.
-        // If the sheet is mostly above/below, use top/bottom edge.
-        // If mostly left/right, use left/right edge.
         const rad = (angle * Math.PI) / 180;
         const cos = Math.cos(rad);
         const sin = Math.sin(rad);
@@ -331,41 +319,56 @@ export default function ReminderRadar({
         let left: string;
         let top: string;
 
-        if (absSin > absCos) {
-          // Sheet is above or below: place at top/bottom edge.
-          // Align horizontally nearest to the sheet's x position.
-          const isBelow = sin > 0;
-          top = isBelow
-            ? `calc(100% - ${EDGE_MARGIN + 24 + 16}px)`
-            : `${EDGE_MARGIN}px`;
-          // Clamp the sheet's x to the viewport, as a percentage
-          const clampedX = Math.max(
-            viewportRect.left + EDGE_MARGIN + 12,
-            Math.min(
-              viewportRect.right - EDGE_MARGIN - 12,
-              sheetCenterX,
-            ),
-          );
-          const pct =
-            ((clampedX - viewportRect.left) / viewportRect.width) * 100;
-          left = `${Math.max(5, Math.min(95, pct))}%`;
+        if (sheetCenterX !== null && sheetCenterY !== null) {
+          // Use actual sheet position for nearest-edge placement.
+          if (absSin > absCos) {
+            const isBelow = sin > 0;
+            top = isBelow
+              ? `calc(100% - ${EDGE_MARGIN + 24 + 16}px)`
+              : `${EDGE_MARGIN}px`;
+            const clampedX = Math.max(
+              viewportRect.left + EDGE_MARGIN + 12,
+              Math.min(viewportRect.right - EDGE_MARGIN - 12, sheetCenterX),
+            );
+            const pct =
+              ((clampedX - viewportRect.left) / viewportRect.width) * 100;
+            left = `${Math.max(5, Math.min(95, pct))}%`;
+          } else {
+            const isRight = cos > 0;
+            left = isRight
+              ? `calc(100% - ${EDGE_MARGIN + 24}px)`
+              : `${EDGE_MARGIN}px`;
+            const clampedY = Math.max(
+              viewportRect.top + EDGE_MARGIN + 20,
+              Math.min(viewportRect.bottom - EDGE_MARGIN - 20, sheetCenterY),
+            );
+            const pct =
+              ((clampedY - viewportRect.top) / viewportRect.height) * 100;
+            top = `${Math.max(5, Math.min(95, pct))}%`;
+          }
         } else {
-          // Sheet is to the left or right: place at left/right edge.
-          // Align vertically nearest to the sheet's y position.
-          const isRight = cos > 0;
-          left = isRight
-            ? `calc(100% - ${EDGE_MARGIN + 24}px)`
-            : `${EDGE_MARGIN}px`;
-          const clampedY = Math.max(
-            viewportRect.top + EDGE_MARGIN + 20,
-            Math.min(
-              viewportRect.bottom - EDGE_MARGIN - 20,
-              sheetCenterY,
-            ),
-          );
-          const pct =
-            ((clampedY - viewportRect.top) / viewportRect.height) * 100;
-          top = `${Math.max(5, Math.min(95, pct))}%`;
+          // Estimate from the 2D vector: place at the nearest edge
+          // in the direction of (dx, dy).
+          if (absSin > absCos) {
+            const isBelow = sin > 0;
+            top = isBelow
+              ? `calc(100% - ${EDGE_MARGIN + 24 + 16}px)`
+              : `${EDGE_MARGIN}px`;
+            // Shift horizontally based on dx for diagonal directions
+            const t = absCos / absSin;
+            const horizontalOffset = t * 30;
+            const basePct = 50 + (cos > 0 ? horizontalOffset : -horizontalOffset);
+            left = `${Math.max(10, Math.min(90, basePct))}%`;
+          } else {
+            const isRight = cos > 0;
+            left = isRight
+              ? `calc(100% - ${EDGE_MARGIN + 24}px)`
+              : `${EDGE_MARGIN}px`;
+            const t = absSin / absCos;
+            const verticalOffset = t * 30;
+            const basePct = 50 + (sin > 0 ? verticalOffset : -verticalOffset);
+            top = `${Math.max(10, Math.min(90, basePct))}%`;
+          }
         }
 
         // Size: 12px (far) -> 24px (soon), based on days until

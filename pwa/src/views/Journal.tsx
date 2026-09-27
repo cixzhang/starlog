@@ -1,25 +1,27 @@
-// Journal: the weekday canvas. Date-driven, not data-driven: the page always
-// renders the same-weekday sheets computed from the calendar — this week's
-// sheet plus past and future weeks — each with its short date heading and a
-// relative label (THIS WEEK, LAST WEEK, NEXT WEEK…). Entries, prompts,
-// reminders, and decorations fill in where the database has them; empty
-// sheets stay quiet. Never fake data.
+// Journal: seven persistent weekday sheets in a horizontal carousel.
 //
-// The list scrolls infinitely in both directions. Today loads vertically
-// centered, with a peek of last week above and next week below.
+// Each weekday (Mon..Sun) owns a mounted WeekdaySheet with its own scroll
+// container, scroll position, and past/future window. The carousel keeps the
+// current weekday at strip index 3 with three buffered columns on each side:
+//
+//   index:  0          1          2          3        4          5          6
+//           cur-3      cur-2      cur-1      CURRENT  cur+1      cur+2      cur+3
+//
+// The strip is 700% wide; each column is 1/7 (one viewport width). The base
+// transform is -300/7% (showing index 3). A swipe left animates the strip
+// from -3 to -4 viewport widths (revealing index 4); on completion the
+// weekday advances — which reorders the columns under the strip — and the
+// transform snaps back to -3 widths with no visual jump, since the new
+// current column moved into index 3. Swiping right mirrors this. Because the
+// columns are keyed by weekday number, React preserves each sheet's component
+// identity (and scroll state) across reorders, and cycling is infinite in
+// both directions.
+//
+// Data fetching covers the union of dates requested by all seven sheets.
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  Fragment,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import * as stylex from '@stylexjs/stylex';
-import { Divider } from '@astryxdesign/core';
 import {
   fetchDecorations,
   fetchEntriesByDates,
@@ -31,263 +33,30 @@ import {
   type Reminder,
   type SbConfig,
 } from '../lib/supabase';
-import {
-  addDays,
-  daysBetween,
-  formatShort,
-  isoWeekday,
-  parseISODate,
-  startOfWeek,
-  toISODate,
-} from '../lib/dates';
-import { Markdown } from '../lib/markdown';
-import { sanitizeSvg } from '../lib/svg';
-import { ErrorNote } from '../components/ui';
+import { addDays, isoWeekday, parseISODate, startOfWeek, toISODate } from '../lib/dates';
+import WeekdaySheet from '../components/WeekdaySheet';
 import ReminderRadar from '../components/ReminderRadar';
 
-const INIT_PAST = 3;
-const INIT_FUTURE = 3;
-
-// Decoration color palette: names tied to theme tokens.
-// Agents specify meta.color as one of these; the PWA resolves to
-// the CSS variable so decorations adapt to light/dark mode.
-// SVGs should use stroke="currentColor" / fill="currentColor".
-const DECO_PALETTE: Record<string, string> = {
-  ink: '--color-text-primary',
-  muted: '--color-text-secondary',
-  coral: '--color-coral',
-  navy: '--color-navy',
-  // Astryx non-semantic icon colors
-  red: '--color-icon-red',
-  orange: '--color-icon-orange',
-  yellow: '--color-icon-yellow',
-  green: '--color-icon-green',
-  teal: '--color-icon-teal',
-  cyan: '--color-icon-cyan',
-  blue: '--color-icon-blue',
-  purple: '--color-icon-purple',
-  pink: '--color-icon-pink',
-  gray: '--color-icon-gray',
-};
-
-// Agent-controlled decoration presentation via meta:
-// { width (px max), align (left|center|right), rotation (deg), color (palette name) }
-function DecoView({ d }: { d: { id: string; svg: string; meta?: unknown } }) {
-  const svg = sanitizeSvg(d.svg);
-  if (!svg) return null;
-  const meta = (d.meta ?? {}) as {
-    width?: number;
-    align?: 'left' | 'center' | 'right';
-    rotation?: number;
-    color?: string;
-  };
-  const colorVar = DECO_PALETTE[meta.color ?? 'ink'] ?? DECO_PALETTE.ink;
-  const style: import('react').CSSProperties = {
-    color: `var(${colorVar})`,
-  };
-  if (meta.width) {
-    style.maxWidth = meta.width;
-    style.width = '100%';
-  }
-  if (meta.align === 'left') style.marginRight = 'auto';
-  else if (meta.align === 'right') style.marginLeft = 'auto';
-  if (meta.rotation) {
-    style.transform = `rotate(${meta.rotation}deg)`;
-  }
-  return (
-    <div
-      key={d.id}
-      {...stylex.props(styles.deco)}
-      style={style}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
-  );
-}
-const EXTEND_PAST = 8;
-const EXTEND_FUTURE = 4;
-const EDGE_PX = 240;
-const SCROLL_COOLDOWN_MS = 400;
-
-/** Relative week label for a sheet k weeks from this week. */
-function relativeLabel(k: number): string | null {
-  switch (k) {
-    case 0:
-      return 'THIS WEEK';
-    case -1:
-      return 'LAST WEEK';
-    case -2:
-      return 'TWO WEEKS AGO';
-    case -3:
-      return 'THREE WEEKS AGO';
-    case 1:
-      return 'NEXT WEEK';
-    case 2:
-      return 'IN TWO WEEKS';
-    case 3:
-      return 'IN THREE WEEKS';
-    default:
-      return null;
-  }
-}
-
-const styles = stylex.create({
-  // Swipe viewport: clips the off-screen weekday previews.
-  swipeViewport: {
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  sheets: {
-    maxWidth: 680,
-    margin: '0 auto',
-    padding: '4px 0 72px',
-    // Let horizontal swipes reach JS reliably: the browser only takes
-    // vertical pans, so iOS can't hijack a diagonal swipe for scrolling
-    // (which would cancel our touchend and "lose" the gesture).
-    touchAction: 'pan-y',
-    willChange: 'transform',
-    // Vertical dividers framing the weekday column (2D sheet model:
-    // X=weekdays, Y=weeks). Subtle 1px lines on left/right edges.
-    borderLeftWidth: 1,
-    borderLeftStyle: 'solid',
-    borderLeftColor: 'var(--sl-line)',
-    borderRightWidth: 1,
-    borderRightStyle: 'solid',
-    borderRightColor: 'var(--sl-line)',
-  },
-  // Off-screen weekday preview, slides in under the finger during a swipe.
-  preview: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    pointerEvents: 'none',
-    willChange: 'transform',
-    display: 'flex',
-    justifyContent: 'center',
-  },
-  previewInner: {
-    width: '100%',
-    maxWidth: 680,
-  },
-  sheet: {
-    padding: '20px 20px 28px',
-    color: 'var(--sl-ink)',
-    // Each day holds its ground even when empty — the min-height is the
-    // breathing room between date headings.
-    minHeight: '20vh',
-  },
-  // Weeks other than this one recede: muted band, muted text.
-  sheetMuted: {
-    backgroundColor: 'var(--sl-paper-deep)',
-    color: 'var(--sl-ink-soft)',
-  },
-  // Sheets use natural variable heights. Activity recycling handles
-  // performance by only keeping ~7 sheets active.
-  sheetHead: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 12,
-    // Fixed height so date headers align vertically across sheets
-    // in the current week, regardless of pill/label presence.
-    minHeight: 32,
-  },
-  sheetDate: {
-    fontFamily: 'var(--font-heading)',
-    fontSize: 24,
-    fontWeight: 600,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-    margin: 0,
-    color: 'var(--sl-ink)',
-  },
-  yearLabel: {
-    fontSize: 16,
-    fontWeight: 400,
-    color: 'var(--sl-ink-soft)',
-    letterSpacing: '0.04em',
-  },
-  relLabel: {
-    fontFamily: 'var(--font-code)',
-    fontSize: 11,
-    letterSpacing: '0.1em',
-    color: 'var(--sl-ink-faint)',
-    whiteSpace: 'nowrap',
-  },
-  todayPill: {
-    fontFamily: 'var(--font-code)',
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: '0.1em',
-    color: '#fff',
-    backgroundColor: 'var(--sl-coral)',
-    borderRadius: 999,
-    padding: '4px 12px',
-    whiteSpace: 'nowrap',
-  },
-  emptyState: {
-    marginTop: 8,
-    padding: '28px 0',
-    textAlign: 'center',
-    color: 'var(--sl-ink-faint)',
-    fontFamily: 'var(--font-body)',
-    fontSize: 14,
-    lineHeight: 1.7,
-  },
-  anno: {
-    marginTop: 14,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-  },
-  annoLine: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: 8,
-    fontSize: 14,
-    color: 'var(--sl-ink-soft)',
-  },
-  annoLabel: {
-    fontFamily: 'var(--font-code)',
-    fontSize: 11,
-    letterSpacing: '0.08em',
-    color: 'var(--sl-ink-faint)',
-    whiteSpace: 'nowrap',
-  },
-  annoDot: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    backgroundColor: 'var(--sl-coral)',
-    flexShrink: 0,
-    alignSelf: 'center',
-  },
-  deco: {
-    marginTop: 14,
-  },
-  fetchError: {
-    padding: '12px 0 0',
-  },
-  highlight: {
-    animationName: 'sl-flash',
-    animationDuration: '2.4s',
-    animationTimingFunction: 'ease-out',
-  },
-});
-
-interface Sheet {
-  k: number;
-  date: Date;
-  iso: string;
-}
-
-/** Weekday navigation controls, rendered by the app shell's top bar. */
 export interface WeekdayControls {
   weekday: number;
   move: (delta: number) => void;
   goToday: () => void;
+}
+
+interface JournalProps {
+  cfg: SbConfig;
+  tenantId: string;
+  jump: { weekday: number; date: string } | null;
+  onJumpConsumed: () => void;
+  onControls: (ctl: WeekdayControls | null) => void;
+  weekStart: 1 | 7;
+}
+
+const SWIPE_THRESHOLD = 80;
+
+/** Carousel column order: the given weekday is always at index 3. */
+function orderFor(w: number): number[] {
+  return Array.from({ length: 7 }, (_, i) => ((((w - 3 - 1 + i) % 7) + 7) % 7) + 1);
 }
 
 export default function Journal({
@@ -297,138 +66,86 @@ export default function Journal({
   onJumpConsumed,
   onControls,
   weekStart,
-}: {
-  cfg: SbConfig;
-  tenantId: string;
-  jump: { weekday: number; date: string } | null;
-  onJumpConsumed: () => void;
-  onControls: (ctl: WeekdayControls | null) => void;
-  weekStart: 1 | 7;
-}) {
+}: JournalProps) {
   const [weekday, setWeekday] = useState<number>(() => isoWeekday(new Date()));
-  // Track which sheets are near the viewport for Activity recycling.
-  // (Activity-based sheet recycling removed: hidden sheets collapsing
-  // caused jarring scroll jumps. All sheets render normally.)
-  const [past, setPast] = useState(INIT_PAST);
-  const [future, setFuture] = useState(INIT_FUTURE);
+  const [dragX, setDragX] = useState<number | null>(null);
+
   const [entriesByDate, setEntriesByDate] = useState<Record<string, Entry>>({});
-  const [promptsByDate, setPromptsByDate] = useState<Record<string, Prompt>>(
-    {},
-  );
-  const [decosByDate, setDecosByDate] = useState<Record<string, Decoration[]>>(
-    {},
-  );
+  const [promptsByDate, setPromptsByDate] = useState<Record<string, Prompt>>({});
+  const [decosByDate, setDecosByDate] = useState<Record<string, Decoration[]>>({});
   const [allReminders, setAllReminders] = useState<Reminder[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState<string | null>(null);
+  const [fetchVersion, setFetchVersion] = useState(0);
 
   const now = useMemo(() => new Date(), []);
+  const todayIso = toISODate(now);
   const fetchedDates = useRef<Set<string>>(new Set());
   const reminderBounds = useRef<{ from: Date; to: Date } | null>(null);
-  const jumpPending = useRef(false);
-  const scrollCooldown = useRef(0);
-  // Anchor for prepend stability: the ISO of the topmost sheet and its
-  // offset from the viewport top, captured before prepending.
-  const prependAnchor = useRef<{ iso: string; top: number } | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => () => {
+    mountedRef.current = false;
+  }, []);
 
-  // The k=0 sheet: the selected weekday's date in the current week.
-  // Offset of an ISO weekday from the configured week start.
-  const weekOffset = (w: number) => (w - weekStart + 7) % 7;
-  const anchor = useMemo(
-    () => addDays(startOfWeek(now, weekStart), weekOffset(weekday)),
-    [now, weekday, weekStart],
-  );
-  const sheets: Sheet[] = useMemo(() => {
-    const out: Sheet[] = [];
-    for (let k = -past; k <= future; k++) {
-      const date = addDays(anchor, k * 7);
-      out.push({ k, date, iso: toISODate(date) });
+  const order = useMemo(() => orderFor(weekday), [weekday]);
+
+  const anchors = useMemo(() => {
+    const arr: Date[] = [];
+    for (let w = 1; w <= 7; w++) {
+      arr[w] = addDays(startOfWeek(now, weekStart), (w - weekStart + 7) % 7);
     }
-    return out;
-  }, [anchor, past, future]);
-  // Ref for the scroll handler (which has empty deps) to access current sheets.
-  const sheetsListRef = useRef(sheets);
-  sheetsListRef.current = sheets;
+    return arr;
+  }, [now, weekStart]);
 
-  // Adjacent weekdays for the swipe previews (1-7, wrapping).
-  const prevWeekday = ((weekday - 2 + 7) % 7) + 1;
-  const nextWeekday = (weekday % 7) + 1;
-
-  // Anchor date for a given weekday: its date in the current week.
-  const anchorFor = (w: number) =>
-    addDays(startOfWeek(now, weekStart), weekOffset(w));
-
-  // Dates for the swipe previews (3 sheets around each adjacent anchor).
-  // Fetched alongside the main sheets so previews show full content.
-  const previewDates = useMemo(() => {
-    const out: string[] = [];
-    for (const w of [prevWeekday, nextWeekday]) {
-      const a = anchorFor(w);
-      for (let k = -past; k <= future; k++) {
-        out.push(toISODate(addDays(a, k * 7)));
-      }
-    }
-    return out;
-  }, [prevWeekday, nextWeekday, now, weekStart, weekday, past, future]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-
-  // Entries, prompts, decorations for sheets we haven't fetched yet.
-  // Sheets render from the calendar regardless — data fills in.
-  // Includes swipe-preview dates so adjacent weekdays show full content.
-  useEffect(() => {
-    let alive = true;
-    const dates = [...sheets.map((s) => s.iso), ...previewDates].filter(
-      (d) => !fetchedDates.current.has(d),
-    );
-    if (dates.length === 0) return;
-    dates.forEach((d) => fetchedDates.current.add(d));
-    (async () => {
-      try {
-        const [es, ps, ds] = await Promise.all([
-          fetchEntriesByDates(cfg, tenantId, dates),
-          fetchPromptsByDates(cfg, tenantId, dates),
-          fetchDecorations(cfg, tenantId, dates),
-        ]);
-        if (!alive) return;
-        setEntriesByDate((prev) => {
-          const next = { ...prev };
-          for (const e of es) if (!next[e.entry_date]) next[e.entry_date] = e;
-          return next;
-        });
-        setPromptsByDate((prev) => {
-          const next = { ...prev };
-          for (const p of ps) next[p.prompt_date] = p;
-          return next;
-        });
-        setDecosByDate((prev) => {
-          const next = { ...prev };
-          for (const d of ds) {
-            const key = d.entry_date ?? '';
-            if (!key || fetchedDates.current.has(`deco:${d.id}`)) continue;
-            fetchedDates.current.add(`deco:${d.id}`);
-            (next[key] ??= []).push(d);
-          }
-          return next;
-        });
-        setFetchError(null);
-      } catch (e) {
-        if (alive) {
+  // Fetch data for any dates the sheets request (the union across all seven).
+  const onNeedDates = useCallback(
+    (dates: string[]) => {
+      const fresh = dates.filter((d) => !fetchedDates.current.has(d));
+      if (fresh.length === 0) return;
+      fresh.forEach((d) => fetchedDates.current.add(d));
+      setFetchVersion((v) => v + 1);
+      (async () => {
+        try {
+          const [es, ps, ds] = await Promise.all([
+            fetchEntriesByDates(cfg, tenantId, fresh),
+            fetchPromptsByDates(cfg, tenantId, fresh),
+            fetchDecorations(cfg, tenantId, fresh),
+          ]);
+          if (!mountedRef.current) return;
+          setEntriesByDate((prev) => {
+            const next = { ...prev };
+            for (const e of es) if (!next[e.entry_date]) next[e.entry_date] = e;
+            return next;
+          });
+          setPromptsByDate((prev) => {
+            const next = { ...prev };
+            for (const p of ps) next[p.prompt_date] = p;
+            return next;
+          });
+          setDecosByDate((prev) => {
+            const next = { ...prev };
+            for (const d of ds) {
+              const key = d.entry_date ?? '';
+              if (!key || fetchedDates.current.has(`deco:${d.id}`)) continue;
+              fetchedDates.current.add(`deco:${d.id}`);
+              (next[key] ??= []).push(d);
+            }
+            return next;
+          });
+          setFetchError(null);
+        } catch (e) {
+          if (!mountedRef.current) return;
           // Let a later extension retry these dates.
-          dates.forEach((d) => fetchedDates.current.delete(d));
-          setFetchError(e instanceof Error ? e.message : 'Couldn’t load.');
+          fresh.forEach((d) => fetchedDates.current.delete(d));
+          setFetchError(e instanceof Error ? e.message : 'Couldn\u2019t load.');
         }
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [cfg, tenantId, sheets, previewDates]);
+      })();
+    },
+    [cfg, tenantId],
+  );
 
-  // Realtime: listen for DB changes (entries, prompts, reminders) via
-  // Supabase Realtime websocket. When the agent writes (e.g. from the
-  // journaling chat), the UI updates live without a refresh.
+  // Realtime updates for entries, prompts, and reminders.
   useEffect(() => {
-    if (!cfg) return;
     const sb = createClient(cfg.url, cfg.anonKey);
     const channel = sb
       .channel('starlog-changes')
@@ -493,12 +210,19 @@ export default function Journal({
     };
   }, [cfg]);
 
-  // Reminders across the visible window (plus margin for the compass).
-  // The window only grows, so merge by id and expand the tracked bounds.
+  // Reminders: keep a fetched window covering the loaded dates ±30 days.
   useEffect(() => {
     let alive = true;
-    const minD = addDays(sheets[0].date, -30);
-    const maxD = addDays(sheets[sheets.length - 1].date, 30);
+    let min: string | null = null;
+    let max: string | null = null;
+    for (const key of fetchedDates.current) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
+      if (min === null || key < min) min = key;
+      if (max === null || key > max) max = key;
+    }
+    if (min === null || max === null) return;
+    const minD = addDays(parseISODate(min), -30);
+    const maxD = addDays(parseISODate(max), 30);
     const b = reminderBounds.current;
     if (b && minD >= b.from && maxD <= b.to) return;
     (async () => {
@@ -525,151 +249,104 @@ export default function Journal({
           return next;
         });
       } catch {
-        /* quiet: the compass just stays empty */
+        /* quiet: the radar just stays empty */
       }
     })();
     return () => {
       alive = false;
     };
-  }, [cfg, tenantId, sheets]);
+  }, [cfg, tenantId, fetchVersion]);
 
   const remindersByDate = useMemo(() => {
-    const rb: Record<string, Reminder[]> = {};
+    const map: Record<string, Reminder[]> = {};
     for (const r of allReminders) {
-      const at = new Date(r.remind_at);
-      const key = toISODate(
-        new Date(at.getFullYear(), at.getMonth(), at.getDate()),
-      );
-      (rb[key] ??= []).push(r);
+      const d = new Date(r.remind_at);
+      d.setHours(0, 0, 0, 0);
+      const key = toISODate(d);
+      (map[key] ??= []).push(r);
     }
-    return rb;
+    for (const list of Object.values(map)) {
+      list.sort((a, b) => +new Date(a.remind_at) - +new Date(b.remind_at));
+    }
+    return map;
   }, [allReminders]);
 
-  // (Post-swipe auto-scroll to date removed: sheets stay where they are.)
-  useLayoutEffect(() => {
-    if (jumpPending.current) {
-      jumpPending.current = false;
-      onJumpConsumed();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheets]);
-
-  // Keep the visual position stable when sheets are prepended above.
-  // Anchors to the topmost sheet's position instead of measuring document
-  // height deltas, which are unreliable with content-visibility estimates.
-  useLayoutEffect(() => {
-    const anchor = prependAnchor.current;
-    if (anchor) {
-      prependAnchor.current = null;
-      const el = document.getElementById(`sheet-${anchor.iso}`);
-      if (el) {
-        const newTop = el.getBoundingClientRect().top;
-        const delta = newTop - anchor.top;
-        if (Math.abs(delta) > 1) window.scrollBy(0, delta);
-      }
-    }
-  });
-
-  // Infinite scroll: grow the window near either edge.
+  // Calendar jump: switch to the target weekday and let its sheet scroll to
+  // the exact date. The sheet consumes the jump when it has scrolled.
   useEffect(() => {
-    const onScroll = () => {
-      const t = Date.now();
-      if (t - scrollCooldown.current < SCROLL_COOLDOWN_MS) return;
-      const doc = document.documentElement;
-      const nearTop = window.scrollY < EDGE_PX;
-      const nearBottom =
-        window.innerHeight + window.scrollY > doc.scrollHeight - EDGE_PX;
-      if (!nearTop && !nearBottom) return;
-      scrollCooldown.current = t;
-      if (nearTop) {
-        // Capture the topmost sheet as an anchor before prepending.
-        const firstSheet = sheetsListRef.current[0];
-        if (firstSheet) {
-          const el = document.getElementById(`sheet-${firstSheet.iso}`);
-          if (el) {
-            prependAnchor.current = {
-              iso: firstSheet.iso,
-              top: el.getBoundingClientRect().top,
-            };
-          }
-        }
-        setPast((p) => p + EXTEND_PAST);
-      }
-      if (nearBottom) setFuture((f) => f + EXTEND_FUTURE);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    if (!jump) return;
+    setWeekday(jump.weekday);
+    setHighlighted(jump.date);
+  }, [jump]);
 
-  const goWeekday = useCallback(
-    (w: number) => {
-      setWeekday(w);
-      setPast(INIT_PAST);
-      setFuture(INIT_FUTURE);
+  const handleJumpHandled = useCallback(() => {
+    onJumpConsumed();
+  }, [onJumpConsumed]);
+
+  // --- Horizontal carousel gesture ---
+  const stripViewportRef = useRef<HTMLDivElement>(null);
+  const animRef = useRef<number | null>(null);
+  const dragState = useRef<{ startX: number; startY: number; claimed: boolean } | null>(null);
+
+  const animateTo = useCallback(
+    (from: number, to: number, duration: number, onDone: () => void) => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      const start = performance.now();
+      const step = (t: number) => {
+        const p = Math.min(1, (t - start) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        setDragX(from + (to - from) * eased);
+        if (p < 1) {
+          animRef.current = requestAnimationFrame(step);
+        } else {
+          animRef.current = null;
+          onDone();
+        }
+      };
+      animRef.current = requestAnimationFrame(step);
     },
-    [now, weekStart],
+    [],
   );
+
+  useEffect(
+    () => () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    },
+    [],
+  );
+
+  /** Commit a swipe: the columns reorder under the strip, so advancing the
+   *  weekday keeps the new current column at index 3 with no visual jump. */
+  const commitSwipe = useCallback((dir: 1 | -1) => {
+    setWeekday((prev) => ((((prev - 1 + dir) % 7) + 7) % 7) + 1);
+    setDragX(null);
+  }, []);
 
   const move = useCallback(
     (delta: number) => {
-      goWeekday(((weekday - 1 + delta + 7) % 7) + 1);
+      const dir = (delta > 0 ? 1 : -1) as 1 | -1;
+      const vw = stripViewportRef.current?.clientWidth ?? 0;
+      if (vw === 0) {
+        commitSwipe(dir);
+        return;
+      }
+      animateTo(0, -dir * vw, 200, () => commitSwipe(dir));
     },
-    [weekday, goWeekday],
+    [animateTo, commitSwipe],
   );
 
   const goToday = useCallback(() => {
-    goWeekday(isoWeekday(now));
-  }, [goWeekday, now]);
+    setWeekday(isoWeekday(now));
+  }, [now]);
 
-  // Hand the weekday controls to the app shell's top bar.
   useEffect(() => {
     onControls({ weekday, move, goToday });
     return () => onControls(null);
   }, [weekday, move, goToday, onControls]);
 
-  // Calendar jump: make sure the date is in the window, then center it.
   useEffect(() => {
-    if (!jump) return;
-    const a = addDays(startOfWeek(now, weekStart), weekOffset(jump.weekday));
-    const k = Math.round(daysBetween(a, parseISODate(jump.date)) / 7);
-    setWeekday(jump.weekday);
-    setPast((p) => Math.max(p, k < 0 ? -k + 2 : INIT_PAST));
-    setFuture((f) => Math.max(f, k > 0 ? k + 2 : INIT_FUTURE));
-    // Scroll to the jumped-to date after it renders.
-    requestAnimationFrame(() => {
-      const el = document.getElementById(`sheet-${jump.date}`);
-      if (el) el.scrollIntoView({ block: 'start', behavior: 'auto' });
-    });
-    jumpPending.current = true;
-    setHighlighted(jump.date);
-  }, [jump, now]);
-
-  // Finger-tracking weekday swipe: the sheets follow the finger, with the
-  // adjacent weekday's preview sliding in from off-screen. Native non-passive
-  // listeners so iOS can't cancel the gesture mid-drag.
-  const sheetsRef = useRef<HTMLDivElement>(null);
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const [dragX, setDragX] = useState<number | null>(null);
-  // Vertical offset to align the preview's k=0 sheet with the main's k=0.
-  const [previewTop, setPreviewTop] = useState(0);
-  // Track which drag we've measured for, to avoid re-measuring mid-gesture.
-  const measuredDragRef = useRef<number | null>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
-  const dragState = useRef<{
-    startX: number;
-    startY: number;
-    claimed: boolean;
-  } | null>(null);
-  const animRef = useRef<number | null>(null);
-
-  const SWIPE_THRESHOLD = 80;
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
+    const viewport = stripViewportRef.current;
     if (!viewport) return;
-
-    const getViewportWidth = () => viewport.clientWidth;
-
     const onTouchStart = (e: TouchEvent) => {
       if (animRef.current) {
         cancelAnimationFrame(animRef.current);
@@ -679,7 +356,6 @@ export default function Journal({
       dragState.current = { startX: t.clientX, startY: t.clientY, claimed: false };
       setDragX(null);
     };
-
     const onTouchMove = (e: TouchEvent) => {
       const s = dragState.current;
       if (!s) return;
@@ -687,7 +363,6 @@ export default function Journal({
       const dx = t.clientX - s.startX;
       const dy = t.clientY - s.startY;
       if (!s.claimed) {
-        // Claim once the drag is clearly horizontal.
         if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) {
           s.claimed = true;
           e.preventDefault();
@@ -699,29 +374,6 @@ export default function Journal({
       }
       setDragX(dx);
     };
-
-    const animateTo = (
-      from: number,
-      to: number,
-      duration: number,
-      onDone: () => void,
-    ) => {
-      const start = performance.now();
-      const step = (t: number) => {
-        const p = Math.min(1, (t - start) / duration);
-        // Ease-out cubic.
-        const eased = 1 - Math.pow(1 - p, 3);
-        setDragX(from + (to - from) * eased);
-        if (p < 1) {
-          animRef.current = requestAnimationFrame(step);
-        } else {
-          animRef.current = null;
-          onDone();
-        }
-      };
-      animRef.current = requestAnimationFrame(step);
-    };
-
     const onTouchEnd = (e: TouchEvent) => {
       const s = dragState.current;
       dragState.current = null;
@@ -730,26 +382,20 @@ export default function Journal({
         return;
       }
       const dx = e.changedTouches[0].clientX - s.startX;
-      const w = getViewportWidth();
+      const w = viewport.clientWidth;
       if (Math.abs(dx) > SWIPE_THRESHOLD) {
-        const dir = dx < 0 ? 1 : -1;
-        // Slide the preview fully into place (x=0 means dragX=-dir*w),
-        // then commit the weekday without recentering.
-        animateTo(dx, -dir * w, 180, () => {
-          move(dir);
-          setDragX(null);
-        });
+        const dir = (dx < 0 ? 1 : -1) as 1 | -1;
+        // Slide fully onto the neighboring column, then commit: the columns
+        // reorder underneath and the transform snaps back with no jump.
+        animateTo(dx, -dir * w, 180, () => commitSwipe(dir));
       } else {
-        // Spring back.
         animateTo(dx, 0, 200, () => setDragX(null));
       }
     };
-
     const onTouchCancel = () => {
       dragState.current = null;
       setDragX(null);
     };
-
     viewport.addEventListener('touchstart', onTouchStart, { passive: true });
     viewport.addEventListener('touchmove', onTouchMove, { passive: false });
     viewport.addEventListener('touchend', onTouchEnd, { passive: true });
@@ -759,9 +405,8 @@ export default function Journal({
       viewport.removeEventListener('touchmove', onTouchMove);
       viewport.removeEventListener('touchend', onTouchEnd);
       viewport.removeEventListener('touchcancel', onTouchCancel);
-      if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [move]);
+  }, [animateTo, commitSwipe]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -772,271 +417,69 @@ export default function Journal({
     return () => window.removeEventListener('keydown', onKey);
   }, [move]);
 
-  const todayIso = toISODate(now);
-
-  // Preview sheets for the adjacent weekday, shown off-screen during a swipe.
-  // Full sheet content (entries, prompts, etc.) so the days visibly fall
-  // into place under the finger. Data is pre-fetched via previewDates.
-  const renderPreview = (targetWeekday: number, dir: 1 | -1) => {
-    if (dragX == null) return null;
-    const vw = viewportRef.current?.clientWidth ?? 0;
-    if (vw === 0) return null;
-    // Position: off-screen in the swipe direction, sliding in with the finger.
-    // dir=1 (swipe left): preview comes from the right.
-    // dir=-1 (swipe right): preview comes from the left.
-    const x = dir === 1 ? vw + dragX : -vw + dragX;
-    const targetAnchor = anchorFor(targetWeekday);
-    return (
-      <div
-        {...stylex.props(styles.preview)}
-        ref={previewRef}
-        style={{ transform: `translateX(${x}px)`, top: previewTop }}
-        aria-hidden="true"
-      >
-        <div {...stylex.props(styles.previewInner)}>
-          {sheets.map(({ k }) => {
-            const date = addDays(targetAnchor, k * 7);
-            const iso = toISODate(date);
-            const entry = entriesByDate[iso];
-            const prompt = promptsByDate[iso];
-            const dayReminders = remindersByDate[iso] ?? [];
-            const decos = decosByDate[iso] ?? [];
-            const label = relativeLabel(k);
-            const hasAnno = prompt != null || dayReminders.length > 0;
-            return (
-              <Fragment key={iso}>
-                {k > -past && <Divider />}
-                <article
-                  data-preview-iso={iso}
-                  {...stylex.props(
-                    styles.sheet,
-                    k !== 0 && styles.sheetMuted,
-                  )}
-                >
-                  <div {...stylex.props(styles.sheetHead)}>
-                    <h2
-                      {...stylex.props(styles.sheetDate)}
-                      style={
-                        k !== 0
-                          ? { color: 'var(--sl-ink-soft)' }
-                          : undefined
-                      }
-                    >
-                      {formatShort(date)}
-                      {date.getFullYear() !== now.getFullYear() && (
-                        <span {...stylex.props(styles.yearLabel)}>
-                          {' '}{date.getFullYear()}
-                        </span>
-                      )}
-                    </h2>
-                    {iso === todayIso ? (
-                      <span {...stylex.props(styles.todayPill)}>TODAY</span>
-                    ) : (
-                      label != null && (
-                        <span {...stylex.props(styles.relLabel)}>{label}</span>
-                      )
-                    )}
-                  </div>
-                  {iso === todayIso && entry == null && (
-                    <div {...stylex.props(styles.emptyState)}>
-                      Nothing here yet.
-                      <br />
-                      Ask your agent to add an entry for today.
-                    </div>
-                  )}
-                  {entry != null && <Markdown source={entry.body_text} />}
-                  {hasAnno && (
-                    <div {...stylex.props(styles.anno)}>
-                      {prompt != null && (
-                        <div {...stylex.props(styles.annoLine)}>
-                          <span {...stylex.props(styles.annoLabel)}>
-                            PROMPT ·
-                          </span>
-                          <span>{prompt.body}</span>
-                        </div>
-                      )}
-                      {dayReminders.map((r) => (
-                        <div key={r.id} {...stylex.props(styles.annoLine)}>
-                          {r.importance === 'high' ? (
-                            <span {...stylex.props(styles.annoDot)} />
-                          ) : (
-                            <span {...stylex.props(styles.annoLabel)}>
-                              {r.urgency === 'high' ? 'IMPORTANT ·' : 'REMINDER ·'}
-                            </span>
-                          )}
-                          <span>{r.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {decos.map((d) => (
-                    <DecoView key={d.id} d={d} />
-                  ))}
-                </article>
-              </Fragment>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  const dragDir = dragX != null ? (dragX < 0 ? 1 : -1) as 1 | -1 : null;
-
-  // Measure vertical alignment once per drag gesture. The preview mirrors
-  // the main's sheet structure, but content heights differ, so we align
-  // the k=0 sheets by measuring their actual DOM positions.
-  useLayoutEffect(() => {
-    if (dragX == null || dragDir == null) {
-      measuredDragRef.current = null;
-      return;
-    }
-    // Only measure once per drag (dragX is a new value each move, but we
-    // use a ref to track the gesture).
-    if (measuredDragRef.current === dragX) return;
-    // Mark as measured for this drag gesture (use the sign as the key,
-    // since dragX changes continuously).
-    const gestureKey = dragDir;
-    if (measuredDragRef.current === gestureKey) return;
-    measuredDragRef.current = gestureKey;
-
-    const viewport = viewportRef.current;
-    const previewEl = previewRef.current;
-    if (!viewport || !previewEl) return;
-
-    const targetWeekday = dragDir === 1 ? nextWeekday : prevWeekday;
-    const targetAnchor = anchorFor(targetWeekday);
-    const mainIso = toISODate(addDays(anchor, 0));
-    const previewIso = toISODate(addDays(targetAnchor, 0));
-    const mainEl = document.getElementById(`sheet-${mainIso}`);
-    const previewK0 = previewEl.querySelector(
-      `[data-preview-iso="${previewIso}"]`,
-    );
-    if (!mainEl || !previewK0) return;
-
-    const vpRect = viewport.getBoundingClientRect();
-    const mainRect = mainEl.getBoundingClientRect();
-    const prevRect = (previewK0 as HTMLElement).getBoundingClientRect();
-    const elRect = previewEl.getBoundingClientRect();
-    const offset = mainRect.top - vpRect.top - (prevRect.top - elRect.top);
-    setPreviewTop(offset);
-  }, [dragX, dragDir, anchor, nextWeekday, prevWeekday]);
-
-  // (Sheet visibility observer removed with Activity recycling.)
-
   return (
-    <div {...stylex.props(styles.swipeViewport)} ref={viewportRef}>
-      {/* Off-screen previews, visible only during a swipe. */}
-      {dragDir === 1 && renderPreview(nextWeekday, 1)}
-      {dragDir === -1 && renderPreview(prevWeekday, -1)}
-
-      <div
-        {...stylex.props(styles.sheets)}
-        ref={sheetsRef}
-        style={
-          dragX != null ? { transform: `translateX(${dragX}px)` } : undefined
-        }
-      >
-
-        {fetchError && (
-          <div {...stylex.props(styles.fetchError)}>
-            <ErrorNote title="Couldn’t load entries." detail={fetchError} />
-          </div>
-        )}
-
-        {sheets.map(({ k, date, iso }, i) => {
-          const entry = entriesByDate[iso];
-          const prompt = promptsByDate[iso];
-          const dayReminders = remindersByDate[iso] ?? [];
-          const decos = decosByDate[iso] ?? [];
-          const label = relativeLabel(k);
-          const hasAnno = prompt != null || dayReminders.length > 0;
-          return (
-            <Fragment key={iso}>
-              {i > 0 && <Divider />}
-              <article
-              id={`sheet-${iso}`}
-              data-sheet-iso={iso}
-              {...stylex.props(
-                styles.sheet,
-                k !== 0 && styles.sheetMuted,
-                highlighted === iso && styles.highlight,
-              )}
-            >
-              <div {...stylex.props(styles.sheetHead)}>
-                <h2
-                  {...stylex.props(styles.sheetDate)}
-                  style={
-                    k !== 0
-                      ? { color: 'var(--sl-ink-soft)' }
-                      : undefined
-                  }
-                >
-                  {formatShort(date)}
-                  {date.getFullYear() !== now.getFullYear() && (
-                    <span {...stylex.props(styles.yearLabel)}>
-                      {' '}{date.getFullYear()}
-                    </span>
-                  )}
-                </h2>
-                {iso === todayIso ? (
-                  <span {...stylex.props(styles.todayPill)}>TODAY</span>
-                ) : (
-                  label != null && (
-                    <span {...stylex.props(styles.relLabel)}>{label}</span>
-                  )
-                )}
-              </div>
-              {iso === todayIso && entry == null && (
-                <div {...stylex.props(styles.emptyState)}>
-                  Nothing here yet.
-                  <br />
-                  Ask your agent to add an entry for today.
-                </div>
-              )}
-              {entry != null && <Markdown source={entry.body_text} />}
-              {hasAnno && (
-                <div {...stylex.props(styles.anno)}>
-                  {prompt != null && (
-                    <div {...stylex.props(styles.annoLine)}>
-                      <span {...stylex.props(styles.annoLabel)}>
-                        PROMPT ·
-                      </span>
-                      <span>{prompt.body}</span>
-                    </div>
-                  )}
-                  {dayReminders.map((r) => (
-                    <div key={r.id} {...stylex.props(styles.annoLine)}>
-                      {r.importance === 'high' ? (
-                        <span {...stylex.props(styles.annoDot)} />
-                      ) : (
-                        <span {...stylex.props(styles.annoLabel)}>
-                          {r.urgency === 'high' ? 'IMPORTANT ·' : 'REMINDER ·'}
-                        </span>
-                      )}
-                      <span>{r.title}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {decos.map((d) => (
-                <DecoView key={d.id} d={d} />
-              ))}
-            </article>
-            </Fragment>
-          );
-        })}
+    <div {...stylex.props(styles.journalRoot)}>
+      <div {...stylex.props(styles.stripViewport)} ref={stripViewportRef}>
+        <div
+          {...stylex.props(styles.strip)}
+          style={{ transform: `translateX(calc(${-300 / 7}% + ${dragX ?? 0}px))` }}
+        >
+          {order.map((w) => (
+            <WeekdaySheet
+              key={w}
+              weekday={w}
+              anchor={anchors[w]}
+              now={now}
+              todayIso={todayIso}
+              highlighted={highlighted}
+              fetchError={fetchError}
+              entriesByDate={entriesByDate}
+              promptsByDate={promptsByDate}
+              decosByDate={decosByDate}
+              remindersByDate={remindersByDate}
+              onNeedDates={onNeedDates}
+              jumpDate={jump && jump.weekday === w ? jump.date : null}
+              onJumpHandled={handleJumpHandled}
+            />
+          ))}
+        </div>
+        <ReminderRadar
+          reminders={allReminders}
+          viewportRef={stripViewportRef}
+          currentWeekday={weekday}
+          anchorDate={anchors[weekday]}
+          onPlanetTap={(date) => {
+            // TODO: jump the matching sheet to this date.
+            console.log('Radar tap:', date);
+          }}
+        />
       </div>
-      <ReminderRadar
-        reminders={allReminders}
-        viewportRef={viewportRef}
-        currentWeekday={weekday}
-        anchorDate={anchor}
-        onPlanetTap={(date) => {
-          // TODO: scroll to the date's sheet
-          console.log('Radar tap:', date);
-        }}
-      />
     </div>
   );
 }
+
+const styles = stylex.create({
+  journalRoot: {
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  // Clips the strip to the visible area; touch gestures start here.
+  stripViewport: {
+    overflow: 'hidden',
+    position: 'relative',
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  // 700% wide flex row of 7 columns; transform positions index 3 at -300/7%.
+  strip: {
+    display: 'flex',
+    width: '700%',
+    flex: 1,
+    minHeight: 0,
+    willChange: 'transform',
+  },
+});

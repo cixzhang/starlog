@@ -33,20 +33,18 @@ export interface CustomTheme {
   };
 }
 
-function sanitizeTokens(source: unknown): {
-  tokens: Record<string, string>;
-  slTokens: Record<string, string>;
-} {
-  const tokens: Record<string, string> = {};
-  const slTokens: Record<string, string> = {};
-  if (typeof source !== 'object' || !source) return { tokens, slTokens };
+// Validate that a token map is a plain object with string keys/values.
+// No per-value sanitization: the format matches Astryx theme structure,
+// and custom property values are inert (no script execution).
+function asTokenMap(source: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (typeof source !== 'object' || !source) return out;
   for (const [k, v] of Object.entries(source as Record<string, unknown>)) {
-    if (typeof k !== 'string' || typeof v !== 'string') continue;
-    if (!/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-z]+)$/.test(v.trim())) continue;
-    if (k.startsWith('--color-')) tokens[k] = v.trim();
-    else if (k.startsWith('--sl-')) slTokens[k] = v.trim();
+    if (typeof k === 'string' && typeof v === 'string') {
+      out[k] = v;
+    }
   }
-  return { tokens, slTokens };
+  return out;
 }
 
 function sanitizeFonts(source: unknown): CustomTheme['fonts'] | undefined {
@@ -64,7 +62,11 @@ function sanitizeFonts(source: unknown): CustomTheme['fonts'] | undefined {
 function toCustomTheme(data: unknown): CustomTheme | null {
   if (typeof data !== 'object' || !data) return null;
   const d = data as Record<string, unknown>;
-  const { tokens, slTokens } = sanitizeTokens(d.tokens ?? d);
+  // The format matches Astryx theme structure: pass through directly.
+  // Top-level `tokens` (--color-*) and `slTokens` (--sl-*) are validated
+  // as plain string maps, then handed to defineTheme (slTokens → localTokens).
+  const tokens = asTokenMap(d.tokens);
+  const slTokens = asTokenMap(d.slTokens);
   const fonts = sanitizeFonts(d.fonts);
   if (Object.keys(tokens).length === 0 && Object.keys(slTokens).length === 0 && !fonts) {
     return null;
