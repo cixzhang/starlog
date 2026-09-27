@@ -178,6 +178,22 @@ export function useCustomTheme() {
     };
   }, [customTheme]);
 
+  // Apply --sl-* local tokens directly to the document root.
+  // Astryx's runtime defineTheme doesn't inject localTokens CSS reliably,
+  // so we set them as CSS variables here. They cascade to the entire app.
+  useEffect(() => {
+    const root = document.documentElement;
+    const tokens = customTheme?.slTokens ?? {};
+    for (const [k, v] of Object.entries(tokens)) {
+      root.style.setProperty(k, v);
+    }
+    return () => {
+      for (const k of Object.keys(tokens)) {
+        root.style.removeProperty(k);
+      }
+    };
+  }, [customTheme]);
+
   const removeCustomTheme = () => {
     try {
       window.localStorage.removeItem(THEME_KEY);
