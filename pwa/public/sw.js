@@ -44,9 +44,9 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   const isShell =
-    request.mode === 'navigate' ||
     url.pathname === '/' ||
-    url.pathname === '/index.html';
+    url.pathname === '/index.html' ||
+    (request.mode === 'navigate' && !url.pathname.endsWith('.html'));
   if (isShell) {
     event.respondWith(
       fetch(request)
