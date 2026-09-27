@@ -34,7 +34,7 @@ import {
   type SbConfig,
 } from '../lib/supabase';
 import { addDays, isoWeekday, parseISODate, startOfWeek, toISODate } from '../lib/dates';
-import { WeekdaySheet } from '../components/WeekdaySheet';
+import WeekdaySheet from '../components/WeekdaySheet';
 import ReminderRadar from '../components/ReminderRadar';
 
 export interface WeekdayControls {
@@ -293,98 +293,8 @@ export default function Journal({
     onJumpConsumed();
   }, [onJumpConsumed]);
 
-  // --- Shared vertical scroll window ---
-  // All seven sheets share one scroll container and one past/future window.
-  // k=0 (this week) is scrolled to the top on mount and on swipe.
-  const stripViewportRef = useRef<HTMLDivElement>(null);
-  const [past, setPast] = useState(8);
-  const [future, setFuture] = useState(8);
-  const initializedRef = useRef(false);
-
-  // Scroll the shared container so the active sheet's k=0 is at the top.
-  const scrollToK0 = useCallback((wd: number) => {
-    const container = stripViewportRef.current;
-    if (!container) return;
-    const k0El = container.querySelector(
-      `[data-sheet-column="${wd}"] [data-sheet-k="0"]`,
-    ) as HTMLElement | null;
-    if (!k0El) return;
-    // offsetTop is relative to the offsetParent; walk up to get position
-    // relative to the scroll container.
-    let top = 0;
-    let el: HTMLElement | null = k0El;
-    while (el && el !== container) {
-      top += el.offsetTop;
-      el = el.offsetParent as HTMLElement | null;
-    }
-    container.scrollTop = top;
-  }, []);
-
-  // Initial scroll: land on this week's date.
-  useEffect(() => {
-    if (initializedRef.current) return;
-    const tryInit = () => {
-      const container = stripViewportRef.current;
-      if (!container) {
-        requestAnimationFrame(tryInit);
-        return;
-      }
-      const k0El = container.querySelector(
-        `[data-sheet-column="${weekday}"] [data-sheet-k="0"]`,
-      ) as HTMLElement | null;
-      if (!k0El || k0El.offsetTop === 0) {
-        requestAnimationFrame(tryInit);
-        return;
-      }
-      scrollToK0(weekday);
-      initializedRef.current = true;
-    };
-    // Wait a frame for layout.
-    requestAnimationFrame(tryInit);
-  }, [weekday, scrollToK0]);
-
-  // On swipe: scroll the new sheet's k=0 to the top (keeps current week aligned).
-  const prevWeekdayRef = useRef(weekday);
-  useEffect(() => {
-    if (prevWeekdayRef.current === weekday) return;
-    prevWeekdayRef.current = weekday;
-    // Only auto-align if we haven't initialized yet OR if the user is
-    // near the top (at k=0). If they've scrolled deep, preserve position.
-    // For now: always align to k=0 on swipe (current week stays aligned).
-    scrollToK0(weekday);
-  }, [weekday, scrollToK0]);
-
-  // Infinite scroll: extend the shared window when near top/bottom.
-  useEffect(() => {
-    const container = stripViewportRef.current;
-    if (!container) return;
-    let cooldown = false;
-    const onScroll = () => {
-      if (cooldown) return;
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const EDGE_PX = 800;
-      if (scrollTop < EDGE_PX) {
-        cooldown = true;
-        // Preserve visual position when prepending: record scrollHeight,
-        // extend, then adjust scrollTop by the delta after render.
-        const oldHeight = scrollHeight;
-        setPast((p) => p + 8);
-        requestAnimationFrame(() => {
-          const newHeight = container.scrollHeight;
-          container.scrollTop = scrollTop + (newHeight - oldHeight);
-          setTimeout(() => { cooldown = false; }, 400);
-        });
-      } else if (scrollTop + clientHeight > scrollHeight - EDGE_PX) {
-        cooldown = true;
-        setFuture((f) => f + 8);
-        setTimeout(() => { cooldown = false; }, 400);
-      }
-    };
-    container.addEventListener('scroll', onScroll, { passive: true });
-    return () => container.removeEventListener('scroll', onScroll);
-  }, []);
-
   // --- Horizontal carousel gesture ---
+  const stripViewportRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number | null>(null);
   const dragState = useRef<{ startX: number; startY: number; claimed: boolean } | null>(null);
 
@@ -533,8 +443,6 @@ export default function Journal({
               todayIso={todayIso}
               highlighted={highlighted}
               fetchError={fetchError}
-              past={past}
-              future={future}
               entriesByDate={entriesByDate}
               promptsByDate={promptsByDate}
               decosByDate={decosByDate}
@@ -569,14 +477,12 @@ const styles = stylex.create({
   },
   // Clips the strip to the visible area; touch gestures start here.
   stripViewport: {
-    overflowY: 'auto',
-    overflowX: 'hidden',
+    overflow: 'hidden',
     position: 'relative',
     flex: 1,
     minHeight: 0,
     display: 'flex',
     flexDirection: 'column',
-    touchAction: 'pan-y',
   },
   // 700% wide flex row of 7 columns; transform positions index 3 at -300/7%.
   strip: {

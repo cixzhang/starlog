@@ -1,55 +1,49 @@
 # WeekdaySheet Scroll Specification
 
-## Architecture: Shared Scroll Container with Normal Flow
+## Architecture: Fixed Canvas
 
-Seven weekday sheets sit side-by-side in a horizontal strip. They share ONE
-vertical scroll container (the strip viewport). Dates render in normal
-document flow — no fixed canvas, no absolute positioning.
+Each weekday sheet uses a fixed 30,000px tall canvas with absolute positioning.
+This is the "kept engine" — it must not be replaced with normal document flow.
 
 ### Invariants (must always hold)
 
-1. **Single scroll container**: The strip viewport (`stripViewport`) is the
-   only vertical scroll container. It has `overflow-y: auto` and
-   `touchAction: pan-y`. There are no per-sheet scroll containers.
+1. **k=0 at MIDDLE**: The current week's date (k=0) is positioned at exactly
+   `MIDDLE = 15000px` from the top of the inner canvas, in every sheet.
+   - Past weeks (k<0) are positioned above with negative cumulative offsets.
+   - Future weeks (k>0) are positioned below with positive cumulative offsets.
 
-2. **Shared window**: All seven sheets render the same `past`/`future` week
-   window (owned by Journal). When the window extends, all sheets extend
-   together.
+2. **Cross-sheet alignment**: Because k=0 is at the same coordinate (15000px)
+   in all seven sheets, swiping between sheets preserves vertical position
+   without adjustment. This is the reason for the fixed canvas — variable
+   past-date heights must not affect k=0's position.
 
-3. **k=0 alignment on mount**: On initial load, the shared container scrolls
-   so the active sheet's k=0 (this week) is at the top of the viewport.
-   The init finds `[data-sheet-column="{weekday}"] [data-sheet-k="0"]`,
-   walks up via `offsetParent` to compute its position relative to the
-   scroll container, and sets `scrollTop`. It retries via rAF until the
-   element is laid out.
+3. **Scrollable container**: The sheet's scroll container must be constrained
+   to the viewport height (via `height: 100%` on the column and `flex: 1` on
+   the scroll container). The 30,000px inner div must NOT stretch the container;
+   it must be clipped by `overflow: hidden` on the column and scrolled via
+   `overflow-y: auto` on the scroll container.
 
-4. **k=0 alignment on swipe**: When the active weekday changes (swipe), the
-   shared container scrolls to the new sheet's k=0. This keeps the current
-   week aligned across sheets. The scroll position is not preserved across
-   swipes — the current week is always brought to the top.
+4. **Initial scroll position**: On mount, `container.scrollTop` must be set to
+   `MIDDLE` (15000px), placing k=0 at the top of the visible viewport.
+   - iOS Safari may not have laid out the 30,000px scrollable area when the
+     layout effect first runs. The init must poll via `requestAnimationFrame`
+     until `container.scrollHeight >= CONTAINER_HEIGHT`, then set scrollTop.
+   - The init must not be marked complete until `scrollTop` actually sticks.
 
-5. **Infinite scroll**: A single scroll listener on the shared container
-   extends the window when near the top (`scrollTop < 800px`) or bottom
-   (`scrollTop + clientHeight > scrollHeight - 800px`). On prepend, the
-   visual position is preserved by recording `scrollHeight`, extending,
-   then adjusting `scrollTop` by the height delta after render.
+5. **Prepend stability**: When past weeks are prepended (infinite scroll up),
+   k=0 must remain at MIDDLE. The layout effect recalculates all absolute
+   positions on every render, so k=0 never shifts. No scrollTop adjustment
+   is needed on prepend.
 
-6. **Pre-rendered window**: Initial window is 8 weeks past + 8 weeks future
-   (16 weeks per sheet, 112 date cards total). Extends by 8 in each direction.
+6. **Infinite scroll triggers**: Lazy loading must trigger off the RENDERED
+   content edges (tracked via `contentTopRef`/`contentBottomRef`), not the
+   30,000px container edges. Otherwise the user scrolls through ~14,000px
+   of blank canvas before more dates load.
 
-### Why this works
+### Why not normal flow?
 
-The old fixed-canvas approach (30,000px div, absolute positioning, k=0 at
-MIDDLE) failed on iOS Safari — the scroll container never became properly
-scrollable, so init and infinite load never worked.
-
-Normal flow is robust: the browser handles layout, and `offsetTop` gives
-the true position. The trade-off is that k=0 is at different offsets in
-each sheet (variable past heights), so we explicitly scroll to k=0 on
-swipe instead of relying on a fixed coordinate.
-
-### Data attributes
-
-- `data-sheet-column="{weekday}"` — on each sheet's root div
-- `data-sheet-k="{k}"` — on each date article (k = week offset from this week)
-- `data-sheet-iso="{iso}"` — on each date article (for jump-to-date)
+Normal document flow (pre-rendering N weeks in a vertical stack) cannot
+guarantee cross-sheet alignment because past weeks have variable heights.
+Sheet A might have 4000px of past content above k=0; Sheet B might have
+4500px. Setting the same scrollTop on both would show different weeks.
+The fixed canvas solves this by giving k=0 an absolute, stable coordinate.
