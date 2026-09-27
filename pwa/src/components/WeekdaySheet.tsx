@@ -50,6 +50,10 @@ interface WeekdaySheetProps {
   /** ISO date to jump to. Only set on the sheet whose weekday matches. */
   jumpDate: string | null;
   onJumpHandled: () => void;
+  /** Max pastTotal across all 7 sheets — used as the uniform alignment offset. */
+  alignOffset: number;
+  /** Report this sheet's measured pastTotal to the parent. */
+  onPastTotal: (weekday: number, total: number) => void;
 }
 
 function relativeLabel(k: number): string | null {
@@ -131,6 +135,8 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onNeedDates,
     jumpDate,
     onJumpHandled,
+    alignOffset,
+    onPastTotal,
   } = props;
 
   const [past, setPast] = useState(INIT_PAST);
@@ -199,37 +205,39 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     const pastTotal = -negTop;
     latestBottomRef.current = negTop;
 
-    // Shift virtual tops by pastTotal so all DOM positions are positive
-    // and reachable via scrolling. k=0's virtual top:0 becomes pastTotal.
-    // (The "top padding" compensation — a positive offset on the container.)
+    // Report this sheet's pastTotal; parent computes the max across all 7.
+    onPastTotal(weekday, pastTotal);
+
+    // Shift virtual tops by the UNIFORM alignOffset (max pastTotal across
+    // all sheets) so k=0 lands at the same scroll position in every column.
+    // Sheets with shorter past content get empty space above k=0.
     for (const [iso, t] of tops) {
       const el = inner.querySelector(
         `[data-sheet-iso="${iso}"]`,
       ) as HTMLElement | null;
       if (el) {
         el.style.position = 'absolute';
-        el.style.top = `${t + pastTotal}px`;
+        el.style.top = `${t + alignOffset}px`;
         el.style.left = '0';
         el.style.right = '0';
       }
     }
     inner.style.position = 'relative';
-    inner.style.height = `${pastTotal + bottomTotal}px`;
+    inner.style.height = `${alignOffset + bottomTotal}px`;
 
-    // Initialize scroll so k=0 (top:0) sits at the viewport top.
-    // On prepend (pastTotal grows), increase scrollTop by the delta to
-    // keep the visual position stable.
+    // Initialize scroll so k=0 sits at the viewport top in every sheet.
+    // On prepend (alignOffset grows), increase scrollTop by the delta.
     if (!initializedRef.current) {
       initializedRef.current = true;
-      container.scrollTop = pastTotal;
+      container.scrollTop = alignOffset;
     } else {
-      const prevPast = (container as any)._prevPastTotal ?? pastTotal;
-      const delta = pastTotal - prevPast;
+      const prevAlign = (container as any)._prevAlignOffset ?? alignOffset;
+      const delta = alignOffset - prevAlign;
       if (Math.abs(delta) > 1) {
         container.scrollTop += delta;
       }
     }
-    (container as any)._prevPastTotal = pastTotal;
+    (container as any)._prevAlignOffset = alignOffset;
   });
 
   // Jump-to-date: extend the window to include the target date, then scroll

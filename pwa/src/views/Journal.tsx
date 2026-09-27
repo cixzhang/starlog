@@ -78,6 +78,17 @@ export default function Journal({
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const [fetchVersion, setFetchVersion] = useState(0);
 
+  // Past-total alignment: each sheet reports its measured pastTotal;
+  // we use the max across all 7 so k=0 aligns vertically in every column.
+  const [pastTotals, setPastTotals] = useState<Record<number, number>>({});
+  const alignOffset = useMemo(
+    () => Math.max(0, ...Object.values(pastTotals)),
+    [pastTotals],
+  );
+  const handlePastTotal = useCallback((w: number, total: number) => {
+    setPastTotals((prev) => (prev[w] === total ? prev : { ...prev, [w]: total }));
+  }, []);
+
   // "Now" refreshes if the day rolls over while the app is open/suspended.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -450,6 +461,8 @@ export default function Journal({
               onNeedDates={onNeedDates}
               jumpDate={jump && jump.weekday === w ? jump.date : null}
               onJumpHandled={handleJumpHandled}
+              alignOffset={alignOffset}
+              onPastTotal={handlePastTotal}
             />
           ))}
         </div>
