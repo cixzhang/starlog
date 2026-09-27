@@ -434,6 +434,7 @@ const styles = stylex.create({
     opacity: 0.6,
   },
   relLabel: {
+    fontFamily: 'var(--font-code)',
     fontSize: 11,
     fontWeight: 600,
     letterSpacing: '0.08em',
