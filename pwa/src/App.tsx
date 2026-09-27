@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { IconButton } from '@astryxdesign/core';
+import { IconButton, Token } from '@astryxdesign/core';
 import SettingsPanel from './components/SettingsPanel';
 import {
   BookOpen,
@@ -80,22 +80,6 @@ const styles = stylex.create({
     alignItems: 'center',
     gap: 2,
     justifySelf: 'center',
-  },
-  pill: {
-    appearance: 'none',
-    background: 'transparent',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--color-text-primary)',
-    color: 'var(--color-text-primary)',
-    borderRadius: 999,
-    padding: '7px 16px',
-    fontFamily: 'var(--font-code)',
-    fontSize: 13,
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
   },
   arrow: {
     appearance: 'none',
@@ -298,14 +282,12 @@ export default function App() {
                     >
                       <ChevronLeft size={20} />
                     </button>
-                    <button
-                      {...stylex.props(styles.pill)}
+                    <Token
+                      label={WEEKDAY_NAMES[weekdayCtl.weekday - 1].toUpperCase()}
                       onClick={weekdayCtl.goToday}
-                      aria-label={`${WEEKDAY_NAMES[weekdayCtl.weekday - 1]} — back to today`}
-                      title="Back to today"
-                    >
-                      {WEEKDAY_NAMES[weekdayCtl.weekday - 1].toUpperCase()}
-                    </button>
+                      description={`${WEEKDAY_NAMES[weekdayCtl.weekday - 1]} — back to today`}
+                      size="sm"
+                    />
                     <button
                       {...stylex.props(styles.arrow)}
                       onClick={() => weekdayCtl.move(1)}
