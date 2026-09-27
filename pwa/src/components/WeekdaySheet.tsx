@@ -303,7 +303,6 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                   {...stylex.props(
                     styles.sheet,
                     k !== 0 && styles.sheetMuted,
-                    k === 0 && styles.sheetCurrent,
                     highlighted === iso && styles.highlight,
                   )}
                 >
@@ -415,9 +414,7 @@ const styles = stylex.create({
   // (translucent white overlay on the viewport's paper).
   sheetMuted: {
     color: 'var(--color-text-secondary)',
-  },
-  sheetCurrent: {
-    backgroundColor: 'var(--color-background-card)',
+    backgroundColor: 'var(--color-background-surface)',
     borderRadius: 12,
   },
   sheetHead: {
