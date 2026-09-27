@@ -7,6 +7,9 @@ Three steps, split between the agent and you.
 The agent commits the PWA source under `pwa/` and pushes it to
 `cixzhang/starlog`. Nothing for you to do here.
 
+Note: Vercel refuses to deploy commits whose author email isn't valid,
+so the agent commits as `hatch <cixzhang@users.noreply.github.com>`.
+
 ## 2. GitHub → Vercel (you)
 
 1. In Vercel, **Add New → Project**, and import `cixzhang/starlog`.
