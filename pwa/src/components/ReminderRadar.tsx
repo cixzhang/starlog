@@ -171,7 +171,7 @@ export default function ReminderRadar({
     });
 
     setVisibleIsos(visible);
-  }, [viewportRef, scrollTick, reminders]);
+  }, [viewportRef, scrollTick, reminders, currentWeekday, anchorDate]);
 
   // Re-calculate on scroll
   useEffect(() => {
