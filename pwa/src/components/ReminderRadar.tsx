@@ -266,11 +266,23 @@ export default function ReminderRadar({
         // The planet positions itself at the screen edge nearest to the sheet,
         // with the arrow pointing toward it.
         const sheetEl = document.getElementById(`sheet-${dateIso}`);
-        if (!sheetEl) return null;
 
-        const sheetRect = sheetEl.getBoundingClientRect();
-        const sheetCenterX = sheetRect.left + sheetRect.width / 2;
-        const sheetCenterY = sheetRect.top + sheetRect.height / 2;
+        let sheetCenterX: number;
+        let sheetCenterY: number;
+
+        if (sheetEl) {
+          const sheetRect = sheetEl.getBoundingClientRect();
+          sheetCenterX = sheetRect.left + sheetRect.width / 2;
+          sheetCenterY = sheetRect.top + sheetRect.height / 2;
+        } else {
+          // Sheet not rendered (outside the current window): estimate position.
+          // Future dates are below, past dates are above. Center horizontally.
+          const isFuture = daysUntil >= 0;
+          sheetCenterX = viewportCenterX;
+          sheetCenterY = isFuture
+            ? viewportRect.bottom + 1000  // Below the viewport
+            : viewportRect.top - 1000;     // Above the viewport
+        }
 
         // Vector from viewport center to sheet center
         const dx = sheetCenterX - viewportCenterX;
