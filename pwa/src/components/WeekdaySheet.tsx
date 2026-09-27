@@ -420,6 +420,7 @@ const styles = stylex.create({
   },
   sheetDate: {
     margin: 0,
+    fontFamily: 'var(--font-heading)',
     fontSize: 20,
     fontWeight: 600,
     letterSpacing: '0.01em',
