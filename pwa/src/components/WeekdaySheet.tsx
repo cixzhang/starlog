@@ -13,7 +13,7 @@
 // Sheets are keyed by weekday number, so horizontal swiping only changes which
 // mounted sheet is visible — it never touches another sheet's scroll position.
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { Divider } from '@astryxdesign/core';
 import { addDays, daysBetween, formatShort, parseISODate, toISODate } from '../lib/dates';
@@ -133,15 +133,13 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onJumpHandled,
   } = props;
 
-  const [past, setPast] = useState(INIT_PAST);
+  const [past, setPast] = useState(0);
   const [future, setFuture] = useState(INIT_FUTURE);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollCooldown = useRef(0);
   const prependAnchor = useRef<{ iso: string; top: number } | null>(null);
   const datesRef = useRef<DateItem[]>([]);
-  const userScrolled = useRef(false);
-  const alignState = useRef<'pending' | 'initial' | 'done'>('pending');
 
   const dates = useMemo<DateItem[]>(() => {
     const out: DateItem[] = [];
@@ -158,58 +156,34 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onNeedDates(dates.map((d) => d.iso));
   }, [dates, onNeedDates]);
 
-  const alignToCurrentWeek = useCallback(() => {
+  // (alignToCurrentWeek removed: k=0 starts at top by construction, no
+  // scroll-to alignment needed.)
+  // Initialize: k=0 starts at the top (past=0). After mount, prepend the
+  // past dates while preserving scroll position, so k=0 stays pinned.
+  // No scroll-to alignment needed — the layout is deterministic.
+  useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
-    const k0 = datesRef.current.find((d) => d.k === 0);
-    if (!k0) return;
-    const el = container.querySelector(`[data-sheet-iso="${k0.iso}"]`);
-    if (el) {
-      const cRect = container.getBoundingClientRect();
-      const eRect = (el as HTMLElement).getBoundingClientRect();
-      container.scrollTop += eRect.top - cRect.top;
-    }
-  }, []);
-
-  // Initial alignment: on mount, scroll so this week's date sits at the top
-  // of the container. All seven sheets do this, so they start aligned.
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      if (alignState.current === 'pending' && !userScrolled.current) {
-        alignToCurrentWeek();
-        // Mark done, not initial — the data-driven re-alignment above
-        // handles the post-load correction if it hasn't already.
-        alignState.current = 'done';
+    // Anchor k=0 (currently the first element, at the top).
+    const first = datesRef.current[0];
+    if (first && first.k === 0) {
+      const el = container.querySelector(`[data-sheet-iso="${first.iso}"]`);
+      if (el) {
+        prependAnchor.current = {
+          iso: first.iso,
+          top: (el as HTMLElement).getBoundingClientRect().top,
+        };
       }
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [alignToCurrentWeek]);
+    }
+    setPast(INIT_PAST);
+  }, []);
 
   // Re-align once after the first data arrives, since entry/prompt heights
   // can shift dates. Never after the user has scrolled. Runs even if the
-  // initial alignment hasn't fired yet (data can beat rAF).
-  useEffect(() => {
-    if (alignState.current !== 'done' && !userScrolled.current) {
-      alignToCurrentWeek();
-      alignState.current = 'done';
-    }
-  }, [entriesByDate, promptsByDate, decosByDate, remindersByDate, alignToCurrentWeek]);
+  // (Data-driven re-alignment removed: k=0 is pinned by construction via
+  // prepend preservation, so data loading can't shift it.)
 
-  // Track user-initiated scrolling via touch/wheel so auto-alignment never
-  // fights the user. Programmatic scrollTop doesn't fire these events.
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const mark = () => {
-      userScrolled.current = true;
-    };
-    container.addEventListener('touchstart', mark, { passive: true });
-    container.addEventListener('wheel', mark, { passive: true });
-    return () => {
-      container.removeEventListener('touchstart', mark);
-      container.removeEventListener('wheel', mark);
-    };
-  }, []);
+  // (User-scroll tracking removed: no auto-alignment to fight the user.)
 
   // Jump-to-date: extend the window to include the target date, then scroll
   // this sheet (and only this sheet) to it.
