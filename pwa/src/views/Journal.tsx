@@ -41,7 +41,6 @@ import {
 import { Markdown } from '../lib/markdown';
 import { sanitizeSvg } from '../lib/svg';
 import { ErrorNote } from '../components/ui';
-import Compass from '../components/compass';
 
 const INIT_PAST = 4;
 const INIT_FUTURE = 2;
@@ -74,13 +73,11 @@ function relativeLabel(k: number): string | null {
 
 const styles = stylex.create({
   canvasHead: {
-    padding: '14px 16px 10px',
-    borderBottom: '1px solid var(--sl-line)',
-  },
-  canvasRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 2,
+    padding: '10px 16px',
+    borderBottom: '1px solid var(--sl-line)',
   },
   pill: {
     appearance: 'none',
@@ -113,12 +110,6 @@ const styles = stylex.create({
     cursor: 'pointer',
     borderRadius: 8,
   },
-  swipeRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
   arrow: {
     appearance: 'none',
     border: 'none',
@@ -130,24 +121,10 @@ const styles = stylex.create({
     borderRadius: 8,
     cursor: 'pointer',
   },
-  swipeHint: {
-    fontFamily: 'var(--font-code)',
-    fontSize: 11,
-    letterSpacing: '0.14em',
-    color: 'var(--sl-ink-faint)',
-  },
   sheets: {
     maxWidth: 680,
     margin: '0 auto',
     padding: '4px 20px 120px',
-  },
-  compassWrap: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    padding: '4px 0 0',
-  },
-  compassQuiet: {
-    opacity: 0.45,
   },
   sheet: {
     padding: '26px 0 34px',
@@ -177,7 +154,7 @@ const styles = stylex.create({
     color: 'var(--sl-ink-faint)',
     whiteSpace: 'nowrap',
   },
-  thisWeek: {
+  todayPill: {
     fontFamily: 'var(--font-code)',
     fontSize: 11,
     fontWeight: 700,
@@ -499,61 +476,55 @@ export default function Journal({
   }, [move]);
 
   const weekdayName = WEEKDAY_NAMES[weekday - 1].toUpperCase();
+  const todayIso = toISODate(now);
 
   return (
     <div>
       <div {...stylex.props(styles.canvasHead)}>
-        <div {...stylex.props(styles.canvasRow)}>
-          <button
-            {...stylex.props(styles.pill)}
-            onClick={goToday}
-            aria-label={`${WEEKDAY_NAMES[weekday - 1]} — back to today`}
-            title="Back to today"
+        <button
+          {...stylex.props(styles.arrow)}
+          onClick={() => move(-1)}
+          aria-label="Previous weekday"
+        >
+          ‹
+        </button>
+        <button
+          {...stylex.props(styles.pill)}
+          onClick={goToday}
+          aria-label={`${WEEKDAY_NAMES[weekday - 1]} — back to today`}
+          title="Back to today"
+        >
+          {weekdayName}
+        </button>
+        <button
+          {...stylex.props(styles.arrow)}
+          onClick={() => move(1)}
+          aria-label="Next weekday"
+        >
+          ›
+        </button>
+        <div {...stylex.props(styles.spacer)} />
+        <button
+          {...stylex.props(styles.toolBtn)}
+          onClick={onOpenCalendar}
+          aria-label="Open calendar"
+          title="Calendar"
+        >
+          <svg
+            width="19"
+            height="19"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            aria-hidden="true"
           >
-            {weekdayName}
-          </button>
-          <div {...stylex.props(styles.spacer)} />
-          <button
-            {...stylex.props(styles.toolBtn)}
-            onClick={onOpenCalendar}
-            aria-label="Open calendar"
-            title="Calendar"
-          >
-            <svg
-              width="19"
-              height="19"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              aria-hidden="true"
-            >
-              <rect x="2.5" y="4" width="15" height="13" rx="2.5" />
-              <line x1="2.5" y1="8" x2="17.5" y2="8" />
-              <line x1="6.5" y1="2" x2="6.5" y2="5.5" />
-              <line x1="13.5" y1="2" x2="13.5" y2="5.5" />
-            </svg>
-          </button>
-        </div>
-        <div {...stylex.props(styles.swipeRow)}>
-          <button
-            {...stylex.props(styles.arrow)}
-            onClick={() => move(-1)}
-            aria-label="Previous weekday"
-          >
-            ‹
-          </button>
-          <span {...stylex.props(styles.swipeHint)}>
-            SWIPE TO CHANGE WEEKDAY
-          </span>
-          <button
-            {...stylex.props(styles.arrow)}
-            onClick={() => move(1)}
-            aria-label="Next weekday"
-          >
-            ›
-          </button>
-        </div>
+            <rect x="2.5" y="4" width="15" height="13" rx="2.5" />
+            <line x1="2.5" y1="8" x2="17.5" y2="8" />
+            <line x1="6.5" y1="2" x2="6.5" y2="5.5" />
+            <line x1="13.5" y1="2" x2="13.5" y2="5.5" />
+          </svg>
+        </button>
       </div>
 
       <div
@@ -561,14 +532,6 @@ export default function Journal({
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <div
-          {...stylex.props(
-            styles.compassWrap,
-            allReminders.length === 0 && styles.compassQuiet,
-          )}
-        >
-          <Compass reminders={allReminders} now={now} size={112} />
-        </div>
 
         {fetchError && (
           <div {...stylex.props(styles.fetchError)}>
@@ -595,8 +558,8 @@ export default function Journal({
             >
               <div {...stylex.props(styles.sheetHead)}>
                 <h2 {...stylex.props(styles.sheetDate)}>{formatShort(date)}</h2>
-                {label === 'THIS WEEK' ? (
-                  <span {...stylex.props(styles.thisWeek)}>{label}</span>
+                {iso === todayIso ? (
+                  <span {...stylex.props(styles.todayPill)}>TODAY</span>
                 ) : (
                   label != null && (
                     <span {...stylex.props(styles.relLabel)}>{label}</span>
