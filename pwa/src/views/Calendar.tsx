@@ -44,7 +44,6 @@ const styles = stylex.create({
   monthMuted: {
     color: 'var(--color-text-secondary)',
     backgroundColor: 'var(--color-background-surface)',
-    borderRadius: 12,
   },
   monthTitle: {
     fontFamily: 'var(--font-heading)',
@@ -72,7 +71,6 @@ const styles = stylex.create({
     border: 'none',
     background: 'transparent',
     aspectRatio: '1',
-    borderRadius: 12,
     cursor: 'pointer',
     display: 'flex',
     flexDirection: 'column',
