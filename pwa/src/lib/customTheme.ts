@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
-import { defineTheme, type DefinedTheme } from '@astryxdesign/core/theme';
-import { starlogTheme } from '../studio/starlog.js';
+import { useEffect, useState } from 'react';
 
-// Custom themes via the Astryx Theme provider: a user-supplied token map
-// becomes a real DefinedTheme (extends starlogTheme) passed to <Theme>.
+// Custom themes: user-supplied --color-* token overrides applied as CSS
+// custom properties on the [data-astryx-theme] element, where the Astryx
+// Theme provider scopes its variables. This is the same mechanism the
+// provider itself uses for token overrides.
+//
 // Installed via ?theme=<base64url-json> URL param, pasted JSON in Settings,
 // and persisted in localStorage.
 //
-// Format: {"name": "Dusk", "tokens": {"--color-...": "#..."}}
+// Format: {"name": "Dusk", "tokens": {"--color-...": "#..."}, "fonts": {...}}
 // Only --color-* tokens are accepted; values must look like colors.
 
 const THEME_KEY = 'starlog.customTheme';
@@ -115,28 +116,34 @@ export function useCustomTheme(active: boolean) {
     return loadStored();
   });
 
-  // Build a real Astryx theme extending starlogTheme when active.
-  // defineTheme generates + injects the CSS at runtime (unbuilt mode).
-  const appliedTheme: DefinedTheme = useMemo(() => {
-    if (!active || !customTheme) return starlogTheme;
-    return defineTheme({
-      name: `starlog-custom-${customTheme.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      extends: starlogTheme,
-      tokens: customTheme.tokens,
-      ...(customTheme.fonts && {
-        typography: {
-          ...(customTheme.fonts.body && {
-            body: { family: customTheme.fonts.body },
-          }),
-          ...(customTheme.fonts.heading && {
-            heading: { family: customTheme.fonts.heading },
-          }),
-          ...(customTheme.fonts.code && {
-            code: { family: customTheme.fonts.code },
-          }),
-        },
-      }),
-    });
+  // Apply/remove token overrides on the Astryx theme element.
+  // Must target [data-astryx-theme], not <html>: the provider scopes its
+  // variables there, and inline custom properties on that element win.
+  useEffect(() => {
+    if (!active || !customTheme) return;
+    const root = document.querySelector('[data-astryx-theme]') as HTMLElement | null;
+    if (!root) return;
+    for (const [k, v] of Object.entries(customTheme.tokens)) {
+      root.style.setProperty(k, v);
+    }
+    // Fonts map to the theme's --font-family-* tokens.
+    if (customTheme.fonts?.body) {
+      root.style.setProperty('--font-family-body', `'${customTheme.fonts.body}', ${getComputedStyle(root).getPropertyValue('--font-family-body') || 'sans-serif'}`);
+    }
+    if (customTheme.fonts?.heading) {
+      root.style.setProperty('--font-family-heading', `'${customTheme.fonts.heading}', ${getComputedStyle(root).getPropertyValue('--font-family-heading') || 'sans-serif'}`);
+    }
+    if (customTheme.fonts?.code) {
+      root.style.setProperty('--font-family-code', `'${customTheme.fonts.code}', ${getComputedStyle(root).getPropertyValue('--font-family-code') || 'monospace'}`);
+    }
+    return () => {
+      for (const k of Object.keys(customTheme.tokens)) {
+        root.style.removeProperty(k);
+      }
+      root.style.removeProperty('--font-family-body');
+      root.style.removeProperty('--font-family-heading');
+      root.style.removeProperty('--font-family-code');
+    };
   }, [active, customTheme]);
 
   // Load Google Fonts for the custom theme's font families.
@@ -214,7 +221,7 @@ export function useCustomTheme(active: boolean) {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  return { customTheme, appliedTheme, removeCustomTheme, installCustomTheme };
+  return { customTheme, removeCustomTheme, installCustomTheme };
 }
 
 // Encode a theme for sharing via URL: returns the ?theme= param value.
