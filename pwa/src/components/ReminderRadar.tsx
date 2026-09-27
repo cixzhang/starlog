@@ -276,21 +276,45 @@ export default function ReminderRadar({
         if (visibleReminderDates.has(dateIso)) return null;
 
         // 2D grid position: X = weekday axis, Y = week axis.
-        // The reminder may be on a different weekday view (not rendered),
-        // so we calculate the direction mathematically.
+        // The reminder may be on a different weekday sheet, so we calculate
+        // the direction mathematically, relative to what's currently visible.
         //
-        // Example: Sun Sep 27 → Thu Oct 8.
-        // dx = 4 - 7 = -3 (Thursday is 3 swipes left from Sunday)
-        // dy = 1 (Oct 8 is in the week starting Oct 4, one week down)
+        // Example: Fri Oct 2 (viewing) → Thu Oct 8.
+        // dx = 4 - 5 = -1 (Thursday is 1 swipe left from Friday)
+        // dy = weeks from the currently viewed date to the reminder
         const remindWeekday = isoWeekday(remindDate);
         let dx = remindWeekday - currentWeekday;
         // Normalize to [-3, 3] for the shortest swipe direction
         if (dx > 3) dx -= 7;
         if (dx < -3) dx += 7;
 
-        // Week offset: which week the reminder is in relative to the anchor week
+        // Find the date currently at the viewport center of the active sheet.
+        // dy is measured from THERE, not from the anchor, so the planet
+        // reflects the current scroll position.
+        let viewedDate: Date | null = null;
+        const scroller = viewport.querySelector('[data-sheet-scroll]');
+        if (scroller) {
+          const scrollerRect = scroller.getBoundingClientRect();
+          const centerY = scrollerRect.top + scrollerRect.height / 2;
+          const dateEls = scroller.querySelectorAll('[data-sheet-iso]');
+          for (const el of dateEls) {
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            if (rect.top <= centerY && rect.bottom >= centerY) {
+              const iso = (el as HTMLElement).dataset.sheetIso;
+              if (iso) {
+                viewedDate = new Date(iso + 'T00:00:00');
+                break;
+              }
+            }
+          }
+        }
+        // Fallback to anchor if we can't determine the viewed date
+        const refDate = viewedDate ?? anchorDate;
         const dayDiff =
-          (remindDate.getTime() - anchorDate.getTime()) / (1000 * 60 * 60 * 24);
+          (remindDate.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24);
+        // dy in weeks: positive = future (down), negative = past (up).
+        // Subtract dx because the weekday difference is already accounted for
+        // in the horizontal axis.
         const dy = (dayDiff - dx) / 7;
 
         // If the user is on the reminder's weekday, try DOM position for
