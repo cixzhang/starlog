@@ -284,6 +284,7 @@ export default function SettingsPanel({
         {mode === 'custom' && (
           <div style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 8 }}>
             {customTheme && (
+              <>
               <div
                 style={{
                   display: 'flex',
@@ -309,6 +310,30 @@ export default function SettingsPanel({
                   Clear
                 </button>
               </div>
+              <input
+                readOnly
+                value={JSON.stringify(customTheme).slice(0, 80) + '…'}
+                onClick={(e) => {
+                  navigator.clipboard.writeText(JSON.stringify(customTheme)).catch(() => {});
+                  (e.target as HTMLInputElement).select();
+                }}
+                title="Tap to copy the full theme JSON"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  borderRadius: 12,
+                  border: '1px solid var(--sl-line)',
+                  backgroundColor: 'var(--sl-paper)',
+                  color: 'var(--sl-ink-faint)',
+                  fontSize: 13,
+                  padding: '10px 12px',
+                  fontFamily: 'monospace',
+                  marginBottom: 8,
+                  cursor: 'pointer',
+                  textOverflow: 'ellipsis',
+                }}
+              />
+              </>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button
