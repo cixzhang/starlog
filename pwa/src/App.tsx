@@ -27,10 +27,19 @@ import { getWeekStart, setWeekStart, type WeekStart } from './lib/settings';
 import { useCustomTheme } from './lib/customTheme';
 import { StarlogMark } from './components/mark';
 import { ErrorNote, Loading } from './components/ui';
-import Setup from './views/Setup';
-import InstallApp, { isStandalone } from './views/InstallApp';
 import Journal, { type WeekdayControls } from './views/Journal';
 import Calendar from './views/Calendar';
+
+// Whether the app is running as an installed PWA (vs in the browser).
+function isStandalone(): boolean {
+  try {
+    if ((navigator as { standalone?: boolean }).standalone === true) return true;
+    if (window.matchMedia('(display-mode: standalone)').matches) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
 
 type Tab = 'journal' | 'calendar';
 
@@ -134,32 +143,28 @@ export default function App() {
   const [initial] = useState(() => {
     const link = consumeLinkConfig();
     const saved = loadConfig();
-    if (saved) return { cfg: saved as SbConfig | null, linkUrl: '', needsInstall: false };
+    if (saved) return { cfg: saved as SbConfig | null };
     const hasLink = !!(link.url && link.anonKey);
     if (hasLink && isStandalone()) {
       const full: SbConfig = { url: link.url, anonKey: link.anonKey };
       saveConfig(full);
-      return { cfg: full as SbConfig | null, linkUrl: '', needsInstall: false };
+      return { cfg: full as SbConfig | null };
     }
-    if (hasLink) {
-      // Rebuild the setup link for the copy button (params were stripped).
+    // No config: redirect to standalone pages (served separately, no SPA bundle).
+    // Setup and Install are static HTML — they load instantly.
+    if (hasLink && !isStandalone()) {
       const params = new URLSearchParams({
         supabase_url: link.url,
         anon_key: link.anonKey,
       });
-      const setupLink = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-      return {
-        cfg: null as SbConfig | null,
-        linkUrl: link.url,
-        needsInstall: true,
-        setupLink,
-        pendingCfg: { url: link.url, anonKey: link.anonKey } as SbConfig,
-      };
+      window.location.href = `/install.html?${params.toString()}`;
+    } else {
+      // Preserve setup link params for setup.html
+      window.location.href = '/setup.html' + window.location.search;
     }
-    return { cfg: null as SbConfig | null, linkUrl: link.url, needsInstall: false };
+    return { cfg: null as SbConfig | null };
   });
   const [cfg, setCfg] = useState<SbConfig | null>(initial.cfg);
-  const [showInstall, setShowInstall] = useState(initial.needsInstall);
   // ... (rest unchanged)
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantError, setTenantError] = useState<string | null>(null);
@@ -246,25 +251,9 @@ export default function App() {
     setTab('journal');
   }, []);
 
-  function continueInBrowser() {
-    if (initial.pendingCfg) {
-      saveConfig(initial.pendingCfg);
-      setCfg(initial.pendingCfg);
-    }
-    setShowInstall(false);
-  }
-
   return (
     <Theme theme={appliedTheme} mode={resolvedMode}>
       <div {...stylex.props(styles.root)}>
-        {showInstall ? (
-          <InstallApp
-            setupLink={initial.setupLink ?? ''}
-            onContinueInBrowser={continueInBrowser}
-          />
-        ) : (
-          !cfg && <Setup onDone={setCfg} initialUrl={initial.linkUrl} />
-        )}
         {cfg && (
           <>
             <header id="sl-app-header" {...stylex.props(styles.header)}>
