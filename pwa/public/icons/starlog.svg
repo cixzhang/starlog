@@ -1,13 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Starlog logo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Starlog logo">
   <title>Starlog</title>
-  <rect width="240" height="240" fill="#f5f3ec"/>
-  <g transform="translate(120 120) scale(0.62) translate(-120 -120)">
-    <g transform="rotate(-18 120 120)" fill="none" stroke="#193346" stroke-width="14" stroke-linecap="round">
-      <path d="M 16 120 A 104 38 0 0 1 224 120"/>
-    </g>
-    <circle cx="120" cy="120" r="72" fill="#F16E56"/>
-    <g transform="rotate(-18 120 120)" fill="none" stroke="#193346" stroke-width="14" stroke-linecap="round">
-      <path d="M 16 120 A 104 38 0 0 0 224 120"/>
-    </g>
+  <rect width="96" height="96" rx="20" fill="#f5f3ec"/>
+  <g transform="translate(0 22.4) scale(0.8)">
+    <g fill="#F16E56">
+    <path d="M39,8 Q40.8,30.2 63,32 Q40.8,33.8 39,56 Q37.2,33.8 15,32 Q37.2,30.2 39,8 Z" fill="#F16E56" stroke="#F16E56" stroke-width="8" stroke-linejoin="round"/>
+    <rect x="78" y="20" width="22" height="6" rx="3"/><rect x="78" y="29" width="22" height="6" rx="3"/><rect x="78" y="38" width="22" height="6" rx="3"/>
+  </g>
   </g>
 </svg>

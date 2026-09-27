@@ -1,38 +1,30 @@
-// The Starlog orbit mark — the plan's primary mark (visual-brand sheet,
-// section 07): coral journal core + navy orbit ring, tilted -18°.
-// Geometrically simple so it holds at app-icon and inline sizes.
+// The Starlog mark: a terminal-log line — a plump rounded sparkle
+// followed by three log lines (≡). Cindy's sketch, cleaned up.
+// Wide aspect (120x64); height derives from the `size` width.
 // Theme-aware: coral lightens in night mode via --sl-coral.
 
 export function StarlogMark({ size = 32 }: { size?: number }) {
+  const h = (size * 64) / 120;
+  const c = "var(--sl-coral)";
   return (
     <svg
       width={size}
-      height={size}
-      viewBox="0 0 240 240"
+      height={h}
+      viewBox="0 0 120 64"
       role="img"
       aria-label="Starlog logo"
     >
-      {/* orbit, far half — passes behind the core */}
-      <g
-        transform="rotate(-18 120 120)"
+      {/* plump rounded sparkle: four round-capped arms */}
+      <path
+        d="M44,32 L44,12 M44,32 L64,32 M44,32 L44,52 M44,32 L24,32"
         fill="none"
-        stroke="var(--sl-navy)"
-        strokeWidth="14"
+        stroke={c}
+        strokeWidth={13}
         strokeLinecap="round"
-      >
-        <path d="M 16 120 A 104 38 0 0 1 224 120" />
-      </g>
-      {/* coral journal core */}
-      <circle cx="120" cy="120" r="72" fill="var(--sl-coral)" />
-      {/* orbit, near half — passes in front of the core */}
-      <g
-        transform="rotate(-18 120 120)"
-        fill="none"
-        stroke="var(--sl-navy)"
-        strokeWidth="14"
-        strokeLinecap="round"
-      >
-        <path d="M 16 120 A 104 38 0 0 0 224 120" />
+      />
+      {/* log lines */}
+      <g fill={c}>
+        <rect x="78" y="20" width="22" height="6" rx="3"/><rect x="78" y="29" width="22" height="6" rx="3"/><rect x="78" y="38" width="22" height="6" rx="3"/>
       </g>
     </svg>
   );

@@ -21,6 +21,9 @@ to `pwa/`, framework preset **Vite**. No environment variables needed —
 the Supabase URL + anon key are entered in the app's setup screen and stay
 in the browser's localStorage.
 
+Live: https://starlog-journal.vercel.app (project name `starlog-journal`;
+`starlog.vercel.app` was already taken).
+
 ## First run
 
 Opening the deployed app shows a setup screen asking for the Supabase
