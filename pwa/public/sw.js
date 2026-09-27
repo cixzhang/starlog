@@ -1,21 +1,22 @@
-/* Starlog service worker: offline-first app shell.
+/* Starlog service worker: offline-capable app shell that still updates.
  *
- * - Install: cache the shell (/, index.html) plus same-origin static assets
- *   as they are fetched (runtime cache-first).
- * - Fetch: same-origin GET -> cache-first, falling back to network and then
- *   to cached index.html for navigations. Cross-origin (the Supabase API)
- *   always goes to the network and is never cached.
+ * - App shell (/, /index.html, navigations): NETWORK-FIRST so a new deploy
+ *   always reaches the installed PWA; falls back to the cached shell offline.
+ *   (A previous cache-first shell pinned the PWA to a stale index.html that
+ *   referenced bundles no longer deployed — the app wouldn't load.)
+ * - Hashed static assets: cache-first (content-hashed, immutable).
+ * - Cross-origin (the Supabase API) always goes to the network, never cached.
  * - Keep it simple: no background sync, no push.
  */
 
-const SHELL = 'starlog-shell-v1';
-const ASSETS = 'starlog-assets-v1';
+const SHELL = 'starlog-shell-v2';
+const ASSETS = 'starlog-assets-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(SHELL)
-      .then((cache) => cache.addAll(['/', '/index.html']))
+      .then((cache) => cache.addAll(['/index.html']))
       .then(() => self.skipWaiting()),
   );
 });
@@ -42,6 +43,27 @@ self.addEventListener('fetch', (event) => {
   // Never cache the journal API.
   if (url.origin !== self.location.origin) return;
 
+  const isShell =
+    request.mode === 'navigate' ||
+    url.pathname === '/' ||
+    url.pathname === '/index.html';
+  if (isShell) {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches
+              .open(SHELL)
+              .then((cache) => cache.put('/index.html', copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match('/index.html')),
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(request, { ignoreSearch: false }).then((hit) => {
       if (hit) return hit;
@@ -51,12 +73,6 @@ self.addEventListener('fetch', (event) => {
           caches.open(ASSETS).then((cache) => cache.put(request, copy));
         }
         return res;
-      }).catch(() => {
-        // Offline navigation: fall back to the shell.
-        if (request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-        throw new Error('offline');
       });
     }),
   );
