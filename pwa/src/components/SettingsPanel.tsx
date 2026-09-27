@@ -207,7 +207,6 @@ export default function SettingsPanel({
   onRemoveCustomTheme,
   onInstallCustomTheme,
 }: SettingsPanelProps) {
-  const [themeInput, setThemeInput] = useState('');
   const [themeError, setThemeError] = useState<string | null>(null);
   useEffect(() => {
     if (!open) return;
@@ -311,56 +310,65 @@ export default function SettingsPanel({
                 </button>
               </div>
             )}
-            <textarea
-              value={themeInput}
-              onChange={(e) => {
-                setThemeInput(e.target.value);
-                setThemeError(null);
-              }}
-              placeholder="Paste a theme JSON or ?theme= code…"
-              rows={3}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                borderRadius: 12,
-                border: '1px solid var(--sl-line)',
-                backgroundColor: 'var(--sl-paper)',
-                color: 'var(--sl-ink)',
-                fontSize: 14,
-                padding: 12,
-                fontFamily: 'monospace',
-                resize: 'vertical',
-              }}
-            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/theme-agent-prompt.txt');
+                    const prompt = await res.text();
+                    await navigator.clipboard.writeText(prompt);
+                    setThemeError(null);
+                  } catch {
+                    setThemeError('Could not copy the prompt.');
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  border: '1px solid var(--sl-line)',
+                  backgroundColor: 'var(--sl-paper)',
+                  color: 'var(--sl-ink)',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Copy agent prompt
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const text = await navigator.clipboard.readText();
+                    const err = onInstallCustomTheme(text);
+                    setThemeError(err);
+                  } catch {
+                    setThemeError('Could not read the clipboard. Paste access was denied.');
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  border: 'none',
+                  backgroundColor: 'var(--color-accent)',
+                  color: 'var(--color-on-accent)',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Paste theme config
+              </button>
+            </div>
             {themeError && (
               <div style={{ color: 'var(--color-text-red)', fontSize: 13, paddingTop: 6 }}>
                 {themeError}
               </div>
             )}
-            <button
-              onClick={() => {
-                const err = onInstallCustomTheme(themeInput);
-                setThemeError(err);
-                if (!err) setThemeInput('');
-              }}
-              style={{
-                marginTop: 8,
-                paddingLeft: 20,
-                paddingRight: 20,
-                paddingTop: 10,
-                paddingBottom: 10,
-                borderRadius: 12,
-                border: 'none',
-                backgroundColor: 'var(--color-accent)',
-                color: 'var(--color-on-accent)',
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: 'pointer',
-                width: '100%',
-              }}
-            >
-              {customTheme ? 'Replace theme' : 'Install theme'}
-            </button>
+            <div style={{ fontSize: 13, color: 'var(--sl-ink-faint)', paddingTop: 8, lineHeight: 1.5 }}>
+              Copy the prompt, ask your agent to make a theme, then paste the JSON back here.
+            </div>
           </div>
         )}
 

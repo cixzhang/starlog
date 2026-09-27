@@ -1,0 +1,45 @@
+Make me a custom Starlog theme. Starlog is a journal app with a lunar palette.
+
+A theme is JSON with this shape:
+{
+  "name": "ThemeName",
+  "tokens": {
+    "--color-background-body": "#...",
+    "--color-background-surface": "#...",
+    "--color-background-card": "#...",
+    "--color-text-primary": "#...",
+    "--color-text-secondary": "#...",
+    "--color-border": "#..."
+  },
+  "slTokens": {
+    "--sl-paper": "#...",
+    "--sl-paper-deep": "#...",
+    "--sl-ink": "#...",
+    "--sl-ink-soft": "#...",
+    "--sl-ink-faint": "#...",
+    "--sl-line": "#...",
+    "--sl-line-strong": "#...",
+    "--sl-coral": "#...",
+    "--sl-coral-deep": "#...",
+    "--sl-gold": "#...",
+    "--sl-gold-soft": "#...",
+    "--sl-band": "#...",
+    "--sl-surface": "#...",
+    "--sl-mark-tile": "#..."
+  },
+  "fonts": {
+    "body": "Font Name",
+    "heading": "Font Name",
+    "code": "Font Name"
+  }
+}
+
+Rules:
+- Define ALL slTokens together — a partial set gives unreadable combinations
+  (e.g. dark paper with dark ink). Pick a coherent light or dark palette.
+- --sl-paper is the main background, --sl-ink is the main text. They must contrast.
+- --sl-coral is the accent (selection, highlights). --sl-gold marks today.
+- --color-* tokens theme the Astryx components (Settings panel, etc.).
+- Fonts are Google Font names (optional). Body is for text, heading for titles,
+  code for monospace.
+- Reply with ONLY the JSON, no explanation, so I can paste it directly.
