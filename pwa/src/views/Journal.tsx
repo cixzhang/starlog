@@ -69,6 +69,18 @@ export default function Journal({
 }: JournalProps) {
   const [weekday, setWeekday] = useState<number>(() => isoWeekday(new Date()));
   const [dragX, setDragX] = useState<number | null>(null);
+  // Desktop (min-width 768px) shows prev/current/next sheets side by side.
+  // The strip is 700/3% wide there, so the base offset is -200/7% (index 2
+  // at the left) instead of -300/7% (index 3 at the left).
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   // Shared vertical scroll window: all seven sheets render the same
   // past/future weeks. The single scroll container is stripViewport.
@@ -426,9 +438,11 @@ export default function Journal({
         commitSwipe(dir);
         return;
       }
-      animateTo(0, -dir * vw, 200, () => commitSwipe(dir));
+      // On desktop a sheet is 1/3 viewport; on mobile it's full viewport.
+      const sheetW = isDesktop ? vw / 3 : vw;
+      animateTo(0, -dir * sheetW, 200, () => commitSwipe(dir));
     },
-    [animateTo, commitSwipe],
+    [animateTo, commitSwipe, isDesktop],
   );
 
   const goToday = useCallback(() => {
@@ -483,7 +497,9 @@ export default function Journal({
         const dir = (dx < 0 ? 1 : -1) as 1 | -1;
         // Slide fully onto the neighboring column, then commit: the columns
         // reorder underneath and the transform snaps back with no jump.
-        animateTo(dx, -dir * w, 180, () => commitSwipe(dir));
+        // On desktop a sheet is 1/3 viewport.
+        const sheetW = isDesktop ? w / 3 : w;
+        animateTo(dx, -dir * sheetW, 180, () => commitSwipe(dir));
       } else {
         animateTo(dx, 0, 200, () => setDragX(null));
       }
@@ -502,7 +518,7 @@ export default function Journal({
       viewport.removeEventListener('touchend', onTouchEnd);
       viewport.removeEventListener('touchcancel', onTouchCancel);
     };
-  }, [animateTo, commitSwipe]);
+  }, [animateTo, commitSwipe, isDesktop]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -518,7 +534,9 @@ export default function Journal({
       <div {...stylex.props(styles.stripViewport)} ref={stripViewportRef}>
         <div
           {...stylex.props(styles.strip)}
-          style={{ transform: `translateX(calc(${-300 / 7}% + ${dragX ?? 0}px))` }}
+          style={{
+            transform: `translateX(calc(${(isDesktop ? -200 : -300) / 7}% + ${dragX ?? 0}px))`,
+          }}
         >
           {order.map((w) => (
             <WeekdaySheet
@@ -580,11 +598,16 @@ const styles = stylex.create({
     touchAction: 'pan-y',
   },
   // 700% wide flex row of 7 columns; transform positions index 3 at -300/7%.
+  // On desktop (min-width 768px), the strip shrinks to 700/3% so each column
+  // is 1/3 viewport — the prev/current/next sheets are visible together.
   strip: {
     display: 'flex',
     width: '700%',
     flex: 1,
     minHeight: 0,
     willChange: 'transform',
+    '@media (min-width: 768px)': {
+      width: 'calc(700% / 3)',
+    },
   },
 });
