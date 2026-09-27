@@ -7,8 +7,10 @@ import { Theme } from '@astryxdesign/core/theme';
 import { starlogTheme } from './studio/starlog.js';
 import {
   clearConfig,
+  consumeLinkConfig,
   getTenantId,
   loadConfig,
+  saveConfig,
   type SbConfig,
 } from './lib/supabase';
 import { isoWeekday, parseISODate } from './lib/dates';
@@ -157,7 +159,20 @@ function initialMode(): Mode {
 }
 
 export default function App() {
-  const [cfg, setCfg] = useState<SbConfig | null>(() => loadConfig());
+  // First launch: a saved config wins; otherwise a ?supabase_url=&anon_key=
+  // setup link configures the app in one tap (and is stripped from the URL).
+  const [initial] = useState(() => {
+    const link = consumeLinkConfig();
+    const saved = loadConfig();
+    if (saved) return { cfg: saved as SbConfig | null, linkUrl: '' };
+    if (link.url && link.anonKey) {
+      const full: SbConfig = { url: link.url, anonKey: link.anonKey };
+      saveConfig(full);
+      return { cfg: full as SbConfig | null, linkUrl: '' };
+    }
+    return { cfg: null as SbConfig | null, linkUrl: link.url };
+  });
+  const [cfg, setCfg] = useState<SbConfig | null>(initial.cfg);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('journal');
@@ -211,7 +226,7 @@ export default function App() {
   return (
     <Theme theme={starlogTheme} mode={mode}>
       <div {...stylex.props(styles.root)}>
-        {!cfg && <Setup onDone={setCfg} />}
+        {!cfg && <Setup onDone={setCfg} initialUrl={initial.linkUrl} />}
         {cfg && (
           <>
             <header {...stylex.props(styles.header)}>

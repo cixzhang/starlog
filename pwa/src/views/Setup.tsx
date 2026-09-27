@@ -4,7 +4,12 @@
 import { useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { Button } from '@astryxdesign/core/Button';
-import { getCapabilities, saveConfig, type SbConfig } from '../lib/supabase';
+import {
+  getCapabilities,
+  isValidProjectUrl,
+  saveConfig,
+  type SbConfig,
+} from '../lib/supabase';
 import { StarlogMark } from '../components/mark';
 
 const styles = stylex.create({
@@ -90,8 +95,14 @@ const styles = stylex.create({
   },
 });
 
-export default function Setup({ onDone }: { onDone: (cfg: SbConfig) => void }) {
-  const [url, setUrl] = useState('');
+export default function Setup({
+  onDone,
+  initialUrl = '',
+}: {
+  onDone: (cfg: SbConfig) => void;
+  initialUrl?: string;
+}) {
+  const [url, setUrl] = useState(initialUrl);
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +113,7 @@ export default function Setup({ onDone }: { onDone: (cfg: SbConfig) => void }) {
       url: url.trim().replace(/\/+$/, ''),
       anonKey: key.trim(),
     };
-    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(cfg.url)) {
+    if (!isValidProjectUrl(cfg.url)) {
       setError('That doesn\u2019t look like a Supabase project URL.');
       return;
     }
@@ -138,7 +149,9 @@ export default function Setup({ onDone }: { onDone: (cfg: SbConfig) => void }) {
         <p {...stylex.props(styles.sub)}>
           A journal for focus and reflection.
           <br />
-          Point it at your own Supabase project to begin.
+          {initialUrl
+            ? 'Your project link filled in the URL — just add the anon key.'
+            : 'Point it at your own Supabase project to begin.'}
         </p>
         {error && (
           <p {...stylex.props(styles.error)} role="alert">
@@ -175,6 +188,7 @@ export default function Setup({ onDone }: { onDone: (cfg: SbConfig) => void }) {
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
+            autoFocus={initialUrl.length > 0}
           />
         </div>
         <Button

@@ -17,11 +17,19 @@ The agent commits the PWA source under `pwa/` and pushes it to
 
 ## 3. App → Supabase (you, in the deployed app)
 
+**Easiest:** open your personal setup link
+(`https://<your-app>/?supabase_url=<url>&anon_key=<key>`). It fills in
+both fields and configures the app in one tap. Treat that link like a
+password — anyone with it can read your journal.
+
+**Manual:**
+
 1. Open the deployed app. The first screen asks for two things:
    - **Supabase project URL** — e.g. `https://xyz.supabase.co`
    - **Anon key**
    
    Both are in your Supabase dashboard under **Project Settings → API**.
+A link with only `?supabase_url=` pre-fills just the URL.
 2. The app checks the connection by reading the backend's capabilities
    row, then remembers the URL + key **on that device only**
    (browser localStorage). They are never sent anywhere except your

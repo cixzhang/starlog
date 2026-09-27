@@ -14,6 +14,44 @@ export interface SbConfig {
 
 const STORAGE_KEY = 'starlog:config';
 
+const PROJECT_URL_RE = /^https:\/\/[a-z0-9-]+\.supabase\.co$/;
+
+export function isValidProjectUrl(url: string): boolean {
+  return PROJECT_URL_RE.test(url.trim().replace(/\/+$/, ''));
+}
+
+/**
+ * One-tap onboarding: read ?supabase_url= & ?anon_key= from the address bar,
+ * validate them, then strip them from the URL so the key never lingers in
+ * history or a copied link. Treat a setup link like a password — anyone with
+ * it can read the journal.
+ */
+export function consumeLinkConfig(): { url: string; anonKey: string } {
+  const out = { url: '', anonKey: '' };
+  try {
+    const q = new URLSearchParams(window.location.search);
+    const url = (q.get('supabase_url') ?? '').trim().replace(/\/+$/, '');
+    const key = (q.get('anon_key') ?? '').trim();
+    if (url && isValidProjectUrl(url)) out.url = url;
+    if (key.length >= 20) out.anonKey = key;
+    if (q.has('supabase_url') || q.has('anon_key')) {
+      q.delete('supabase_url');
+      q.delete('anon_key');
+      const rest = q.toString();
+      window.history.replaceState(
+        null,
+        '',
+        window.location.pathname +
+          (rest ? `?${rest}` : '') +
+          window.location.hash,
+      );
+    }
+  } catch {
+    /* malformed URL — fall through to manual setup */
+  }
+  return out;
+}
+
 export function loadConfig(): SbConfig | null {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
