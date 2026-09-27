@@ -59,13 +59,13 @@ body {
 /* Muted sheets (non-current weeks): dim the Markdown content via
    foreground only, background stays identical. */
 [data-muted="true"] .sl-md {
-  color: var(--color-text-disabled);
+  color: var(--sl-text-muted);
 }
 [data-muted="true"] .sl-md h1,
 [data-muted="true"] .sl-md h2,
 [data-muted="true"] .sl-md h3,
 [data-muted="true"] .sl-md strong {
-  color: var(--color-text-disabled);
+  color: var(--sl-text-muted);
 }
 .sl-md > *:first-child {
   margin-top: 0;

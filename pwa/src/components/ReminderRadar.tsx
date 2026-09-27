@@ -56,7 +56,6 @@ interface PlanetData {
   opacity: number;
   zIndex: number;
   color: string;
-  colorLight: string;
   glow: boolean;
   // Screen position of the planet (nearest edge to the target sheet)
   left: string;
@@ -95,7 +94,7 @@ const styles = stylex.create({
     color,
     marginBottom: 4,
   }),
-  planet: (size: number, color: string, colorLight: string, glow: boolean) => ({
+  planet: (size: number, color: string, glow: boolean) => ({
     width: size,
     height: size,
     borderRadius: '50%',
@@ -407,7 +406,7 @@ export default function ReminderRadar({
         // z-index: 1 (far) -> 3 (near)
         const zIndex = 1 + Math.round(soonness * 2);
 
-        const { color, light, glow } = urgencyToColor(r.urgency);
+        const { color, glow } = urgencyToColor(r.urgency);
 
         return {
           reminder: r,
@@ -416,7 +415,6 @@ export default function ReminderRadar({
           opacity,
           zIndex,
           color,
-          colorLight: light,
           glow,
           left,
           top,
@@ -438,7 +436,6 @@ export default function ReminderRadar({
           opacity,
           zIndex,
           color,
-          colorLight,
           glow,
           left,
           top,
@@ -479,7 +476,7 @@ export default function ReminderRadar({
                 width: size,
                 height: size,
                 borderRadius: '50%',
-                background: `radial-gradient(circle at 35% 35%, ${colorLight}, ${color})`,
+                backgroundColor: color,
                 boxShadow: glow ? `0 0 12px ${color}a6` : 'none',
               }}
             />

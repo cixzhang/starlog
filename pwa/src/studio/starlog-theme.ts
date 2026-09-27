@@ -35,9 +35,12 @@ export const starlogTheme = defineTheme({
       fallbacks: 'ui-monospace, SFMono-Regular, Menlo, monospace',
     },
   },
-  // No brand-specific local tokens remain: everything uses Astryx
-  // semantic tokens (--color-*) directly.
-  localTokens: {},
+  // Starlog-specific muted text for non-current weeks/months.
+  // (Astryx has no tertiary text token; --color-text-disabled is
+  // semantically for disabled controls, not muted content.)
+  localTokens: {
+    '--sl-text-muted': ['#8a938c', '#7d877e'],
+  },
   // Astryx semantic tokens mapped to Starlog's lunar palette.
   tokens: {
     '--color-background-body': ['#f5f3ec', '#141a17'],

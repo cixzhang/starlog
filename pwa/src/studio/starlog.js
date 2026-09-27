@@ -198,7 +198,8 @@ export const starlogTheme = {
     "--astryx-theme-neutral-color-on-tint-overlay-hover": "light-dark(#fafafa1A, #0a0a0a1A)",
     "--astryx-theme-neutral-color-on-tint-overlay-pressed": "light-dark(#fafafa33, #0a0a0a33)",
     "--astryx-theme-neutral-color-destructive-overlay-hover": "light-dark(#ff7f770D, #ee736c0D)",
-    "--astryx-theme-neutral-color-destructive-overlay-pressed": "light-dark(#ff7f771A, #ee736c1A)"
+    "--astryx-theme-neutral-color-destructive-overlay-pressed": "light-dark(#ff7f771A, #ee736c1A)",
+    "--sl-text-muted": "light-dark(#8a938c, #7d877e)"
   },
   __localTokenOwners: {
     "--astryx-theme-neutral-color-status-fill-accent": "neutral",
@@ -210,7 +211,8 @@ export const starlogTheme = {
     "--astryx-theme-neutral-color-on-tint-overlay-hover": "neutral",
     "--astryx-theme-neutral-color-on-tint-overlay-pressed": "neutral",
     "--astryx-theme-neutral-color-destructive-overlay-hover": "neutral",
-    "--astryx-theme-neutral-color-destructive-overlay-pressed": "neutral"
+    "--astryx-theme-neutral-color-destructive-overlay-pressed": "neutral",
+    "--sl-text-muted": "starlog"
   },
   __localTokenLineage: ["neutral","starlog"],
   components: {
