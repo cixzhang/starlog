@@ -1,9 +1,11 @@
 import * as stylex from '@stylexjs/stylex';
-import { Check, Sun, Moon, MonitorSmartphone, X } from 'lucide-react';
+import { Check, Sun, Moon, MonitorSmartphone, Trash2, X } from 'lucide-react';
 import { useEffect } from 'react';
 
 export type WeekStart = 1 | 7;
 export type ThemeMode = 'light' | 'dark' | 'auto';
+
+import type { CustomTheme } from '../lib/customTheme';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -16,6 +18,8 @@ interface SettingsPanelProps {
   onDisconnect: () => void;
   buildHash: string;
   onCopyHash: () => void;
+  customTheme: CustomTheme | null;
+  onRemoveCustomTheme: () => void;
 }
 
 const styles = stylex.create({
@@ -121,7 +125,7 @@ const styles = stylex.create({
     backgroundColor: 'color-mix(in srgb, var(--color-coral) 10%, transparent)',
   },
   itemDestructive: {
-    color: 'var(--color-danger)',
+    color: 'var(--color-text-red)',
   },
   check: {
     color: 'var(--color-text-secondary)',
@@ -139,11 +143,13 @@ const styles = stylex.create({
 
 function Item({
   label,
+  icon,
   selected,
   onClick,
   destructive,
 }: {
   label: string;
+  icon?: import('react').ReactNode;
   selected?: boolean;
   onClick: () => void;
   destructive?: boolean;
@@ -153,7 +159,10 @@ function Item({
       {...stylex.props(styles.item, destructive && styles.itemDestructive)}
       onClick={onClick}
     >
-      <span>{label}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {icon}
+        {label}
+      </span>
       {selected && <Check size={18} {...stylex.props(styles.check)} />}
     </button>
   );
@@ -193,6 +202,8 @@ export default function SettingsPanel({
   onDisconnect,
   buildHash,
   onCopyHash,
+  customTheme,
+  onRemoveCustomTheme,
 }: SettingsPanelProps) {
   useEffect(() => {
     if (!open) return;
@@ -261,6 +272,13 @@ export default function SettingsPanel({
           />
         </div>
 
+        {customTheme && (
+          <Item
+            label={`Custom: ${customTheme.name} — tap to remove`}
+            onClick={onRemoveCustomTheme}
+          />
+        )}
+
         <div {...stylex.props(styles.divider)} />
 
         <Item
@@ -269,6 +287,7 @@ export default function SettingsPanel({
               ? 'Tap again to disconnect'
               : 'Disconnect project…'
           }
+          icon={<Trash2 size={18} />}
           destructive
           onClick={onDisconnect}
         />

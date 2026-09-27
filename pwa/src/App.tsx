@@ -24,6 +24,7 @@ import {
 } from './lib/supabase';
 import { isoWeekday, parseISODate, WEEKDAY_NAMES } from './lib/dates';
 import { getWeekStart, setWeekStart, type WeekStart } from './lib/settings';
+import { useCustomTheme } from './lib/customTheme';
 import { StarlogMark } from './components/mark';
 import { ErrorNote, Loading } from './components/ui';
 import Setup from './views/Setup';
@@ -190,6 +191,7 @@ export default function App() {
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('journal');
   const [mode, setMode] = useState<Mode>(initialMode);
+  const { customTheme, removeCustomTheme } = useCustomTheme();
   const [jump, setJump] = useState<{ weekday: number; date: string } | null>(
     null,
   );
@@ -372,6 +374,8 @@ export default function App() {
                     /* clipboard unavailable */
                   }
                 }}
+                customTheme={customTheme}
+                onRemoveCustomTheme={removeCustomTheme}
               />
             </div>
             </header>
