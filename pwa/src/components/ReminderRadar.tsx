@@ -97,6 +97,47 @@ const styles = stylex.create({
     background: `radial-gradient(circle at 35% 35%, ${colorLight}, ${color})`,
     boxShadow: glow ? `0 0 12px ${color}a6` : 'none',
   }),
+  // Detail popup when a planet is tapped
+  popup: {
+    position: 'fixed',
+    zIndex: 20,
+    pointerEvents: 'auto',
+    backgroundColor: 'var(--sl-surface)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--sl-line)',
+    borderRadius: 12,
+    padding: '12px 14px',
+    maxWidth: 260,
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+  },
+  popupTitle: {
+    fontSize: 14,
+    fontWeight: 600,
+    marginBottom: 4,
+    color: 'var(--sl-ink)',
+  },
+  popupDate: {
+    fontSize: 12,
+    color: 'var(--sl-ink-soft)',
+    marginBottom: 6,
+  },
+  popupDetail: {
+    fontSize: 13,
+    color: 'var(--sl-ink)',
+    lineHeight: 1.4,
+  },
+  popupClose: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    fontSize: 16,
+    color: 'var(--sl-ink-soft)',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: 4,
+  },
 });
 
 /**
@@ -118,6 +159,7 @@ export default function ReminderRadar({
   onPlanetTap,
 }: ReminderRadarProps) {
   const [scrollTick, setScrollTick] = useState(0);
+  const [selected, setSelected] = useState<Reminder | null>(null);
 
   // Re-calculate on scroll (for visibility checks)
   useEffect(() => {
@@ -301,9 +343,10 @@ export default function ReminderRadar({
               left,
               top,
             }}
-            onClick={() =>
-              onPlanetTap?.(toISODate(new Date(reminder.remind_at)))
-            }
+            onClick={() => {
+              setSelected(reminder);
+              onPlanetTap?.(toISODate(new Date(reminder.remind_at)));
+            }}
             title={reminder.title}
           >
             <div {...stylex.props(styles.arrow(color))}>▲</div>
@@ -313,6 +356,36 @@ export default function ReminderRadar({
           </div>
         );
       })}
+      {selected && (
+        <div
+          {...stylex.props(styles.popup)}
+          style={{
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            {...stylex.props(styles.popupClose)}
+            onClick={() => setSelected(null)}
+            aria-label="Close"
+          >
+            ×
+          </button>
+          <div {...stylex.props(styles.popupTitle)}>{selected.title}</div>
+          <div {...stylex.props(styles.popupDate)}>
+            {new Date(selected.remind_at).toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </div>
+          {selected.detail && (
+            <div {...stylex.props(styles.popupDetail)}>{selected.detail}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -112,6 +112,11 @@ const styles = stylex.create({
     // Each day holds its ground even when empty — the min-height is the
     // breathing room between date headings.
     minHeight: '20vh',
+    // Skip rendering off-screen sheets to reduce scroll jank from
+    // variable-height content. The intrinsic size estimate prevents
+    // layout shifts.
+    contentVisibility: 'auto',
+    containIntrinsicSize: 'auto 20vh',
   },
   // Weeks other than this one recede: muted band, muted text.
   sheetMuted: {
