@@ -1,19 +1,15 @@
 // WeekdaySheet: one weekday column of the journal.
 //
-// Renders the dates for a single ISO weekday (e.g. all Thursdays) in its own
-// vertically scrolling column. Each sheet owns:
-//   - its own `past`/`future` window (initially 3/3) with independent infinite
-//     scrolling in both directions,
-//   - its own overflow-y scroll container and scroll position,
-//   - prepend stability via element anchoring (the visible position never
-//     moves when older dates are added above),
-//   - initial alignment: on load, scrolls so this week's date sits at the top
-//     of the container, the same for all seven sheets.
+// Renders the dates for a single ISO weekday (e.g. all Thursdays) on a
+// fixed 30,000px canvas with absolute positioning. k=0 (this week) sits at
+// MIDDLE (15,000px) in every sheet, so all seven align vertically by
+// construction.
 //
-// Sheets are keyed by weekday number, so horizontal swiping only changes which
-// mounted sheet is visible — it never touches another sheet's scroll position.
+// The parent (Journal) owns the single shared vertical scroll container,
+// the `past`/`future` window, scroll-to-k=0 init, and infinite scroll.
+// This sheet only renders the canvas and positions its dates.
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { Divider } from '@astryxdesign/core';
 import { addDays, daysBetween, formatShort, parseISODate, toISODate } from '../lib/dates';
@@ -22,15 +18,6 @@ import { sanitizeSvg } from '../lib/svg';
 import { ErrorNote } from './ui';
 import type { Decoration, Entry, Prompt, Reminder } from '../lib/supabase';
 
-const INIT_PAST = 3;
-const INIT_FUTURE = 3;
-const EXTEND_PAST = 8;
-const EXTEND_FUTURE = 4;
-const EDGE_PX = 240;
-const SCROLL_COOLDOWN_MS = 400;
-// Fixed tall container: k=0 sits at the middle, past weeks above,
-// future below. No cross-sheet coordination needed — the middle is
-// the same in every sheet, so k=0 aligns vertically by construction.
 const CONTAINER_HEIGHT = 30000;
 const MIDDLE = CONTAINER_HEIGHT / 2;
 
@@ -47,6 +34,9 @@ interface WeekdaySheetProps {
   todayIso: string;
   highlighted: string | null;
   fetchError: string | null;
+  /** Weeks rendered before/after k=0. Owned by the parent (shared). */
+  past: number;
+  future: number;
   entriesByDate: Record<string, Entry>;
   promptsByDate: Record<string, Prompt>;
   decosByDate: Record<string, Decoration[]>;
@@ -55,6 +45,10 @@ interface WeekdaySheetProps {
   /** ISO date to jump to. Only set on the sheet whose weekday matches. */
   jumpDate: string | null;
   onJumpHandled: () => void;
+  /** Request the parent to extend the shared window (for jump-to-date). */
+  onNeedWindow: (past: number, future: number) => void;
+  /** The shared scroll container (owned by parent). */
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 function relativeLabel(k: number): string | null {
@@ -129,6 +123,8 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     todayIso,
     highlighted,
     fetchError,
+    past,
+    future,
     entriesByDate,
     promptsByDate,
     decosByDate,
@@ -136,18 +132,14 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onNeedDates,
     jumpDate,
     onJumpHandled,
+    onNeedWindow,
+    scrollContainerRef,
   } = props;
 
-  const [past, setPast] = useState(INIT_PAST);
-  const [future, setFuture] = useState(INIT_FUTURE);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  const scrollCooldown = useRef(0);
   const datesRef = useRef<DateItem[]>([]);
-  const initializedRef = useRef(false);
-  // Rendered content edges (in container coordinates). The infinite scroll
-  // triggers off these, not the 30,000px container edges.
+  // Rendered content edges (in container coordinates). The parent's infinite
+  // scroll triggers off these, not the 30,000px canvas edges.
   const contentTopRef = useRef(MIDDLE);
   const contentBottomRef = useRef(MIDDLE);
 
@@ -171,9 +163,8 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
   // future weeks below with positive. The inner wrapper has a fixed tall
   // height so the scroll container is stable from the first frame.
   useLayoutEffect(() => {
-    const container = scrollRef.current;
     const inner = innerRef.current;
-    if (!container || !inner) return;
+    if (!inner) return;
 
     // Measure each date's height and calculate tops.
     // k=0 at top:0, k>0 below, k<0 above (negative).
@@ -220,52 +211,22 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     }
     inner.style.position = 'relative';
     // (height is set declaratively in the JSX — fixed tall container.)
-
-    // Initialize scroll so k=0 (this week) is at the viewport top.
-    // Instead of assuming the MIDDLE constant, scroll to the actual k=0
-    // element's position. This is robust even if the absolute positioning
-    // has a slight offset — we scroll to where k=0 actually is.
-    // iOS may not have laid out the scrollable area yet; retry via rAF
-    // until the k=0 element is measurable and scrollTop sticks.
-    // On prepend, k=0 stays at its position, so no adjustment needed.
-    if (!initializedRef.current) {
-      const tryInit = () => {
-        const k0El = container.querySelector(
-          '[data-sheet-k="0"]',
-        ) as HTMLElement | null;
-        if (!k0El || k0El.offsetTop === 0) {
-          // Not laid out yet — retry next frame.
-          requestAnimationFrame(tryInit);
-          return;
-        }
-        const targetTop = k0El.offsetTop;
-        if (container.scrollTop !== targetTop) {
-          container.scrollTop = targetTop;
-          // If it didn't stick (not yet scrollable), try next frame.
-          if (container.scrollTop !== targetTop) {
-            requestAnimationFrame(tryInit);
-            return;
-          }
-        }
-        initializedRef.current = true;
-      };
-      tryInit();
-    }
+    // Note: scroll init and infinite scroll are owned by the parent (Journal)
+    // which has the single shared scroll container.
   });
 
-  // Jump-to-date: extend the window to include the target date, then scroll
-  // this sheet (and only this sheet) to it.
+  // Jump-to-date: ask the parent to extend the window to include the target
+  // date, then scroll the shared container to it.
   useEffect(() => {
     if (!jumpDate) return;
     const k = Math.round(daysBetween(anchor, parseISODate(jumpDate)) / 7);
-    setPast((p) => Math.max(p, k < 0 ? -k + 2 : INIT_PAST));
-    setFuture((f) => Math.max(f, k > 0 ? k + 2 : INIT_FUTURE));
-  }, [jumpDate, anchor]);
+    onNeedWindow(k < 0 ? -k + 2 : 8, k > 0 ? k + 2 : 8);
+  }, [jumpDate, anchor, onNeedWindow]);
 
   useLayoutEffect(() => {
     if (!jumpDate) return;
     if (!dates.some((d) => d.iso === jumpDate)) return;
-    const container = scrollRef.current;
+    const container = scrollContainerRef.current;
     const el = container?.querySelector(`[data-sheet-iso="${jumpDate}"]`);
     if (el && container) {
       const cRect = container.getBoundingClientRect();
@@ -273,44 +234,21 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
       container.scrollTop += eRect.top - cRect.top;
     }
     onJumpHandled();
-  }, [jumpDate, dates, onJumpHandled]);
+  }, [jumpDate, dates, onJumpHandled, scrollContainerRef]);
 
   // (Prepend stability via absolute positioning: the layout effect above
-  // recalculates all tops on every render, so k=0 never shifts. Scroll
-  // adjustment for prepend happens there via pastTotal delta.)
+  // recalculates all tops on every render, so k=0 never shifts.)
 
-  // Infinite scroll inside this sheet's own scroll container.
-  // Triggers off the RENDERED content edges (contentTopRef/contentBottomRef),
-  // not the 30,000px container edges — otherwise the user scrolls through
-  // ~14,000px of blank space before more dates load.
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const onScroll = () => {
-      const t = Date.now();
-      if (t - scrollCooldown.current < SCROLL_COOLDOWN_MS) return;
-      const nearTop = container.scrollTop < contentTopRef.current + EDGE_PX;
-      const nearBottom =
-        container.scrollTop + container.clientHeight > contentBottomRef.current - EDGE_PX;
-      if (!nearTop && !nearBottom) return;
-      scrollCooldown.current = t;
-      // With absolute positioning, prepending just extends the window;
-      // the layout effect recalculates tops and adjusts scrollTop.
-      if (nearTop) setPast((p) => p + EXTEND_PAST);
-      if (nearBottom) setFuture((f) => f + EXTEND_FUTURE);
-    };
-    container.addEventListener('scroll', onScroll, { passive: true });
-    return () => container.removeEventListener('scroll', onScroll);
-  }, []);
+  // Note: infinite scroll is owned by the parent (Journal) which has the
+  // single shared scroll container.
 
   return (
     <div {...stylex.props(styles.column)} data-sheet-column={weekday}>
-      <div {...stylex.props(styles.scroll)} ref={scrollRef} data-sheet-scroll={weekday}>
-        <div
-          {...stylex.props(styles.inner)}
-          ref={innerRef}
-          style={{ position: 'relative', height: CONTAINER_HEIGHT }}
-        >
+      <div
+        {...stylex.props(styles.inner)}
+        ref={innerRef}
+        style={{ position: 'relative', height: CONTAINER_HEIGHT }}
+      >
           {fetchError && (
             <div {...stylex.props(styles.fetchError)}>
               <ErrorNote title="Couldn't load entries." detail={fetchError} />
@@ -398,7 +336,6 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
               </Fragment>
             );
           })}
-        </div>
       </div>
     </div>
   );
@@ -406,21 +343,11 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
 
 const styles = stylex.create({
   // One carousel column: exactly 1/7 of the strip = full viewport width.
+  // No scroll container here — the parent owns the single shared scroll.
   column: {
     width: 'calc(100% / 7)',
     flexShrink: 0,
     minHeight: 0,
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-  },
-  // This sheet's own vertical scroll container.
-  scroll: {
-    flex: 1,
-    minHeight: 0,
-    overflowY: 'auto',
-    touchAction: 'pan-y',
   },
   inner: {
     width: '100%',

@@ -70,6 +70,84 @@ export default function Journal({
   const [weekday, setWeekday] = useState<number>(() => isoWeekday(new Date()));
   const [dragX, setDragX] = useState<number | null>(null);
 
+  // Shared vertical scroll window: all seven sheets render the same
+  // past/future weeks. The single scroll container is stripViewport.
+  const stripViewportRef = useRef<HTMLDivElement>(null);
+  const [past, setPast] = useState(8);
+  const [future, setFuture] = useState(8);
+  const initializedRef = useRef(false);
+
+  // Scroll the shared container so the given weekday's k=0 is at the top.
+  const scrollToK0 = useCallback((wd: number) => {
+    const container = stripViewportRef.current;
+    if (!container) return;
+    const k0El = container.querySelector(
+      `[data-sheet-column="${wd}"] [data-sheet-k="0"]`,
+    ) as HTMLElement | null;
+    if (!k0El) return;
+    container.scrollTop = k0El.offsetTop;
+  }, []);
+
+  // Initial scroll: land on this week's date.
+  useEffect(() => {
+    if (initializedRef.current) return;
+    const tryInit = () => {
+      const container = stripViewportRef.current;
+      const k0El = container?.querySelector(
+        `[data-sheet-column="${weekday}"] [data-sheet-k="0"]`,
+      ) as HTMLElement | null;
+      if (!k0El || k0El.offsetTop === 0) {
+        requestAnimationFrame(tryInit);
+        return;
+      }
+      scrollToK0(weekday);
+      initializedRef.current = true;
+    };
+    requestAnimationFrame(tryInit);
+  }, [weekday, scrollToK0]);
+
+  // Infinite scroll on the shared container. Triggers off the rendered
+  // content edges (not the 30,000px canvas edges).
+  useEffect(() => {
+    const container = stripViewportRef.current;
+    if (!container) return;
+    let cooldown = false;
+    const onScroll = () => {
+      if (cooldown) return;
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const EDGE_PX = 800;
+      // Find the active sheet's content edges via its first/last date.
+      const activeCol = container.querySelector(
+        `[data-sheet-column="${weekday}"]`,
+      );
+      const firstEl = activeCol?.querySelector(
+        `[data-sheet-k="${-past}"]`,
+      ) as HTMLElement | null;
+      const lastEl = activeCol?.querySelector(
+        `[data-sheet-k="${future}"]`,
+      ) as HTMLElement | null;
+      const contentTop = firstEl?.offsetTop ?? 15000;
+      const contentBottom = lastEl
+        ? lastEl.offsetTop + lastEl.offsetHeight
+        : 15000;
+      if (scrollTop < contentTop + EDGE_PX) {
+        cooldown = true;
+        const oldHeight = scrollHeight;
+        setPast((p) => p + 8);
+        requestAnimationFrame(() => {
+          container.scrollTop = scrollTop + (container.scrollHeight - oldHeight);
+          setTimeout(() => { cooldown = false; }, 400);
+        });
+      } else if (scrollTop + clientHeight > contentBottom - EDGE_PX) {
+        cooldown = true;
+        setFuture((f) => f + 8);
+        setTimeout(() => { cooldown = false; }, 400);
+      }
+    };
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => container.removeEventListener('scroll', onScroll);
+  }, [weekday, past, future]);
+
   const [entriesByDate, setEntriesByDate] = useState<Record<string, Entry>>({});
   const [promptsByDate, setPromptsByDate] = useState<Record<string, Prompt>>({});
   const [decosByDate, setDecosByDate] = useState<Record<string, Decoration[]>>({});
@@ -294,7 +372,6 @@ export default function Journal({
   }, [onJumpConsumed]);
 
   // --- Horizontal carousel gesture ---
-  const stripViewportRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number | null>(null);
   const dragState = useRef<{ startX: number; startY: number; claimed: boolean } | null>(null);
 
@@ -443,6 +520,8 @@ export default function Journal({
               todayIso={todayIso}
               highlighted={highlighted}
               fetchError={fetchError}
+              past={past}
+              future={future}
               entriesByDate={entriesByDate}
               promptsByDate={promptsByDate}
               decosByDate={decosByDate}
@@ -450,6 +529,11 @@ export default function Journal({
               onNeedDates={onNeedDates}
               jumpDate={jump && jump.weekday === w ? jump.date : null}
               onJumpHandled={handleJumpHandled}
+              onNeedWindow={(p, f) => {
+                setPast((prev) => Math.max(prev, p));
+                setFuture((prev) => Math.max(prev, f));
+              }}
+              scrollContainerRef={stripViewportRef}
             />
           ))}
         </div>
@@ -477,12 +561,14 @@ const styles = stylex.create({
   },
   // Clips the strip to the visible area; touch gestures start here.
   stripViewport: {
-    overflow: 'hidden',
+    overflowY: 'auto',
+    overflowX: 'hidden',
     position: 'relative',
     flex: 1,
     minHeight: 0,
     display: 'flex',
     flexDirection: 'column',
+    touchAction: 'pan-y',
   },
   // 700% wide flex row of 7 columns; transform positions index 3 at -300/7%.
   strip: {
