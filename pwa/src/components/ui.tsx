@@ -2,7 +2,6 @@
 
 import * as stylex from '@stylexjs/stylex';
 import { Banner } from '@astryxdesign/core/Banner';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
 import { Spinner } from '@astryxdesign/core/Spinner';
 
 const styles = stylex.create({
@@ -26,16 +25,6 @@ export function Loading({ label = 'Reading the log…' }: { label?: string }) {
       {label}
     </div>
   );
-}
-
-export function EmptyNote({
-  title,
-  description,
-}: {
-  title: string;
-  description?: string;
-}) {
-  return <EmptyState title={title} description={description} />;
 }
 
 export function ErrorNote({ title, detail }: { title: string; detail?: string }) {

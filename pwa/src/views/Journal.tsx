@@ -94,44 +94,34 @@ export default function Journal({
   // scrollIntoView({block: 'start'}) top-aligns; scroll-margin-top on the
   // date leaves room for the sticky header. No manual math needed.
   const scrollToK0 = useCallback((wd: number) => {
-    console.log('[scroll-init] scrollToK0 called for weekday', wd);
     const k0El = document.querySelector(
       `[data-sheet-column="${wd}"] [data-sheet-k="0"]`,
     ) as HTMLElement | null;
     if (!k0El) {
-      console.log('[scroll-init] k0 element NOT FOUND for weekday', wd);
       return;
     }
-    console.log('[scroll-init] found k0 element, offsetTop:', k0El.offsetTop, 'calling scrollIntoView');
     k0El.scrollIntoView({ block: 'start' });
-    console.log('[scroll-init] scrollIntoView called, window.scrollY now:', window.scrollY);
   }, []);
 
   // Initial scroll: land on this week's date.
   useEffect(() => {
     if (initializedRef.current) return;
-    console.log('[scroll-init] effect running, weekday:', weekday);
     const tryInit = () => {
       const k0El = document.querySelector(
         `[data-sheet-column="${weekday}"] [data-sheet-k="0"]`,
       ) as HTMLElement | null;
       if (!k0El) {
-        console.log('[scroll-init] tryInit: k0 not found, retrying...');
         requestAnimationFrame(tryInit);
         return;
       }
       // Check if the element has been positioned (absolute positioning applied).
       // offsetTop will be MIDDLE (15000) once laid out, 0 before.
-      console.log('[scroll-init] tryInit: found k0, offsetTop =', k0El.offsetTop);
       if (k0El.offsetTop === 0) {
-        console.log('[scroll-init] tryInit: not positioned yet (offsetTop=0), retrying...');
         requestAnimationFrame(tryInit);
         return;
       }
-      console.log('[scroll-init] tryInit: positioned, calling scrollToK0');
       scrollToK0(weekday);
       initializedRef.current = true;
-      console.log('[scroll-init] done, initializedRef set');
     };
     requestAnimationFrame(tryInit);
   }, [weekday, scrollToK0]);

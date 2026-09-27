@@ -240,7 +240,4 @@ export function useCustomTheme() {
 }
 
 // Encode a theme for sharing via URL: returns the ?theme= param value.
-export function encodeThemeParam(theme: CustomTheme): string {
-  const json = JSON.stringify(theme);
-  return btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
+

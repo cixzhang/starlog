@@ -37,18 +37,7 @@ export function parseISODate(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
-const longFmt = new Intl.DateTimeFormat('en-US', {
-  weekday: 'long',
-  month: 'long',
-  day: 'numeric',
-  year: 'numeric',
-});
-
 /** "Saturday, September 26, 2026" */
-export function formatLong(d: Date): string {
-  return longFmt.format(d);
-}
-
 const shortFmt = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',

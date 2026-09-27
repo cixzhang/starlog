@@ -181,20 +181,6 @@ export async function getCapabilities(cfg: SbConfig): Promise<Capabilities> {
   return rows[0];
 }
 
-/** Up to `limit` most recent entries for one ISO weekday, newest first. */
-export async function fetchEntriesByWeekday(
-  cfg: SbConfig,
-  tenantId: string,
-  weekday: number,
-  limit = 4,
-): Promise<Entry[]> {
-  return (await sbFetch(
-    cfg,
-    `/entries?tenant_id=eq.${tenantId}&weekday=eq.${weekday}` +
-      `&order=entry_date.desc&limit=${limit}` +
-      `&select=id,entry_date,weekday,body_text,body_format`,
-  )) as Entry[];
-}
 
 /** Entries for the given dates (entry_date is unique per tenant). */
 export async function fetchEntriesByDates(

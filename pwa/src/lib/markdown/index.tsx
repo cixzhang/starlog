@@ -27,15 +27,6 @@ const inlineRegistry: InlinePlugin[] = [...inlinePlugins];
  * Register a block plugin. Inserted before the paragraph fallback so it
  * can claim syntax; the fallback always stays last.
  */
-export function registerBlockPlugin(plugin: BlockPlugin): void {
-  const fallback = blockRegistry.pop()!;
-  blockRegistry.push(plugin, fallback);
-}
-
-/** Register an inline plugin; tried before plain-text consumption. */
-export function registerInlinePlugin(plugin: InlinePlugin): void {
-  inlineRegistry.push(plugin);
-}
 
 const BLANK_RE = /^\s*$/;
 
