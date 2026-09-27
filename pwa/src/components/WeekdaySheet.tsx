@@ -1,38 +1,23 @@
 // WeekdaySheet: one weekday column of the journal.
 //
-// Renders the dates for a single ISO weekday (e.g. all Thursdays) in its own
-// vertically scrolling column. Each sheet owns:
-//   - its own `past`/`future` window (initially 3/3) with independent infinite
-//     scrolling in both directions,
-//   - its own overflow-y scroll container and scroll position,
-//   - prepend stability via element anchoring (the visible position never
-//     moves when older dates are added above),
-//   - initial alignment: on load, scrolls so this week's date sits at the top
-//     of the container, the same for all seven sheets.
+// Renders the dates for a single ISO weekday (e.g. all Thursdays) in normal
+// document flow. The parent (Journal) owns:
+//   - the shared `past`/`future` window (how many weeks rendered each way),
+//   - the single vertical scroll container,
+//   - scroll-to-k=0 on mount and on swipe,
+//   - infinite scroll extension.
 //
-// Sheets are keyed by weekday number, so horizontal swiping only changes which
-// mounted sheet is visible — it never touches another sheet's scroll position.
+// Each date article carries `data-sheet-k` (week offset from this week) and
+// `data-sheet-iso` so the parent can find and scroll to specific weeks.
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { Divider } from '@astryxdesign/core';
-import { addDays, daysBetween, formatShort, parseISODate, toISODate } from '../lib/dates';
+import { addDays, formatShort, toISODate } from '../lib/dates';
 import { Markdown } from '../lib/markdown';
 import { sanitizeSvg } from '../lib/svg';
 import { ErrorNote } from './ui';
 import type { Decoration, Entry, Prompt, Reminder } from '../lib/supabase';
-
-const INIT_PAST = 3;
-const INIT_FUTURE = 3;
-const EXTEND_PAST = 8;
-const EXTEND_FUTURE = 4;
-const EDGE_PX = 240;
-const SCROLL_COOLDOWN_MS = 400;
-// Fixed tall container: k=0 sits at the middle, past weeks above,
-// future below. No cross-sheet coordination needed — the middle is
-// the same in every sheet, so k=0 aligns vertically by construction.
-const CONTAINER_HEIGHT = 30000;
-const MIDDLE = CONTAINER_HEIGHT / 2;
 
 interface DateItem {
   k: number;
@@ -47,6 +32,9 @@ interface WeekdaySheetProps {
   todayIso: string;
   highlighted: string | null;
   fetchError: string | null;
+  /** Weeks rendered before/after k=0. Owned by the parent. */
+  past: number;
+  future: number;
   entriesByDate: Record<string, Entry>;
   promptsByDate: Record<string, Prompt>;
   decosByDate: Record<string, Decoration[]>;
@@ -88,69 +76,58 @@ const DECO_PALETTE: Record<string, string> = {
 };
 
 // Agent-controlled decoration presentation via meta:
-// { width (px max), align (left|center|right), rotation (deg), color (palette name) }
+//   meta.width     — px width of the decoration (default 200, clamp 40..600)
+//   meta.rotation  — degrees, clockwise (default 0)
+//   meta.color     — palette name above (default 'ink')
+//   meta.x         — horizontal nudge, px (default 0)
+//   meta.y         — vertical nudge, px (default 0)
+// Unknown keys are ignored; bad values fall back to defaults.
 function DecoView({ d }: { d: { id: string; svg: string; meta?: unknown } }) {
   const svg = sanitizeSvg(d.svg);
   if (!svg) return null;
-  const meta = (d.meta ?? {}) as {
-    width?: number;
-    align?: 'left' | 'center' | 'right';
-    rotation?: number;
-    color?: string;
+  const meta = (d.meta ?? {}) as Record<string, unknown>;
+  const num = (v: unknown, fallback: number) => {
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : fallback;
   };
-  const colorVar = DECO_PALETTE[meta.color ?? 'ink'] ?? DECO_PALETTE.ink;
-  const style: import('react').CSSProperties = {
-    color: `var(${colorVar})`,
-  };
-  if (meta.width) {
-    style.maxWidth = meta.width;
-    style.width = '100%';
-  }
-  if (meta.align === 'left') style.marginRight = 'auto';
-  else if (meta.align === 'right') style.marginLeft = 'auto';
-  if (meta.rotation) {
-    style.transform = `rotate(${meta.rotation}deg)`;
-  }
+  const width = Math.min(600, Math.max(40, num(meta.width, 200)));
+  const rotation = num(meta.rotation, 0);
+  const x = num(meta.x, 0);
+  const y = num(meta.y, 0);
+  const colorName = typeof meta.color === 'string' ? meta.color : 'ink';
+  const colorVar = DECO_PALETTE[colorName] ?? DECO_PALETTE.ink;
   return (
     <div
-      key={d.id}
       {...stylex.props(styles.deco)}
-      style={style}
+      style={{
+        width,
+        transform: `translate(${x}px, ${y}px) rotate(${rotation}deg)`,
+        color: `var(${colorVar})`,
+      }}
+      // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
 }
 
-export default function WeekdaySheet(props: WeekdaySheetProps) {
-  const {
-    weekday,
-    anchor,
-    now,
-    todayIso,
-    highlighted,
-    fetchError,
-    entriesByDate,
-    promptsByDate,
-    decosByDate,
-    remindersByDate,
-    onNeedDates,
-    jumpDate,
-    onJumpHandled,
-  } = props;
-
-  const [past, setPast] = useState(INIT_PAST);
-  const [future, setFuture] = useState(INIT_FUTURE);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  const scrollCooldown = useRef(0);
-  const datesRef = useRef<DateItem[]>([]);
-  const initializedRef = useRef(false);
-  // Rendered content edges (in container coordinates). The infinite scroll
-  // triggers off these, not the 30,000px container edges.
-  const contentTopRef = useRef(MIDDLE);
-  const contentBottomRef = useRef(MIDDLE);
-
+export function WeekdaySheet({
+  weekday,
+  anchor,
+  now,
+  todayIso,
+  highlighted,
+  fetchError,
+  past,
+  future,
+  entriesByDate,
+  promptsByDate,
+  decosByDate,
+  remindersByDate,
+  onNeedDates,
+  jumpDate,
+  onJumpHandled,
+}: WeekdaySheetProps) {
+  // The rendered window: k in [-past, +future].
   const dates = useMemo<DateItem[]>(() => {
     const out: DateItem[] = [];
     for (let k = -past; k <= future; k++) {
@@ -159,246 +136,109 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     }
     return out;
   }, [anchor, past, future]);
-  datesRef.current = dates;
 
   // Report the dates this sheet needs so the parent can fetch their data.
   useEffect(() => {
     onNeedDates(dates.map((d) => d.iso));
   }, [dates, onNeedDates]);
 
-  // Absolute positioning: k=0 (this week) sits at the fixed MIDDLE.
-  // Previous weeks are positioned above with negative virtual tops,
-  // future weeks below with positive. The inner wrapper has a fixed tall
-  // height so the scroll container is stable from the first frame.
-  useLayoutEffect(() => {
-    const container = scrollRef.current;
-    const inner = innerRef.current;
-    if (!container || !inner) return;
-
-    // Measure each date's height and calculate tops.
-    // k=0 at top:0, k>0 below, k<0 above (negative).
-    let top = 0;
-    const tops = new Map<string, number>();
-    // First pass: k>=0 (top:0 and below)
-    for (const d of datesRef.current) {
-      if (d.k < 0) continue;
-      const el = inner.querySelector(
-        `[data-sheet-iso="${d.iso}"]`,
-      ) as HTMLElement | null;
-      if (!el) continue;
-      tops.set(d.iso, top);
-      top += el.offsetHeight;
-    }
-    // (bottomTotal not needed — container height is fixed.)
-    // Second pass: k<0 (above, negative tops). Work backwards from k=-1.
-    let negTop = 0;
-    const negDates = datesRef.current.filter((d) => d.k < 0).sort((a, b) => b.k - a.k);
-    for (const d of negDates) {
-      const el = inner.querySelector(
-        `[data-sheet-iso="${d.iso}"]`,
-      ) as HTMLElement | null;
-      if (!el) continue;
-      negTop -= el.offsetHeight;
-      tops.set(d.iso, negTop);
-    }
-    // Position relative to the fixed MIDDLE: k=0's virtual top:0 becomes
-    // MIDDLE in the DOM. Past weeks go above, future below. The container
-    // has a fixed tall height, so no height recalculation jank.
-    // Track the rendered content edges for the infinite scroll triggers.
-    contentTopRef.current = MIDDLE + negTop;
-    contentBottomRef.current = MIDDLE + top;
-    for (const [iso, t] of tops) {
-      const el = inner.querySelector(
-        `[data-sheet-iso="${iso}"]`,
-      ) as HTMLElement | null;
-      if (el) {
-        el.style.position = 'absolute';
-        el.style.top = `${t + MIDDLE}px`;
-        el.style.left = '0';
-        el.style.right = '0';
-      }
-    }
-    inner.style.position = 'relative';
-    // (height is set declaratively in the JSX — fixed tall container.)
-
-    // Initialize scroll so k=0 (this week) is at the viewport top.
-    // Instead of assuming the MIDDLE constant, scroll to the actual k=0
-    // element's position. This is robust even if the absolute positioning
-    // has a slight offset — we scroll to where k=0 actually is.
-    // iOS may not have laid out the scrollable area yet; retry via rAF
-    // until the k=0 element is measurable and scrollTop sticks.
-    // On prepend, k=0 stays at its position, so no adjustment needed.
-    if (!initializedRef.current) {
-      const tryInit = () => {
-        const k0El = container.querySelector(
-          '[data-sheet-k="0"]',
-        ) as HTMLElement | null;
-        if (!k0El || k0El.offsetTop === 0) {
-          // Not laid out yet — retry next frame.
-          requestAnimationFrame(tryInit);
-          return;
-        }
-        const targetTop = k0El.offsetTop;
-        if (container.scrollTop !== targetTop) {
-          container.scrollTop = targetTop;
-          // If it didn't stick (not yet scrollable), try next frame.
-          if (container.scrollTop !== targetTop) {
-            requestAnimationFrame(tryInit);
-            return;
-          }
-        }
-        initializedRef.current = true;
-      };
-      tryInit();
-    }
-  });
-
-  // Jump-to-date: extend the window to include the target date, then scroll
-  // this sheet (and only this sheet) to it.
+  // Jump-to-date: the parent extends the window to include the target,
+  // then scrolls to it. We just acknowledge the jump was handled.
   useEffect(() => {
     if (!jumpDate) return;
-    const k = Math.round(daysBetween(anchor, parseISODate(jumpDate)) / 7);
-    setPast((p) => Math.max(p, k < 0 ? -k + 2 : INIT_PAST));
-    setFuture((f) => Math.max(f, k > 0 ? k + 2 : INIT_FUTURE));
-  }, [jumpDate, anchor]);
-
-  useLayoutEffect(() => {
-    if (!jumpDate) return;
-    if (!dates.some((d) => d.iso === jumpDate)) return;
-    const container = scrollRef.current;
-    const el = container?.querySelector(`[data-sheet-iso="${jumpDate}"]`);
-    if (el && container) {
-      const cRect = container.getBoundingClientRect();
-      const eRect = (el as HTMLElement).getBoundingClientRect();
-      container.scrollTop += eRect.top - cRect.top;
-    }
     onJumpHandled();
-  }, [jumpDate, dates, onJumpHandled]);
-
-  // (Prepend stability via absolute positioning: the layout effect above
-  // recalculates all tops on every render, so k=0 never shifts. Scroll
-  // adjustment for prepend happens there via pastTotal delta.)
-
-  // Infinite scroll inside this sheet's own scroll container.
-  // Triggers off the RENDERED content edges (contentTopRef/contentBottomRef),
-  // not the 30,000px container edges — otherwise the user scrolls through
-  // ~14,000px of blank space before more dates load.
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const onScroll = () => {
-      const t = Date.now();
-      if (t - scrollCooldown.current < SCROLL_COOLDOWN_MS) return;
-      const nearTop = container.scrollTop < contentTopRef.current + EDGE_PX;
-      const nearBottom =
-        container.scrollTop + container.clientHeight > contentBottomRef.current - EDGE_PX;
-      if (!nearTop && !nearBottom) return;
-      scrollCooldown.current = t;
-      // With absolute positioning, prepending just extends the window;
-      // the layout effect recalculates tops and adjusts scrollTop.
-      if (nearTop) setPast((p) => p + EXTEND_PAST);
-      if (nearBottom) setFuture((f) => f + EXTEND_FUTURE);
-    };
-    container.addEventListener('scroll', onScroll, { passive: true });
-    return () => container.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [jumpDate, onJumpHandled]);
 
   return (
     <div {...stylex.props(styles.column)} data-sheet-column={weekday}>
-      <div {...stylex.props(styles.scroll)} ref={scrollRef} data-sheet-scroll={weekday}>
-        <div
-          {...stylex.props(styles.inner)}
-          ref={innerRef}
-          style={{ position: 'relative', height: CONTAINER_HEIGHT }}
-        >
-          {fetchError && (
-            <div {...stylex.props(styles.fetchError)}>
-              <ErrorNote title="Couldn't load entries." detail={fetchError} />
-            </div>
-          )}
-          {dates.map(({ k, date, iso }, i) => {
-            const entry = entriesByDate[iso];
-            const prompt = promptsByDate[iso];
-            const dayReminders = remindersByDate[iso] ?? [];
-            const decos = decosByDate[iso] ?? [];
-            const label = relativeLabel(k);
-            const hasAnno = prompt != null || dayReminders.length > 0;
-            return (
-              <Fragment key={iso}>
-                {i > 0 && <Divider />}
-                <article
-                  id={`sheet-${iso}`}
-                  data-sheet-iso={iso}
-                  data-sheet-k={k}
-                  data-muted={k !== 0 ? 'true' : undefined}
-                  {...stylex.props(
-                    styles.sheet,
-                    k !== 0 && styles.sheetMuted,
-                    highlighted === iso && styles.highlight,
-                  )}
-                >
-                  <div {...stylex.props(styles.sheetHead)}>
-                    <h2
-                      {...stylex.props(styles.sheetDate)}
-                      style={
-                        k !== 0 ? { color: 'var(--color-text-secondary)' } : undefined
-                      }
-                    >
-                      {formatShort(date)}
-                      {date.getFullYear() !== now.getFullYear() && (
-                        <span {...stylex.props(styles.yearLabel)}>
-                          {' '}{date.getFullYear()}
-                        </span>
-                      )}
-                    </h2>
-                    {iso === todayIso ? (
-                      <span {...stylex.props(styles.todayPill)}>TODAY</span>
-                    ) : (
-                      label != null && (
-                        <span {...stylex.props(styles.relLabel)}>{label}</span>
-                      )
+      <div {...stylex.props(styles.inner)}>
+        {fetchError && (
+          <div {...stylex.props(styles.fetchError)}>
+            <ErrorNote title="Couldn't load entries." detail={fetchError} />
+          </div>
+        )}
+        {dates.map(({ k, date, iso }, i) => {
+          const entry = entriesByDate[iso];
+          const prompt = promptsByDate[iso];
+          const dayReminders = remindersByDate[iso] ?? [];
+          const decos = decosByDate[iso] ?? [];
+          const label = relativeLabel(k);
+          const hasAnno = prompt != null || dayReminders.length > 0;
+          return (
+            <Fragment key={iso}>
+              {i > 0 && <Divider />}
+              <article
+                id={`sheet-${iso}`}
+                data-sheet-iso={iso}
+                data-sheet-k={k}
+                data-muted={k !== 0 ? 'true' : undefined}
+                {...stylex.props(
+                  styles.sheet,
+                  k !== 0 && styles.sheetMuted,
+                  highlighted === iso && styles.highlight,
+                )}
+              >
+                <div {...stylex.props(styles.sheetHead)}>
+                  <h2
+                    {...stylex.props(styles.sheetDate)}
+                    style={
+                      k !== 0 ? { color: 'var(--color-text-secondary)' } : undefined
+                    }
+                  >
+                    {formatShort(date)}
+                    {date.getFullYear() !== now.getFullYear() && (
+                      <span {...stylex.props(styles.yearLabel)}>
+                        {' '}{date.getFullYear()}
+                      </span>
                     )}
+                  </h2>
+                  {iso === todayIso ? (
+                    <span {...stylex.props(styles.todayPill)}>TODAY</span>
+                  ) : (
+                    label != null && (
+                      <span {...stylex.props(styles.relLabel)}>{label}</span>
+                    )
+                  )}
+                </div>
+                {iso === todayIso && entry == null && (
+                  <div {...stylex.props(styles.emptyState)}>
+                    Nothing here yet.
+                    <br />
+                    Ask your agent to add an entry for today.
                   </div>
-                  {iso === todayIso && entry == null && (
-                    <div {...stylex.props(styles.emptyState)}>
-                      Nothing here yet.
-                      <br />
-                      Ask your agent to add an entry for today.
-                    </div>
-                  )}
-                  {entry != null && <Markdown source={entry.body_text} />}
-                  {hasAnno && (
-                    <div {...stylex.props(styles.anno)}>
-                      {prompt != null && (
-                        <div {...stylex.props(styles.annoLine)}>
+                )}
+                {entry != null && <Markdown source={entry.body_text} />}
+                {hasAnno && (
+                  <div {...stylex.props(styles.anno)}>
+                    {prompt != null && (
+                      <div {...stylex.props(styles.annoLine)}>
+                        <span {...stylex.props(styles.annoLabel)}>
+                          PROMPT ·
+                        </span>
+                        <span>{prompt.body}</span>
+                      </div>
+                    )}
+                    {dayReminders.map((r) => (
+                      <div key={r.id} {...stylex.props(styles.annoLine)}>
+                        {r.importance === 'high' ? (
+                          <span {...stylex.props(styles.annoDot)} />
+                        ) : (
                           <span {...stylex.props(styles.annoLabel)}>
-                            PROMPT ·
+                            {r.urgency === 'high' ? 'IMPORTANT ·' : 'REMINDER ·'}
                           </span>
-                          <span>{prompt.body}</span>
-                        </div>
-                      )}
-                      {dayReminders.map((r) => (
-                        <div key={r.id} {...stylex.props(styles.annoLine)}>
-                          {r.importance === 'high' ? (
-                            <span {...stylex.props(styles.annoDot)} />
-                          ) : (
-                            <span {...stylex.props(styles.annoLabel)}>
-                              {r.urgency === 'high' ? 'IMPORTANT ·' : 'REMINDER ·'}
-                            </span>
-                          )}
-                          <span>{r.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {decos.map((d) => (
-                    <DecoView key={d.id} d={d} />
-                  ))}
-                </article>
-              </Fragment>
-            );
-          })}
-        </div>
+                        )}
+                        <span>{r.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {decos.map((d) => (
+                  <DecoView key={d.id} d={d} />
+                ))}
+              </article>
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );
@@ -410,17 +250,6 @@ const styles = stylex.create({
     width: 'calc(100% / 7)',
     flexShrink: 0,
     minHeight: 0,
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-  },
-  // This sheet's own vertical scroll container.
-  scroll: {
-    flex: 1,
-    minHeight: 0,
-    overflowY: 'auto',
-    touchAction: 'pan-y',
   },
   inner: {
     width: '100%',
@@ -501,36 +330,38 @@ const styles = stylex.create({
   },
   annoLine: {
     display: 'flex',
-    alignItems: 'baseline',
     gap: 8,
     fontSize: 13,
-    opacity: 0.75,
+    lineHeight: 1.5,
   },
   annoLabel: {
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    opacity: 0.6,
+    fontFamily: 'var(--font-code)',
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: '0.06em',
+    color: 'var(--color-text-secondary)',
     whiteSpace: 'nowrap',
+    paddingTop: 2,
   },
   annoDot: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
+    width: 8,
+    height: 8,
+    borderRadius: 999,
     backgroundColor: 'var(--color-accent)',
+    marginTop: 6,
     flexShrink: 0,
-    alignSelf: 'center',
   },
   deco: {
-    marginTop: 14,
-  },
-  fetchError: {
-    padding: '12px 0 0',
+    marginTop: 12,
   },
   highlight: {
-    animationName: 'sl-flash',
-    animationDuration: '2.4s',
-    animationTimingFunction: 'ease-out',
+    outlineWidth: 2,
+    outlineStyle: 'solid',
+    outlineColor: 'var(--color-accent)',
+    outlineOffset: -2,
+    borderRadius: 8,
+  },
+  fetchError: {
+    padding: '12px 20px',
   },
 });
