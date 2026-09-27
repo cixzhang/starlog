@@ -29,6 +29,7 @@ import { getWeekStart, setWeekStart, type WeekStart } from './lib/settings';
 import { StarlogMark } from './components/mark';
 import { ErrorNote, Loading } from './components/ui';
 import Setup from './views/Setup';
+import InstallApp, { isStandalone } from './views/InstallApp';
 import Journal, { type WeekdayControls } from './views/Journal';
 import Calendar from './views/Calendar';
 
@@ -142,18 +143,39 @@ function initialMode(): Mode {
 export default function App() {
   // First launch: a saved config wins; otherwise a ?supabase_url=&anon_key=
   // setup link configures the app in one tap (and is stripped from the URL).
+  // If the link lands in the browser (not the installed PWA), we show an
+  // install guide instead — the PWA keeps separate storage, so configuring
+  // the browser wouldn't carry over.
   const [initial] = useState(() => {
     const link = consumeLinkConfig();
     const saved = loadConfig();
-    if (saved) return { cfg: saved as SbConfig | null, linkUrl: '' };
-    if (link.url && link.anonKey) {
+    if (saved) return { cfg: saved as SbConfig | null, linkUrl: '', needsInstall: false };
+    const hasLink = !!(link.url && link.anonKey);
+    if (hasLink && isStandalone()) {
       const full: SbConfig = { url: link.url, anonKey: link.anonKey };
       saveConfig(full);
-      return { cfg: full as SbConfig | null, linkUrl: '' };
+      return { cfg: full as SbConfig | null, linkUrl: '', needsInstall: false };
     }
-    return { cfg: null as SbConfig | null, linkUrl: link.url };
+    if (hasLink) {
+      // Rebuild the setup link for the copy button (params were stripped).
+      const params = new URLSearchParams({
+        supabase_url: link.url,
+        anon_key: link.anonKey,
+      });
+      const setupLink = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+      return {
+        cfg: null as SbConfig | null,
+        linkUrl: link.url,
+        needsInstall: true,
+        setupLink,
+        pendingCfg: { url: link.url, anonKey: link.anonKey } as SbConfig,
+      };
+    }
+    return { cfg: null as SbConfig | null, linkUrl: link.url, needsInstall: false };
   });
   const [cfg, setCfg] = useState<SbConfig | null>(initial.cfg);
+  const [showInstall, setShowInstall] = useState(initial.needsInstall);
+  // ... (rest unchanged)
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('journal');
@@ -222,10 +244,25 @@ export default function App() {
     setTab('journal');
   }, []);
 
+  function continueInBrowser() {
+    if (initial.pendingCfg) {
+      saveConfig(initial.pendingCfg);
+      setCfg(initial.pendingCfg);
+    }
+    setShowInstall(false);
+  }
+
   return (
     <Theme theme={starlogTheme} mode={mode}>
       <div {...stylex.props(styles.root)}>
-        {!cfg && <Setup onDone={setCfg} initialUrl={initial.linkUrl} />}
+        {showInstall ? (
+          <InstallApp
+            setupLink={initial.setupLink ?? ''}
+            onContinueInBrowser={continueInBrowser}
+          />
+        ) : (
+          !cfg && <Setup onDone={setCfg} initialUrl={initial.linkUrl} />
+        )}
         {cfg && (
           <>
             <header id="sl-app-header" {...stylex.props(styles.header)}>
