@@ -496,6 +496,8 @@ export default function Journal({
   const sheetsRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [dragX, setDragX] = useState<number | null>(null);
+  // Vertical offset to align the preview's k=0 sheet with the main's k=0.
+  const [previewTop, setPreviewTop] = useState(0);
   const dragState = useRef<{
     startX: number;
     startY: number;
@@ -627,10 +629,34 @@ export default function Journal({
     // dir=-1 (swipe right): preview comes from the left.
     const x = dir === 1 ? vw + dragX : -vw + dragX;
     const targetAnchor = anchorFor(targetWeekday);
+    // Align the preview vertically: measure the main k=0 sheet's position
+    // and offset the preview so its k=0 lands at the same spot.
+    const alignPreview = (el: HTMLDivElement | null) => {
+      if (!el) return;
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      // Main k=0 sheet (current weekday, k=0)
+      const mainIso = toISODate(addDays(anchor, 0));
+      const mainEl = document.getElementById(`sheet-${mainIso}`);
+      // Preview k=0 sheet
+      const previewIso = toISODate(addDays(targetAnchor, 0));
+      const previewEl = el.querySelector(`[data-preview-iso="${previewIso}"]`);
+      if (!mainEl || !previewEl) return;
+      const vpRect = viewport.getBoundingClientRect();
+      const mainRect = mainEl.getBoundingClientRect();
+      const prevRect = (previewEl as HTMLElement).getBoundingClientRect();
+      // Desired: preview k=0 at same viewport-relative Y as main k=0.
+      // Preview container is at top:0, so offset = (mainY - vpY) - (prevY - elY)
+      const elRect = el.getBoundingClientRect();
+      const offset =
+        mainRect.top - vpRect.top - (prevRect.top - elRect.top);
+      setPreviewTop(offset);
+    };
     return (
       <div
         {...stylex.props(styles.preview)}
-        style={{ transform: `translateX(${x}px)` }}
+        ref={alignPreview}
+        style={{ transform: `translateX(${x}px)`, top: previewTop }}
         aria-hidden="true"
       >
         <div {...stylex.props(styles.previewInner)}>
@@ -647,6 +673,7 @@ export default function Journal({
               <Fragment key={iso}>
                 {k > -past && <Divider />}
                 <article
+                  data-preview-iso={iso}
                   {...stylex.props(
                     styles.sheet,
                     k !== 0 && styles.sheetMuted,
