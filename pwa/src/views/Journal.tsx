@@ -15,8 +15,11 @@ import {
   useMemo,
   useRef,
   useState,
+  Fragment,
 } from 'react';
 import * as stylex from '@stylexjs/stylex';
+import { Divider } from '@astryxdesign/core';
+import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe';
 import {
   fetchDecorations,
   fetchEntriesByDates,
@@ -78,7 +81,7 @@ const styles = stylex.create({
     // Let horizontal swipes reach JS reliably: the browser only takes
     // vertical pans, so iOS can't hijack a diagonal swipe for scrolling
     // (which would cancel our touchend and "lose" the gesture).
-    touchAction: 'pan-y pinch-zoom',
+    touchAction: 'pan-y',
   },
   sheet: {
     padding: '26px 0 34px',
@@ -94,13 +97,11 @@ const styles = stylex.create({
     paddingLeft: 20,
     paddingRight: 20,
   },
-  sheetDivided: {
-    // NOTE: stylex silently drops `borderTop` as a shorthand string with a
-    // var() color — use longhands (same lesson as the glyphdance `border`
-    // issue in AGENTS.md).
-    borderTopWidth: 1,
-    borderTopStyle: 'solid',
-    borderTopColor: 'var(--sl-line)',
+  // Astryx Divider between sheets, pulled full-bleed to sit exactly on the
+  // band boundary (matches sheetMuted's -20px).
+  dividerBleed: {
+    marginLeft: -20,
+    marginRight: -20,
   },
   sheetHead: {
     display: 'flex',
@@ -438,19 +439,9 @@ export default function Journal({
   }, [jump, now]);
 
   // Horizontal swipe changes the weekday; vertical scroll is untouched.
-  const touchX = useRef<number | null>(null);
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchX.current = e.touches[0].clientX;
-  };
-  const onTouchCancel = () => {
-    touchX.current = null;
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchX.current == null) return;
-    const dx = e.changedTouches[0].clientX - touchX.current;
-    touchX.current = null;
-    if (Math.abs(dx) > 60) move(dx < 0 ? 1 : -1);
-  };
+  // Native non-passive listeners (see hook) so iOS can't cancel the gesture.
+  const sheetsRef = useRef<HTMLDivElement>(null);
+  useHorizontalSwipe(sheetsRef, (dir) => move(dir));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -467,9 +458,7 @@ export default function Journal({
     <div>
       <div
         {...stylex.props(styles.sheets)}
-        onTouchStart={onTouchStart}
-        onTouchCancel={onTouchCancel}
-        onTouchEnd={onTouchEnd}
+        ref={sheetsRef}
       >
 
         {fetchError && (
@@ -486,13 +475,13 @@ export default function Journal({
           const label = relativeLabel(k);
           const hasAnno = prompt != null || dayReminders.length > 0;
           return (
-            <article
-              key={iso}
+            <Fragment key={iso}>
+              {i > 0 && <Divider xstyle={styles.dividerBleed} />}
+              <article
               id={`sheet-${iso}`}
               {...stylex.props(
                 styles.sheet,
                 k !== 0 && styles.sheetMuted,
-                i > 0 && styles.sheetDivided,
                 highlighted === iso && styles.highlight,
               )}
             >
@@ -543,6 +532,7 @@ export default function Journal({
                 );
               })}
             </article>
+            </Fragment>
           );
         })}
       </div>

@@ -16,6 +16,7 @@ import {
 } from '../lib/dates';
 import { ErrorNote, Loading } from '../components/ui';
 import { WEEKDAY_SHORT } from '../lib/dates';
+import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe';
 
 const styles = stylex.create({
   wrap: {
@@ -24,7 +25,7 @@ const styles = stylex.create({
     padding: '16px 20px 80px',
     // Horizontal swipes switch months; keep vertical pans native so the
     // browser can't hijack a diagonal swipe for scrolling.
-    touchAction: 'pan-y pinch-zoom',
+    touchAction: 'pan-y',
   },
   head: {
     display: 'flex',
@@ -162,26 +163,14 @@ export default function Calendar({ cfg, tenantId, onPickDay }: Props) {
     setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
 
   // Horizontal swipe switches months; vertical scroll is untouched.
-  const touchX = useRef<number | null>(null);
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchX.current = e.touches[0].clientX;
-  };
-  const onTouchCancel = () => {
-    touchX.current = null;
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchX.current == null) return;
-    const dx = e.changedTouches[0].clientX - touchX.current;
-    touchX.current = null;
-    if (Math.abs(dx) > 60) moveMonth(dx < 0 ? 1 : -1);
-  };
+  // Native non-passive listeners (see hook) so iOS can't cancel the gesture.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useHorizontalSwipe(wrapRef, (dir) => moveMonth(dir));
 
   return (
     <div
       {...stylex.props(styles.wrap)}
-      onTouchStart={onTouchStart}
-      onTouchCancel={onTouchCancel}
-      onTouchEnd={onTouchEnd}
+      ref={wrapRef}
     >
       <div {...stylex.props(styles.head)}>
         <button

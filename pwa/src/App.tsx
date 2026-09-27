@@ -1,8 +1,9 @@
 // Starlog app shell: setup gate, tenant resolution, header, tab navigation.
 // Read-only by design — the anon key this app holds has SELECT grants only.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
+import { DropdownMenu } from '@astryxdesign/core';
 import {
   BookOpen,
   Calendar as CalendarIcon,
@@ -138,41 +139,6 @@ const styles = stylex.create({
     justifyContent: 'center',
     ':hover': { borderColor: 'var(--sl-gold)' },
   },
-  menuWrap: {
-    position: 'relative',
-  },
-  menuPanel: {
-    position: 'absolute',
-    right: 0,
-    top: 'calc(100% + 8px)',
-    minWidth: 210,
-    backgroundColor: 'var(--sl-paper)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--sl-line)',
-    borderRadius: 12,
-    boxShadow: '0 8px 24px #17231f24',
-    padding: 6,
-    zIndex: 30,
-  },
-  menuItem: {
-    appearance: 'none',
-    border: 'none',
-    background: 'transparent',
-    width: '100%',
-    textAlign: 'left',
-    fontFamily: 'var(--font-body)',
-    fontSize: 14,
-    fontWeight: 600,
-    color: 'var(--sl-ink-soft)',
-    padding: '10px 12px',
-    borderRadius: 8,
-    cursor: 'pointer',
-    ':hover': { backgroundColor: 'var(--sl-paper-deep)' },
-  },
-  menuItemDanger: {
-    color: 'var(--sl-coral-deep)',
-  },
   main: {
     flex: 1,
     minHeight: 0,
@@ -253,31 +219,11 @@ export default function App() {
     setTab('journal');
   }, []);
 
-  // Destructive actions live behind the ⋯ menu so they can't be hit by
-  // accident. Disconnect is two-tap: arm, then confirm.
+  // Settings lives behind the ⋯ trigger as an Astryx DropdownMenu in a
+  // bottom-sheet panel (mobile and desktop). Disconnect is destructive and
+  // two-tap: arm, then confirm.
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = () => {
-      setMenuOpen(false);
-      setConfirmingDisconnect(false);
-    };
-    const onDown = (e: PointerEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node))
-        close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    document.addEventListener('pointerdown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
 
   const pickDay = useCallback((isoDate: string) => {
     const d = parseISODate(isoDate);
@@ -355,45 +301,39 @@ export default function App() {
                 >
                   {mode === 'light' ? <Moon size={19} /> : <Sun size={19} />}
                 </button>
-              <div {...stylex.props(styles.menuWrap)} ref={menuRef}>
-                <button
-                  {...stylex.props(styles.iconBtn)}
-                  onClick={() => {
-                    setMenuOpen((o) => !o);
-                    setConfirmingDisconnect(false);
-                  }}
-                  aria-label="Menu"
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                  title="Menu"
-                >
-                  <Ellipsis size={19} />
-                </button>
-                {menuOpen && (
-                  <div {...stylex.props(styles.menuPanel)} role="menu">
-                    <button
-                      {...stylex.props(
-                        styles.menuItem,
-                        confirmingDisconnect && styles.menuItemDanger,
-                      )}
-                      role="menuitem"
-                      onClick={() => {
-                        if (confirmingDisconnect) {
-                          setMenuOpen(false);
-                          setConfirmingDisconnect(false);
-                          disconnect();
-                        } else {
-                          setConfirmingDisconnect(true);
-                        }
-                      }}
-                    >
-                      {confirmingDisconnect
-                        ? 'Tap again to disconnect'
-                        : 'Disconnect project…'}
-                    </button>
-                  </div>
-                )}
-              </div>
+              <DropdownMenu
+                button={{
+                  icon: <Ellipsis size={19} />,
+                  label: 'Settings',
+                  isIconOnly: true,
+                  variant: 'ghost',
+                }}
+                presentation="bottom-sheet"
+                isMenuOpen={menuOpen}
+                onOpenChange={(open) => {
+                  setMenuOpen(open);
+                  if (!open) setConfirmingDisconnect(false);
+                }}
+                items={[
+                  {
+                    id: 'disconnect',
+                    label: confirmingDisconnect
+                      ? 'Tap again to disconnect'
+                      : 'Disconnect project…',
+                    variant: 'destructive',
+                    hasCloseOnSelect: false,
+                    onClick: () => {
+                      if (confirmingDisconnect) {
+                        setMenuOpen(false);
+                        setConfirmingDisconnect(false);
+                        disconnect();
+                      } else {
+                        setConfirmingDisconnect(true);
+                      }
+                    },
+                  },
+                ]}
+              />
             </div>
             </header>
 
