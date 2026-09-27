@@ -761,7 +761,7 @@ export default function Journal({
                       {prompt != null && (
                         <div {...stylex.props(styles.annoLine)}>
                           <span {...stylex.props(styles.annoLabel)}>
-                            AI PROMPT ·
+                            PROMPT ·
                           </span>
                           <span>{prompt.body}</span>
                         </div>
@@ -911,7 +911,7 @@ export default function Journal({
                   {prompt != null && (
                     <div {...stylex.props(styles.annoLine)}>
                       <span {...stylex.props(styles.annoLabel)}>
-                        AI PROMPT ·
+                        PROMPT ·
                       </span>
                       <span>{prompt.body}</span>
                     </div>
