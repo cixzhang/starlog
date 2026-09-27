@@ -99,47 +99,6 @@ const styles = stylex.create({
     backgroundColor: color,
     boxShadow: glow ? `0 0 12px ${color}a6` : 'none',
   }),
-  // Detail popup when a planet is tapped
-  popup: {
-    position: 'fixed',
-    zIndex: 20,
-    pointerEvents: 'auto',
-    backgroundColor: 'var(--color-background-surface)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--color-border)',
-    borderRadius: 12,
-    padding: '12px 14px',
-    maxWidth: 260,
-    boxShadow: 'var(--shadow-md)',
-  },
-  popupTitle: {
-    fontSize: 14,
-    fontWeight: 600,
-    marginBottom: 4,
-    color: 'var(--color-text-primary)',
-  },
-  popupDate: {
-    fontSize: 12,
-    color: 'var(--color-text-secondary)',
-    marginBottom: 6,
-  },
-  popupDetail: {
-    fontSize: 13,
-    color: 'var(--color-text-primary)',
-    lineHeight: 1.4,
-  },
-  popupClose: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    fontSize: 16,
-    color: 'var(--color-text-secondary)',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: 4,
-  },
 });
 
 export default function ReminderRadar({
@@ -148,7 +107,6 @@ export default function ReminderRadar({
   anchorDate,
   onPlanetTap,
 }: ReminderRadarProps) {
-  const [selected, setSelected] = useState<Reminder | null>(null);
   // Reminder dates currently visible in the viewport.
   // Uses IntersectionObserver on the specific reminder date sheets.
   const [visibleReminderDates, setVisibleReminderDates] = useState<Set<string>>(new Set());
@@ -473,7 +431,6 @@ export default function ReminderRadar({
               top,
             }}
             onClick={() => {
-              setSelected(reminder);
               onPlanetTap?.(toISODate(new Date(reminder.remind_at)));
             }}
             title={reminder.title}
@@ -491,36 +448,6 @@ export default function ReminderRadar({
           </div>
         );
       })}
-      {selected && (
-        <div
-          {...stylex.props(styles.popup)}
-          style={{
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%, -50%)',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            {...stylex.props(styles.popupClose)}
-            onClick={() => setSelected(null)}
-            aria-label="Close"
-          >
-            ×
-          </button>
-          <div {...stylex.props(styles.popupTitle)}>{selected.title}</div>
-          <div {...stylex.props(styles.popupDate)}>
-            {new Date(selected.remind_at).toLocaleDateString('en-US', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </div>
-          {selected.detail && (
-            <div {...stylex.props(styles.popupDetail)}>{selected.detail}</div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
