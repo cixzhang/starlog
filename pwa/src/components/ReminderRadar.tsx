@@ -185,32 +185,35 @@ export default function ReminderRadar({
           inView,
         } = planet;
 
-        // Position near edge with 6-8px margin, staggered to avoid overlap
+        // Position near edge with 6-8px margin, staggered to avoid overlap.
+        // Use consistent left/top (never mix left/right) so CSS transitions
+        // can smoothly animate the planet along the edge when the weekday
+        // changes.
         let positionStyle: Record<string, string | number> = {};
         const stagger = (index % 3) * 36;
 
         switch (edge) {
           case 'bottom':
             positionStyle = {
-              bottom: 8,
               left: `calc(50% - 12px + ${stagger - 36}px)`,
+              top: 'calc(100% - 32px)',
             };
             break;
           case 'top':
             positionStyle = {
-              top: 8,
               left: `calc(50% - 12px + ${stagger - 36}px)`,
+              top: '8px',
             };
             break;
           case 'left':
             positionStyle = {
-              left: 6,
+              left: '6px',
               top: `${35 + (index % 4) * 12}%`,
             };
             break;
           case 'right':
             positionStyle = {
-              right: 6,
+              left: 'calc(100% - 30px)',
               top: `${35 + (index % 4) * 12}%`,
             };
             break;
@@ -229,6 +232,8 @@ export default function ReminderRadar({
               zIndex,
               pointerEvents: 'auto',
               cursor: 'pointer',
+              transition:
+                'left 0.4s ease-out, top 0.4s ease-out, transform 0.4s ease-out, opacity 0.4s ease-out',
               ...positionStyle,
             }}
             onClick={() =>
