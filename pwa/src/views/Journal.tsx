@@ -136,6 +136,15 @@ const styles = stylex.create({
     padding: '4px 12px',
     whiteSpace: 'nowrap',
   },
+  emptyState: {
+    marginTop: 8,
+    padding: '28px 0',
+    textAlign: 'center',
+    color: 'var(--sl-ink-faint)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 14,
+    lineHeight: 1.7,
+  },
   anno: {
     marginTop: 14,
     display: 'flex',
@@ -495,6 +504,13 @@ export default function Journal({
                   )
                 )}
               </div>
+              {iso === todayIso && entry == null && (
+                <div {...stylex.props(styles.emptyState)}>
+                  Nothing here yet.
+                  <br />
+                  Ask your agent to add an entry for today.
+                </div>
+              )}
               {entry != null && <Markdown source={entry.body_text} />}
               {hasAnno && (
                 <div {...stylex.props(styles.anno)}>
