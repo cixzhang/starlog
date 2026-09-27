@@ -227,41 +227,23 @@ export default function ReminderRadar({
     };
   }, [viewportRef, reminders, currentWeekday]);
 
-  // Reposition planets on scroll: the current sheet's own scroll container
-  // drives updates. The math-based directions only depend on the weekday
-  // grid; the same-weekday planet uses live DOM geometry, so it needs
-  // scroll ticks.
+  // Reposition planets on scroll: the shared scroll container drives updates.
+  // The math-based directions only depend on the weekday grid; the
+  // same-weekday planet uses live DOM geometry, so it needs scroll ticks.
   useEffect(() => {
     let raf = 0;
-    let scroller: Element | null = null;
-    let cleanup: (() => void) | null = null;
-
-    const attach = () => {
-      scroller = document.querySelector(
-        `[data-sheet-scroll="${currentWeekday}"]`,
-      );
-      if (!scroller) {
-        // Sheet not mounted yet — retry next frame.
-        raf = requestAnimationFrame(attach);
-        return;
-      }
-      const onScroll = () => {
-        cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => setScrollTick((t) => t + 1));
-      };
-      scroller.addEventListener('scroll', onScroll, { passive: true });
-      cleanup = () => {
-        cancelAnimationFrame(raf);
-        scroller?.removeEventListener('scroll', onScroll);
-      };
+    const scroller = viewportRef.current;
+    if (!scroller) return;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setScrollTick((t) => t + 1));
     };
-    attach();
-
+    scroller.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       cancelAnimationFrame(raf);
-      cleanup?.();
+      scroller.removeEventListener('scroll', onScroll);
     };
-  }, [currentWeekday]);
+  }, [viewportRef]);
 
   const planets = useMemo(() => {
     const viewport = viewportRef.current;
