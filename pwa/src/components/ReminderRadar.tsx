@@ -16,7 +16,7 @@
 // journal content, disappears when there are no upcoming reminders.
 
 import * as stylex from '@stylexjs/stylex';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Reminder } from '../lib/supabase';
 import { toISODate, isoWeekday } from '../lib/dates';
 
@@ -147,49 +147,75 @@ export default function ReminderRadar({
   anchorDate,
   onPlanetTap,
 }: ReminderRadarProps) {
-  const [scrollTick, setScrollTick] = useState(0);
   const [selected, setSelected] = useState<Reminder | null>(null);
-  // Visible date ISOs, computed after DOM commit (not during render)
-  const [visibleIsos, setVisibleIsos] = useState<Set<string>>(new Set());
+  // Reminder dates currently visible in the viewport.
+  // Uses IntersectionObserver on the specific reminder date sheets.
+  const [visibleReminderDates, setVisibleReminderDates] = useState<Set<string>>(new Set());
+  const reminderObserverRef = useRef<IntersectionObserver | null>(null);
 
-  // Update visible ISOs after DOM commit (on scroll, reminders change, etc.)
+  // Observe reminder date sheets. Re-observe when reminders or weekday change
+  // (sheets re-render). The observer hides a planet when its date is visible.
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
 
-    const viewportRect = viewport.getBoundingClientRect();
-    const visible = new Set<string>();
+    // Clean up previous observer
+    reminderObserverRef.current?.disconnect();
 
-    // Check all sheet elements
-    const sheets = document.querySelectorAll('[id^="sheet-"]');
-    sheets.forEach((el) => {
-      const iso = el.id.replace('sheet-', '');
-      const rect = (el as HTMLElement).getBoundingClientRect();
-      if (rect.bottom > viewportRect.top && rect.top < viewportRect.bottom) {
-        visible.add(iso);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setVisibleReminderDates((prev) => {
+          const next = new Set(prev);
+          let changed = false;
+          for (const entry of entries) {
+            const iso = (entry.target as HTMLElement).dataset.reminderDate;
+            if (!iso) continue;
+            if (entry.isIntersecting) {
+              if (!next.has(iso)) {
+                next.add(iso);
+                changed = true;
+              }
+            } else {
+              if (next.has(iso)) {
+                next.delete(iso);
+                changed = true;
+              }
+            }
+          }
+          return changed ? next : prev;
+        });
+      },
+      {
+        root: viewport,
+        threshold: 0.1, // At least 10% visible counts as "on screen"
+      },
+    );
+
+    reminderObserverRef.current = observer;
+
+    // Observe the sheet elements for each reminder date.
+    // Use requestAnimationFrame to ensure sheets are in the DOM.
+    const raf = requestAnimationFrame(() => {
+      const seen = new Set<string>();
+      for (const r of reminders) {
+        const dateIso = toISODate(new Date(r.remind_at));
+        if (seen.has(dateIso)) continue;
+        seen.add(dateIso);
+        const el = document.getElementById(`sheet-${dateIso}`);
+        if (el) {
+          // Tag it so the observer can identify it
+          (el as HTMLElement).dataset.reminderDate = dateIso;
+          observer.observe(el);
+        }
       }
     });
 
-    setVisibleIsos(visible);
-  }, [viewportRef, scrollTick, reminders, currentWeekday, anchorDate]);
-
-  // Re-calculate on scroll
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setScrollTick((t) => t + 1));
-    };
-
-    viewport.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      viewport.removeEventListener('scroll', onScroll);
       cancelAnimationFrame(raf);
+      observer.disconnect();
+      reminderObserverRef.current = null;
     };
-  }, [viewportRef]);
+  }, [viewportRef, reminders, currentWeekday, anchorDate]);
 
   const planets = useMemo(() => {
     const viewport = viewportRef.current;
@@ -213,8 +239,8 @@ export default function ReminderRadar({
         const dateIso = toISODate(remindDate);
 
         // If the date is visible, remove the planet entirely
-        // (visibleIsos is computed after DOM commit, not during render)
-        if (visibleIsos.has(dateIso)) return null;
+        // If the date is visible (via IntersectionObserver), remove the planet
+        if (visibleReminderDates.has(dateIso)) return null;
 
         // 2D vector on the endless sheet:
         // X = weekday axis (fixed columns: Mon=1..Sun=7, repeating endlessly)
@@ -291,7 +317,7 @@ export default function ReminderRadar({
       })
       .filter((p): p is PlanetData => p !== null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reminders, viewportRef, currentWeekday, anchorDate, visibleIsos]);
+  }, [reminders, viewportRef, currentWeekday, anchorDate, visibleReminderDates]);
 
   if (planets.length === 0) return null;
 
