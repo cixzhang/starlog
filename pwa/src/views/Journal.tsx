@@ -95,7 +95,12 @@ const styles = stylex.create({
     paddingRight: 20,
   },
   sheetDivided: {
-    borderTop: '1px solid var(--sl-line)',
+    // NOTE: stylex silently drops `borderTop` as a shorthand string with a
+    // var() color — use longhands (same lesson as the glyphdance `border`
+    // issue in AGENTS.md).
+    borderTopWidth: 1,
+    borderTopStyle: 'solid',
+    borderTopColor: 'var(--sl-line)',
   },
   sheetHead: {
     display: 'flex',

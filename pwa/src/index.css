@@ -17,6 +17,10 @@
   --sl-green: #1e3a2f;
   --sl-navy: #1f2a44;
 
+  /* Top-bar logo tile: light paper in day, merges with the mark's own
+     navy tile at night. */
+  --sl-mark-tile: var(--sl-paper-deep);
+
   --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-heading: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-code: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -36,6 +40,8 @@ html[data-theme='dark'] {
   --sl-coral-deep: #f0856d;
   --sl-gold: #d9a83e;
   --sl-gold-soft: #f2c85b;
+
+  --sl-mark-tile: #193346;
 
   color-scheme: dark;
 }

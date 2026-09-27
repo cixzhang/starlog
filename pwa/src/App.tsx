@@ -61,6 +61,16 @@ const styles = stylex.create({
     justifySelf: 'start',
     minWidth: 0,
   },
+  markTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'var(--sl-mark-tile)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
   wordmark: {
     fontFamily: 'var(--font-heading)',
     fontSize: 18,
@@ -283,7 +293,9 @@ export default function App() {
           <>
             <header id="sl-app-header" {...stylex.props(styles.header)}>
               <div {...stylex.props(styles.brandCell)}>
-                <StarlogMark size={30} />
+                <div {...stylex.props(styles.markTile)}>
+                  <StarlogMark size={30} />
+                </div>
                 <h1 {...stylex.props(styles.wordmark)}>Starlog</h1>
               </div>
               <div {...stylex.props(styles.weekdayCell)}>
