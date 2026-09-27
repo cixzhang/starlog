@@ -459,8 +459,9 @@ const styles = stylex.create({
     padding: '12px 0 0',
   },
   highlight: {
-    animationName: 'sl-flash',
-    animationDuration: '2.4s',
+    animationName: 'sl-flash-outline',
+    animationDuration: '1.6s',
     animationTimingFunction: 'ease-out',
+    borderRadius: 'var(--radius-md)',
   },
 });

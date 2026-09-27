@@ -396,6 +396,9 @@ export default function Journal({
     if (!jump) return;
     setWeekday(jump.weekday);
     setHighlighted(jump.date);
+    // Clear after the flash animation so re-jumping re-triggers it.
+    const t = setTimeout(() => setHighlighted(null), 1700);
+    return () => clearTimeout(t);
   }, [jump]);
 
   // Radar tap jump: same as Calendar jump, but from a local state.
@@ -403,6 +406,8 @@ export default function Journal({
     if (!radarJump) return;
     setWeekday(radarJump.weekday);
     setHighlighted(radarJump.date);
+    const t = setTimeout(() => setHighlighted(null), 1700);
+    return () => clearTimeout(t);
   }, [radarJump]);
 
   const handleJumpHandled = useCallback(() => {
