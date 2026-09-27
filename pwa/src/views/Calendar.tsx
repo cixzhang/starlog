@@ -91,6 +91,9 @@ const styles = stylex.create({
     color: 'var(--color-text-primary)',
     boxShadow: 'inset 0 0 0 1.5px var(--color-accent)',
   },
+  cellMuted: {
+    color: 'var(--color-text-disabled)',
+  },
   dot: {
     width: 5,
     height: 5,
@@ -365,6 +368,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                         styles.cell,
                         !inMonth && styles.cellDim,
                         iso === todayIso && styles.cellToday,
+                        k !== 0 && styles.cellMuted,
                       )}
                       onClick={() => onPickDay(iso)}
                     >
