@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { DropdownMenu } from '@astryxdesign/core';
+import { DropdownMenu, IconButton } from '@astryxdesign/core';
 import {
   BookOpen,
   Calendar as CalendarIcon,
@@ -124,22 +124,6 @@ const styles = stylex.create({
     alignItems: 'center',
     gap: 0,
     justifySelf: 'end',
-  },
-  iconBtn: {
-    appearance: 'none',
-    border: '1px solid var(--sl-line)',
-    background: 'transparent',
-    color: 'var(--sl-ink-soft)',
-    width: 34,
-    height: 34,
-    borderRadius: '50%',
-    cursor: 'pointer',
-    fontSize: 15,
-    lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ':hover': { borderColor: 'var(--sl-gold)' },
   },
   main: {
     flex: 1,
@@ -280,34 +264,28 @@ export default function App() {
                 )}
               </div>
               <div {...stylex.props(styles.rightCell)}>
-                <button
-                  {...stylex.props(styles.iconBtn)}
+                <IconButton
+                  icon={
+                    tab === 'journal' ? (
+                      <CalendarIcon size={19} />
+                    ) : (
+                      <BookOpen size={19} />
+                    )
+                  }
+                  label={tab === 'journal' ? 'Open calendar' : 'Back to journal'}
+                  variant="ghost"
                   onClick={() =>
                     setTab((t) => (t === 'journal' ? 'calendar' : 'journal'))
                   }
-                  aria-label={
-                    tab === 'journal' ? 'Open calendar' : 'Back to journal'
-                  }
-                  title={tab === 'journal' ? 'Calendar' : 'Journal'}
-                >
-                  {tab === 'journal' ? (
-                    <CalendarIcon size={19} />
-                  ) : (
-                    <BookOpen size={19} />
-                  )}
-                </button>
-                <button
-                  {...stylex.props(styles.iconBtn)}
+                />
+                <IconButton
+                  icon={mode === 'light' ? <Moon size={19} /> : <Sun size={19} />}
+                  label={mode === 'light' ? 'Switch to night' : 'Switch to day'}
+                  variant="ghost"
                   onClick={() =>
                     setMode((m) => (m === 'light' ? 'dark' : 'light'))
                   }
-                  aria-label={
-                    mode === 'light' ? 'Switch to night' : 'Switch to day'
-                  }
-                  title={mode === 'light' ? 'Night' : 'Day'}
-                >
-                  {mode === 'light' ? <Moon size={19} /> : <Sun size={19} />}
-                </button>
+                />
               <DropdownMenu
                 button={{
                   icon: <Ellipsis size={19} />,
