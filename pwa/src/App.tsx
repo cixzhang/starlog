@@ -260,7 +260,6 @@ export default function App() {
   // (Astryx DropdownMenu section headings are misaligned; see filed issue.)
   // Disconnect is destructive and two-tap: arm, then confirm.
   const [menuOpen, setMenuOpen] = useState(false);
-  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const [weekStart, setWeekStartState] = useState<WeekStart>(() => getWeekStart());
   const chooseWeekStart = (w: WeekStart) => {
     setWeekStart(w);
@@ -354,21 +353,14 @@ export default function App() {
                 open={menuOpen}
                 onClose={() => {
                   setMenuOpen(false);
-                  setConfirmingDisconnect(false);
                 }}
                 weekStart={weekStart}
                 onWeekStart={chooseWeekStart}
                 mode={mode}
                 onMode={setMode}
-                confirmingDisconnect={confirmingDisconnect}
                 onDisconnect={() => {
-                  if (confirmingDisconnect) {
-                    setMenuOpen(false);
-                    setConfirmingDisconnect(false);
-                    disconnect();
-                  } else {
-                    setConfirmingDisconnect(true);
-                  }
+                  setMenuOpen(false);
+                  disconnect();
                 }}
                 buildHash={__COMMIT_HASH__}
                 onCopyHash={() => {

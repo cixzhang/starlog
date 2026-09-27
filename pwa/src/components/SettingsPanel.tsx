@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex';
-import { Dialog, DialogHeader } from '@astryxdesign/core';
+import { Dialog, DialogHeader, AlertDialog } from '@astryxdesign/core';
 import { Check, Sun, Moon, MonitorSmartphone, Palette, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -15,7 +15,6 @@ interface SettingsPanelProps {
   onWeekStart: (w: WeekStart) => void;
   mode: ThemeMode;
   onMode: (m: ThemeMode) => void;
-  confirmingDisconnect: boolean;
   onDisconnect: () => void;
   buildHash: string;
   onCopyHash: () => void;
@@ -160,7 +159,6 @@ export default function SettingsPanel({
   onWeekStart,
   mode,
   onMode,
-  confirmingDisconnect,
   onDisconnect,
   buildHash,
   onCopyHash,
@@ -169,6 +167,7 @@ export default function SettingsPanel({
   onInstallCustomTheme,
 }: SettingsPanelProps) {
   const [themeError, setThemeError] = useState<string | null>(null);
+  const [disconnectAlertOpen, setDisconnectAlertOpen] = useState(false);
 
   return (
     <Dialog
@@ -347,14 +346,23 @@ export default function SettingsPanel({
         <div {...stylex.props(styles.divider)} />
 
         <Item
-          label={
-            confirmingDisconnect
-              ? 'Tap again to disconnect'
-              : 'Disconnect project…'
-          }
+          label="Disconnect project…"
           icon={<Trash2 size={18} />}
           destructive
-          onClick={onDisconnect}
+          onClick={() => setDisconnectAlertOpen(true)}
+        />
+
+        <AlertDialog
+          isOpen={disconnectAlertOpen}
+          onOpenChange={setDisconnectAlertOpen}
+          title="Disconnect project?"
+          description="This removes the Supabase connection from this device. Your journal data stays in Supabase."
+          actionLabel="Disconnect"
+          actionVariant="destructive"
+          onAction={() => {
+            setDisconnectAlertOpen(false);
+            onDisconnect();
+          }}
         />
 
         <div {...stylex.props(styles.sectionTitle)}>About</div>
