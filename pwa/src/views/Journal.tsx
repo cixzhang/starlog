@@ -9,6 +9,7 @@
 // centered, with a peek of last week above and next week below.
 
 import {
+  Activity,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -243,6 +244,11 @@ export default function Journal({
   weekStart: 1 | 7;
 }) {
   const [weekday, setWeekday] = useState<number>(() => isoWeekday(new Date()));
+  // Track which sheets are near the viewport for Activity recycling.
+  // Only ~7 sheets are visible/active at once; the rest are hidden
+  // (state preserved) via React Activity.
+  const [activeSheets, setActiveSheets] = useState<Set<string>>(new Set());
+  const observerRef = useRef<IntersectionObserver | null>(null);
   const [past, setPast] = useState(INIT_PAST);
   const [future, setFuture] = useState(INIT_FUTURE);
   const [entriesByDate, setEntriesByDate] = useState<Record<string, Entry>>({});
@@ -855,6 +861,48 @@ export default function Journal({
     setPreviewTop(offset);
   }, [dragX, dragDir, anchor, nextWeekday, prevWeekday]);
 
+  // IntersectionObserver: track which sheets are near the viewport.
+  // Only ~7 sheets stay "visible" in Activity; the rest are hidden
+  // (state preserved) for performance.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setActiveSheets((prev) => {
+          const next = new Set(prev);
+          for (const entry of entries) {
+            const iso = (entry.target as HTMLElement).dataset.sheetIso;
+            if (!iso) continue;
+            if (entry.isIntersecting) {
+              next.add(iso);
+            } else {
+              // Keep a buffer: only remove if far from viewport
+              // (IntersectionObserver with rootMargin handles this)
+              next.delete(iso);
+            }
+          }
+          return next;
+        });
+      },
+      {
+        root: viewport,
+        // 200% vertical margin: preload ~3 sheets above/below
+        rootMargin: '200% 0px 200% 0px',
+        threshold: 0,
+      },
+    );
+
+    observerRef.current = observer;
+
+    // Observe all current sheets
+    const sheets = viewport.querySelectorAll('[data-sheet-iso]');
+    sheets.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [sheets.length]); // Re-run when sheets change
+
   return (
     <div {...stylex.props(styles.swipeViewport)} ref={viewportRef}>
       {/* Off-screen previews, visible only during a swipe. */}
@@ -887,6 +935,7 @@ export default function Journal({
               {i > 0 && <Divider />}
               <article
               id={`sheet-${iso}`}
+              data-sheet-iso={iso}
               {...stylex.props(
                 styles.sheet,
                 k !== 0 && styles.sheetMuted,
@@ -894,6 +943,7 @@ export default function Journal({
                 highlighted === iso && styles.highlight,
               )}
             >
+              <Activity mode={activeSheets.has(iso) ? 'visible' : 'hidden'}>
               <div {...stylex.props(styles.sheetHead)}>
                 <h2
                   {...stylex.props(styles.sheetDate)}
@@ -956,6 +1006,7 @@ export default function Journal({
                   />
                 );
               })}
+              </Activity>
             </article>
             </Fragment>
           );
