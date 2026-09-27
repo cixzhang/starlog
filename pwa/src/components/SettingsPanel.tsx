@@ -282,15 +282,35 @@ export default function SettingsPanel({
           />
         </div>
 
-        {mode === 'custom' && customTheme && (
-          <Item
-            label={`Custom: ${customTheme.name} — tap to remove`}
-            onClick={onRemoveCustomTheme}
-          />
-        )}
-
-        {mode === 'custom' && !customTheme && (
+        {mode === 'custom' && (
           <div style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 8 }}>
+            {customTheme && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingBottom: 8,
+                }}
+              >
+                <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
+                  Custom: {customTheme.name}
+                </span>
+                <button
+                  onClick={onRemoveCustomTheme}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    color: 'var(--color-text-red)',
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    padding: 4,
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
             <textarea
               value={themeInput}
               onChange={(e) => {
@@ -339,7 +359,7 @@ export default function SettingsPanel({
                 width: '100%',
               }}
             >
-              Install theme
+              {customTheme ? 'Replace theme' : 'Install theme'}
             </button>
           </div>
         )}
