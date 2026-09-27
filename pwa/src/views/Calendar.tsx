@@ -1,9 +1,11 @@
-// Calendar: a conventional monthly calendar. Days that have entries get
-// a quiet gold dot; tapping a day jumps to the journal for its weekday,
-// highlighting that date.
+// Calendar: months scroll infinitely in both directions, like the journal.
+// The current month holds the foreground; past and future months recede
+// into muted bands. Days with entries get a quiet gold dot; tapping a day
+// jumps to the journal for its weekday, highlighting that date.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
+import { Divider } from '@astryxdesign/core';
 import {
   fetchEntryDates,
   type SbConfig,
@@ -16,42 +18,36 @@ import {
 } from '../lib/dates';
 import { ErrorNote, Loading } from '../components/ui';
 import { WEEKDAY_SHORT } from '../lib/dates';
-import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe';
+
+const INIT_PAST = 2;
+const INIT_FUTURE = 3;
+const EXTEND_PAST = 3;
+const EXTEND_FUTURE = 3;
+const EDGE_PX = 900;
+const SCROLL_COOLDOWN_MS = 400;
 
 const styles = stylex.create({
-  wrap: {
+  months: {
     maxWidth: 560,
     margin: '0 auto',
-    padding: '16px 20px 80px',
-    // Horizontal swipes switch months; keep vertical pans native so the
-    // browser can't hijack a diagonal swipe for scrolling.
-    touchAction: 'pan-y',
+    padding: '4px 0 72px',
   },
-  head: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  month: {
-    fontFamily: 'var(--font-heading)',
-    fontSize: 19,
-    fontWeight: 600,
+  monthSheet: {
+    padding: '20px 20px 28px',
     color: 'var(--sl-ink)',
-    margin: 0,
   },
-  arrow: {
-    appearance: 'none',
-    border: '1px solid var(--sl-line)',
-    background: 'var(--sl-paper)',
+  // Months other than this one recede: muted band, muted text.
+  monthMuted: {
+    backgroundColor: 'var(--sl-paper-deep)',
     color: 'var(--sl-ink-soft)',
-    fontSize: 18,
-    lineHeight: 1,
-    width: 36,
-    height: 36,
-    borderRadius: '50%',
-    cursor: 'pointer',
-    ':hover': { borderColor: 'var(--sl-gold)' },
+  },
+  monthTitle: {
+    fontFamily: 'var(--font-heading)',
+    fontSize: 24,
+    fontWeight: 600,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    margin: '0 0 12px',
   },
   grid: {
     display: 'grid',
@@ -112,46 +108,121 @@ interface Props {
   weekStart: 1 | 7;
 }
 
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props) {
   const today = useMemo(() => new Date(), []);
-  const [cursor, setCursor] = useState(
+  const todayIso = toISODate(today);
+  // The k=0 month: the current month, fixed at mount.
+  const base = useMemo(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
+    [today],
   );
+
+  const [past, setPast] = useState(INIT_PAST);
+  const [future, setFuture] = useState(INIT_FUTURE);
   const [dates, setDates] = useState<Set<string> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const monthStart = useMemo(
-    () => new Date(cursor.getFullYear(), cursor.getMonth(), 1),
-    [cursor],
-  );
-  const monthEnd = useMemo(
-    () => new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0),
-    [cursor],
-  );
+  const fetchedRef = useRef<{ from: string; to: string } | null>(null);
+  const pendingPrepend = useRef<number | null>(null);
+  const scrollCooldown = useRef(0);
+  const centerKey = useRef<string | null>(monthKey(base));
 
+  const months = useMemo(() => {
+    const out: { k: number; start: Date; key: string }[] = [];
+    for (let k = -past; k <= future; k++) {
+      const start = new Date(base.getFullYear(), base.getMonth() + k, 1);
+      out.push({ k, start, key: monthKey(start) });
+    }
+    return out;
+  }, [base, past, future]);
+
+  // Entry dates for the visible window; refetch when the window grows.
   useEffect(() => {
+    if (months.length === 0) return;
+    const first = months[0].start;
+    const last = months[months.length - 1].start;
+    const from = toISODate(addDays(first, -7));
+    const to = toISODate(
+      addDays(new Date(last.getFullYear(), last.getMonth() + 1, 0), 7),
+    );
+    const f = fetchedRef.current;
+    if (f && from >= f.from && to <= f.to) return;
     let alive = true;
-    setDates(null);
-    setError(null);
     (async () => {
       try {
-        // pad a little so the leading/trailing dim days resolve too
-        const from = toISODate(addDays(monthStart, -7));
-        const to = toISODate(addDays(monthEnd, 7));
         const ds = await fetchEntryDates(cfg, tenantId, from, to);
-        if (alive) setDates(new Set(ds));
+        if (!alive) return;
+        fetchedRef.current = {
+          from: f ? (from < f.from ? from : f.from) : from,
+          to: f ? (to > f.to ? to : f.to) : to,
+        };
+        setDates((prev) => {
+          const next = new Set(prev ?? []);
+          for (const d of ds) next.add(d);
+          return next;
+        });
+        setError(null);
       } catch (e) {
-        if (alive)
+        if (alive) {
+          fetchedRef.current = null;
           setError(e instanceof Error ? e.message : 'Couldn’t load the calendar.');
+        }
       }
     })();
     return () => {
       alive = false;
     };
-  }, [cfg, tenantId, monthStart, monthEnd]);
+  }, [cfg, tenantId, months]);
 
-  // cells: leading dim days + month days + trailing to fill 6 rows.
-  // Ordered from the configured week start.
+  // Infinite scroll: grow the window near either edge.
+  useEffect(() => {
+    const onScroll = () => {
+      const t = Date.now();
+      if (t - scrollCooldown.current < SCROLL_COOLDOWN_MS) return;
+      const doc = document.documentElement;
+      const nearTop = window.scrollY < EDGE_PX;
+      const nearBottom =
+        window.innerHeight + window.scrollY > doc.scrollHeight - EDGE_PX;
+      if (!nearTop && !nearBottom) return;
+      scrollCooldown.current = t;
+      if (nearTop) {
+        pendingPrepend.current = doc.scrollHeight;
+        setPast((p) => p + EXTEND_PAST);
+      }
+      if (nearBottom) setFuture((f) => f + EXTEND_FUTURE);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Center the current month vertically on first paint.
+  const recenter = () => {
+    const key = centerKey.current;
+    centerKey.current = null;
+    if (!key) return;
+    const el = document.getElementById(`month-${key}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+    const header = document.getElementById('sl-app-header');
+    if (header) window.scrollBy(0, -header.offsetHeight / 2);
+  };
+
+  useLayoutEffect(() => {
+    recenter();
+    if (pendingPrepend.current != null) {
+      const delta =
+        document.documentElement.scrollHeight - pendingPrepend.current;
+      pendingPrepend.current = null;
+      if (delta > 0) window.scrollBy(0, delta);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [months]);
+
+  // Day-of-week headers ordered from the configured week start.
   const dowOrder = useMemo(
     () =>
       weekStart === 7
@@ -159,79 +230,80 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
         : WEEKDAY_SHORT,
     [weekStart],
   );
-  const cells = useMemo(() => {
+
+  const cellsFor = (monthStart: Date) => {
+    const monthEnd = new Date(
+      monthStart.getFullYear(),
+      monthStart.getMonth() + 1,
+      0,
+    );
     const lead = (isoWeekday(monthStart) - weekStart + 7) % 7;
     const total = Math.ceil((lead + monthEnd.getDate()) / 7) * 7;
     const first = addDays(monthStart, -lead);
-    return Array.from({ length: total }, (_, i) => addDays(first, i));
-  }, [monthStart, monthEnd, weekStart]);
-
-  const todayIso = toISODate(today);
-
-  const moveMonth = (delta: number) =>
-    setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
-
-  // Horizontal swipe switches months; vertical scroll is untouched.
-  // Native non-passive listeners (see hook) so iOS can't cancel the gesture.
-  const wrapRef = useRef<HTMLDivElement>(null);
-  useHorizontalSwipe(wrapRef, (dir) => moveMonth(dir));
+    return { cells: Array.from({ length: total }, (_, i) => addDays(first, i)), monthEnd };
+  };
 
   return (
-    <div
-      {...stylex.props(styles.wrap)}
-      ref={wrapRef}
-    >
-      <div {...stylex.props(styles.head)}>
-        <button
-          {...stylex.props(styles.arrow)}
-          onClick={() => moveMonth(-1)}
-          aria-label="Previous month"
-        >
-          ‹
-        </button>
-        <h2 {...stylex.props(styles.month)}>{formatMonth(cursor)}</h2>
-        <button
-          {...stylex.props(styles.arrow)}
-          onClick={() => moveMonth(1)}
-          aria-label="Next month"
-        >
-          ›
-        </button>
-      </div>
-
-      {error && <ErrorNote title="The calendar didn’t load." detail={error} />}
-      {!error && dates === null && <Loading label="Turning pages…" />}
-
-      {!error && dates !== null && (
-        <div {...stylex.props(styles.grid)} role="grid" aria-label={formatMonth(cursor)}>
-          {dowOrder.map((d) => (
-            <div key={d} {...stylex.props(styles.dow)}>
-              {d}
-            </div>
-          ))}
-          {cells.map((d) => {
-            const iso = toISODate(d);
-            const inMonth = d.getMonth() === cursor.getMonth();
-            const hasEntry = dates.has(iso);
-            return (
-              <button
-                key={iso}
-                role="gridcell"
-                aria-label={`${iso}${hasEntry ? ', has entry' : ''}`}
-                {...stylex.props(
-                  styles.cell,
-                  !inMonth && styles.cellDim,
-                  iso === todayIso && styles.cellToday,
-                )}
-                onClick={() => onPickDay(iso)}
-              >
-                {d.getDate()}
-                <span {...stylex.props(hasEntry ? styles.dot : styles.dotEmpty)} />
-              </button>
-            );
-          })}
+    <div {...stylex.props(styles.months)}>
+      {error && (
+        <div style={{ padding: '0 20px' }}>
+          <ErrorNote title="The calendar didn’t load." detail={error} />
         </div>
       )}
+      {!error && dates === null && <Loading label="Turning pages…" />}
+
+      {months.map(({ k, start, key }, i) => {
+        const { cells } = cellsFor(start);
+        return (
+          <Fragment key={key}>
+            {i > 0 && <Divider />}
+            <section
+              id={`month-${key}`}
+              {...stylex.props(
+                styles.monthSheet,
+                k !== 0 && styles.monthMuted,
+              )}
+            >
+              <h2 {...stylex.props(styles.monthTitle)}>{formatMonth(start)}</h2>
+              <div
+                {...stylex.props(styles.grid)}
+                role="grid"
+                aria-label={formatMonth(start)}
+              >
+                {dowOrder.map((d) => (
+                  <div key={d} {...stylex.props(styles.dow)}>
+                    {d}
+                  </div>
+                ))}
+                {dates !== null &&
+                  cells.map((d) => {
+                    const iso = toISODate(d);
+                    const inMonth = d.getMonth() === start.getMonth();
+                    const hasEntry = dates.has(iso);
+                    return (
+                      <button
+                        key={iso}
+                        role="gridcell"
+                        aria-label={`${iso}${hasEntry ? ', has entry' : ''}`}
+                        {...stylex.props(
+                          styles.cell,
+                          !inMonth && styles.cellDim,
+                          iso === todayIso && styles.cellToday,
+                        )}
+                        onClick={() => onPickDay(iso)}
+                      >
+                        {d.getDate()}
+                        <span
+                          {...stylex.props(hasEntry ? styles.dot : styles.dotEmpty)}
+                        />
+                      </button>
+                    );
+                  })}
+              </div>
+            </section>
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
