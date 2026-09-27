@@ -28,6 +28,11 @@ const EXTEND_PAST = 8;
 const EXTEND_FUTURE = 4;
 const EDGE_PX = 240;
 const SCROLL_COOLDOWN_MS = 400;
+// Fixed tall container: k=0 sits at the middle, past weeks above,
+// future below. No cross-sheet coordination needed — the middle is
+// the same in every sheet, so k=0 aligns vertically by construction.
+const CONTAINER_HEIGHT = 30000;
+const MIDDLE = CONTAINER_HEIGHT / 2;
 
 interface DateItem {
   k: number;
@@ -50,10 +55,6 @@ interface WeekdaySheetProps {
   /** ISO date to jump to. Only set on the sheet whose weekday matches. */
   jumpDate: string | null;
   onJumpHandled: () => void;
-  /** Max pastTotal across all 7 sheets — used as the uniform alignment offset. */
-  alignOffset: number;
-  /** Report this sheet's measured pastTotal to the parent. */
-  onPastTotal: (weekday: number, total: number) => void;
 }
 
 function relativeLabel(k: number): string | null {
@@ -135,8 +136,6 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onNeedDates,
     jumpDate,
     onJumpHandled,
-    alignOffset,
-    onPastTotal,
   } = props;
 
   const [past, setPast] = useState(INIT_PAST);
@@ -146,9 +145,6 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
   const innerRef = useRef<HTMLDivElement>(null);
   const scrollCooldown = useRef(0);
   const datesRef = useRef<DateItem[]>([]);
-  // Latest bottom position for prepended content (negative offset above top:0).
-  // e.g. after prepending a 167px week, latestBottom = -167.
-  const latestBottomRef = useRef(0);
   const initializedRef = useRef(false);
 
   const dates = useMemo<DateItem[]>(() => {
@@ -166,11 +162,10 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onNeedDates(dates.map((d) => d.iso));
   }, [dates, onNeedDates]);
 
-  // Absolute positioning: k=0 (this week) gets top:0. Previous weeks are
-  // positioned above with negative tops, tracked via latestBottomRef.
-  // Future weeks go below with positive tops. The inner wrapper gets an
-  // explicit height so the scroll container stays scrollable.
-  // Heights are measured from the DOM (data is variable).
+  // Absolute positioning: k=0 (this week) sits at the fixed MIDDLE.
+  // Previous weeks are positioned above with negative virtual tops,
+  // future weeks below with positive. The inner wrapper has a fixed tall
+  // height so the scroll container is stable from the first frame.
   useLayoutEffect(() => {
     const container = scrollRef.current;
     const inner = innerRef.current;
@@ -190,7 +185,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
       tops.set(d.iso, top);
       top += el.offsetHeight;
     }
-    const bottomTotal = top;
+    // (bottomTotal not needed — container height is fixed.)
     // Second pass: k<0 (above, negative tops). Work backwards from k=-1.
     let negTop = 0;
     const negDates = datesRef.current.filter((d) => d.k < 0).sort((a, b) => b.k - a.k);
@@ -202,50 +197,31 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
       negTop -= el.offsetHeight;
       tops.set(d.iso, negTop);
     }
-    const pastTotal = -negTop;
-    latestBottomRef.current = negTop;
-
-    // Report this sheet's pastTotal; parent computes the max across all 7.
-    onPastTotal(weekday, pastTotal);
-
-    // Shift virtual tops by the UNIFORM alignOffset (max pastTotal across
-    // all sheets) so k=0 lands at the same scroll position in every column.
-    // Sheets with shorter past content get empty space above k=0.
+    // Position relative to the fixed MIDDLE: k=0's virtual top:0 becomes
+    // MIDDLE in the DOM. Past weeks go above, future below. The container
+    // has a fixed tall height, so no height recalculation jank.
     for (const [iso, t] of tops) {
       const el = inner.querySelector(
         `[data-sheet-iso="${iso}"]`,
       ) as HTMLElement | null;
       if (el) {
         el.style.position = 'absolute';
-        el.style.top = `${t + alignOffset}px`;
+        el.style.top = `${t + MIDDLE}px`;
         el.style.left = '0';
         el.style.right = '0';
       }
     }
     inner.style.position = 'relative';
-    inner.style.height = `${alignOffset + bottomTotal}px`;
+    // (height is set declaratively in the JSX — fixed tall container.)
 
-    // Initialize scroll so k=0 sits at the viewport top in every sheet.
-    // Wait until alignOffset > 0 (all sheets have reported); otherwise we'd
-    // pin scrollTop=0 and never show the current date.
-    // Defer via rAF so the browser applies the new positions/heights first —
-    // otherwise scrollTop gets clamped to the old (shorter) scrollHeight.
-    // On prepend (alignOffset grows), increase scrollTop by the delta.
-    if (!initializedRef.current && alignOffset > 0) {
+    // Initialize scroll to MIDDLE so k=0 is at the viewport top.
+    // The container height is fixed from the first paint, so no clamping.
+    // On prepend, the layout effect re-runs; k=0 stays at MIDDLE, so no
+    // scroll adjustment is needed — the visual position never moves.
+    if (!initializedRef.current) {
       initializedRef.current = true;
-      const target = alignOffset;
-      requestAnimationFrame(() => {
-        const c = scrollRef.current;
-        if (c) c.scrollTop = target;
-      });
-    } else if (initializedRef.current) {
-      const prevAlign = (container as any)._prevAlignOffset ?? alignOffset;
-      const delta = alignOffset - prevAlign;
-      if (Math.abs(delta) > 1) {
-        container.scrollTop += delta;
-      }
+      container.scrollTop = MIDDLE;
     }
-    (container as any)._prevAlignOffset = alignOffset;
   });
 
   // Jump-to-date: extend the window to include the target date, then scroll
@@ -298,7 +274,11 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
   return (
     <div {...stylex.props(styles.column)} data-sheet-column={weekday}>
       <div {...stylex.props(styles.scroll)} ref={scrollRef} data-sheet-scroll={weekday}>
-        <div {...stylex.props(styles.inner)} ref={innerRef}>
+        <div
+          {...stylex.props(styles.inner)}
+          ref={innerRef}
+          style={{ position: 'relative', height: CONTAINER_HEIGHT }}
+        >
           {fetchError && (
             <div {...stylex.props(styles.fetchError)}>
               <ErrorNote title="Couldn't load entries." detail={fetchError} />
