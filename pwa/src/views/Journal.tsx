@@ -132,9 +132,6 @@ const styles = stylex.create({
     margin: 0,
     color: 'var(--sl-ink)',
   },
-  sheetDateMuted: {
-    color: 'var(--sl-ink-soft)',
-  },
   relLabel: {
     fontFamily: 'var(--font-code)',
     fontSize: 11,
@@ -654,10 +651,12 @@ export default function Journal({
                 >
                   <div {...stylex.props(styles.sheetHead)}>
                     <h2
-                      {...stylex.props(
-                        styles.sheetDate,
-                        k !== 0 && styles.sheetDateMuted,
-                      )}
+                      {...stylex.props(styles.sheetDate)}
+                      style={
+                        k !== 0
+                          ? { color: 'var(--color-text-secondary)' }
+                          : undefined
+                      }
                     >
                       {formatShort(date)}
                     </h2>
@@ -763,10 +762,12 @@ export default function Journal({
             >
               <div {...stylex.props(styles.sheetHead)}>
                 <h2
-                  {...stylex.props(
-                    styles.sheetDate,
-                    k !== 0 && styles.sheetDateMuted,
-                  )}
+                  {...stylex.props(styles.sheetDate)}
+                  style={
+                    k !== 0
+                      ? { color: 'var(--color-text-secondary)' }
+                      : undefined
+                  }
                 >
                   {formatShort(date)}
                 </h2>

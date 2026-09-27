@@ -11,8 +11,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Ellipsis,
-  Moon,
-  Sun,
 } from 'lucide-react';
 import { Theme } from '@astryxdesign/core/theme';
 import { starlogTheme } from './studio/starlog.js';
@@ -36,7 +34,7 @@ import Calendar from './views/Calendar';
 type Tab = 'journal' | 'calendar';
 
 const MODE_KEY = 'starlog:mode';
-type Mode = 'light' | 'dark';
+type Mode = 'light' | 'dark' | 'auto';
 
 const styles = stylex.create({
   root: {
@@ -134,7 +132,19 @@ const styles = stylex.create({
 
 function initialMode(): Mode {
   try {
-    return window.localStorage.getItem(MODE_KEY) === 'dark' ? 'dark' : 'light';
+    const saved = window.localStorage.getItem(MODE_KEY);
+    if (saved === 'light' || saved === 'dark' || saved === 'auto') return saved;
+  } catch {
+    /* ignore */
+  }
+  return 'auto';
+}
+
+function systemMode(): 'light' | 'dark' {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
   } catch {
     return 'light';
   }
@@ -197,6 +207,19 @@ export default function App() {
     }
   }, [mode]);
 
+  // Resolved mode: 'auto' follows the OS. Re-resolves when the OS flips.
+  const [osDark, setOsDark] = useState(() => systemMode() === 'dark');
+  useEffect(() => {
+    if (mode !== 'auto') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (e: MediaQueryListEvent) => setOsDark(e.matches);
+    setOsDark(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [mode]);
+  const resolvedMode: 'light' | 'dark' =
+    mode === 'auto' ? (osDark ? 'dark' : 'light') : mode;
+
   useEffect(() => {
     if (!cfg) {
       setTenantId(null);
@@ -253,7 +276,7 @@ export default function App() {
   }
 
   return (
-    <Theme theme={starlogTheme} mode={mode}>
+    <Theme theme={starlogTheme} mode={resolvedMode}>
       <div {...stylex.props(styles.root)}>
         {showInstall ? (
           <InstallApp
@@ -315,14 +338,6 @@ export default function App() {
                     setTab((t) => (t === 'journal' ? 'calendar' : 'journal'))
                   }
                 />
-                <IconButton
-                  icon={mode === 'light' ? <Moon size={19} /> : <Sun size={19} />}
-                  label={mode === 'light' ? 'Switch to night' : 'Switch to day'}
-                  variant="ghost"
-                  onClick={() =>
-                    setMode((m) => (m === 'light' ? 'dark' : 'light'))
-                  }
-                />
               <DropdownMenu
                 button={{
                   icon: <Ellipsis size={19} />,
@@ -356,6 +371,36 @@ export default function App() {
                           weekStart === 7 ? <Check size={16} /> : null,
                         hasCloseOnSelect: false,
                         onClick: () => chooseWeekStart(7),
+                      },
+                    ],
+                  },
+                  {
+                    type: 'section',
+                    title: 'Theme',
+                    items: [
+                      {
+                        id: 'theme-light',
+                        label: 'Light',
+                        endContent:
+                          mode === 'light' ? <Check size={16} /> : null,
+                        hasCloseOnSelect: false,
+                        onClick: () => setMode('light'),
+                      },
+                      {
+                        id: 'theme-dark',
+                        label: 'Dark',
+                        endContent:
+                          mode === 'dark' ? <Check size={16} /> : null,
+                        hasCloseOnSelect: false,
+                        onClick: () => setMode('dark'),
+                      },
+                      {
+                        id: 'theme-auto',
+                        label: 'Auto',
+                        endContent:
+                          mode === 'auto' ? <Check size={16} /> : null,
+                        hasCloseOnSelect: false,
+                        onClick: () => setMode('auto'),
                       },
                     ],
                   },
