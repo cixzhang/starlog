@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex';
 import { Check, Sun, Moon, MonitorSmartphone, Trash2, X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export type WeekStart = 1 | 7;
 export type ThemeMode = 'light' | 'dark' | 'auto';
@@ -20,6 +20,7 @@ interface SettingsPanelProps {
   onCopyHash: () => void;
   customTheme: CustomTheme | null;
   onRemoveCustomTheme: () => void;
+  onInstallCustomTheme: (input: string) => string | null;
 }
 
 const styles = stylex.create({
@@ -204,7 +205,10 @@ export default function SettingsPanel({
   onCopyHash,
   customTheme,
   onRemoveCustomTheme,
+  onInstallCustomTheme,
 }: SettingsPanelProps) {
+  const [themeInput, setThemeInput] = useState('');
+  const [themeError, setThemeError] = useState<string | null>(null);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -277,6 +281,61 @@ export default function SettingsPanel({
             label={`Custom: ${customTheme.name} — tap to remove`}
             onClick={onRemoveCustomTheme}
           />
+        )}
+
+        {!customTheme && (
+          <div style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 8 }}>
+            <textarea
+              value={themeInput}
+              onChange={(e) => {
+                setThemeInput(e.target.value);
+                setThemeError(null);
+              }}
+              placeholder="Paste a theme JSON or ?theme= code…"
+              rows={3}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                borderRadius: 12,
+                border: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-background-body)',
+                color: 'var(--color-text-primary)',
+                fontSize: 14,
+                padding: 12,
+                fontFamily: 'monospace',
+                resize: 'vertical',
+              }}
+            />
+            {themeError && (
+              <div style={{ color: 'var(--color-text-red)', fontSize: 13, paddingTop: 6 }}>
+                {themeError}
+              </div>
+            )}
+            <button
+              onClick={() => {
+                const err = onInstallCustomTheme(themeInput);
+                setThemeError(err);
+                if (!err) setThemeInput('');
+              }}
+              style={{
+                marginTop: 8,
+                paddingLeft: 20,
+                paddingRight: 20,
+                paddingTop: 10,
+                paddingBottom: 10,
+                borderRadius: 12,
+                border: 'none',
+                backgroundColor: 'var(--color-accent)',
+                color: 'var(--color-on-accent)',
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: 'pointer',
+                width: '100%',
+              }}
+            >
+              Install theme
+            </button>
+          </div>
         )}
 
         <div {...stylex.props(styles.divider)} />

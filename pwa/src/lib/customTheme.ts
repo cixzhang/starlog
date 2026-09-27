@@ -108,7 +108,36 @@ export function useCustomTheme() {
     setCustomTheme(null);
   };
 
-  return { customTheme, removeCustomTheme };
+  // Install from pasted JSON (or a full ?theme= param value). Returns an
+  // error message, or null on success.
+  const installCustomTheme = (input: string): string | null => {
+    const trimmed = input.trim();
+    if (!trimmed) return 'Paste a theme first.';
+    // Accept either raw JSON or a base64url ?theme= param value
+    let theme: CustomTheme | null = null;
+    if (trimmed.startsWith('{')) {
+      try {
+        const data = JSON.parse(trimmed);
+        theme = decodeThemeParam(
+          btoa(JSON.stringify(data)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+        );
+      } catch {
+        return 'That is not valid JSON.';
+      }
+    } else {
+      theme = decodeThemeParam(trimmed);
+    }
+    if (!theme) return 'Could not read a theme from that text.';
+    try {
+      window.localStorage.setItem(THEME_KEY, JSON.stringify(theme));
+    } catch {
+      return 'Could not save the theme (storage unavailable).';
+    }
+    setCustomTheme(theme);
+    return null;
+  };
+
+  return { customTheme, removeCustomTheme, installCustomTheme };
 }
 
 // Encode a theme for sharing via URL: returns the ?theme= param value.

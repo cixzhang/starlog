@@ -191,7 +191,7 @@ export default function App() {
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('journal');
   const [mode, setMode] = useState<Mode>(initialMode);
-  const { customTheme, removeCustomTheme } = useCustomTheme();
+  const { customTheme, removeCustomTheme, installCustomTheme } = useCustomTheme();
   const [jump, setJump] = useState<{ weekday: number; date: string } | null>(
     null,
   );
@@ -376,6 +376,7 @@ export default function App() {
                 }}
                 customTheme={customTheme}
                 onRemoveCustomTheme={removeCustomTheme}
+                onInstallCustomTheme={installCustomTheme}
               />
             </div>
             </header>
