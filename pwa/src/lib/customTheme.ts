@@ -1,17 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { defineTheme, type DefinedTheme } from '@astryxdesign/core/theme';
+import { starlogTheme } from '../studio/starlog.js';
 
-// Custom themes: user-supplied --color-* token overrides applied as CSS
-// custom properties on the [data-astryx-theme] element, where the Astryx
-// Theme provider scopes its variables. This is the same mechanism the
-// provider itself uses for token overrides.
+// Custom themes progressively extend the Starlog theme via defineTheme.
+// A user-supplied token/font map becomes a DefinedTheme with
+// `extends: starlogTheme`, applied through the <Theme> provider with
+// runtime CSS injection.
 //
 // Installed via ?theme=<base64url-json> URL param, pasted JSON in Settings,
 // and persisted in localStorage.
 //
-// Format: {"name": "Dusk", "tokens": {"--color-...": "#..."}, "fonts": {...}}
+// Format: {
+//   "name": "Dusk",
+//   "tokens": {"--color-...": "#..."},
+//   "fonts": {"body": "...", "heading": "...", "code": "..."}
+// }
 // Only --color-* tokens are accepted; values must look like colors.
+// Fonts are Google Font names, loaded automatically.
 
 const THEME_KEY = 'starlog.customTheme';
+const FONT_LINK_ID = 'starlog-custom-fonts';
 
 export interface CustomTheme {
   name: string;
@@ -23,9 +31,9 @@ export interface CustomTheme {
   };
 }
 
-function sanitizeTokens(source: unknown): Record<string, string> | null {
-  if (typeof source !== 'object' || !source) return null;
+function sanitizeTokens(source: unknown): Record<string, string> {
   const tokens: Record<string, string> = {};
+  if (typeof source !== 'object' || !source) return tokens;
   for (const [k, v] of Object.entries(source as Record<string, unknown>)) {
     if (typeof k === 'string' && k.startsWith('--color-') && typeof v === 'string') {
       if (/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-z]+)$/.test(v.trim())) {
@@ -33,7 +41,7 @@ function sanitizeTokens(source: unknown): Record<string, string> | null {
       }
     }
   }
-  return Object.keys(tokens).length > 0 ? tokens : null;
+  return tokens;
 }
 
 function sanitizeFonts(source: unknown): CustomTheme['fonts'] | undefined {
@@ -41,7 +49,6 @@ function sanitizeFonts(source: unknown): CustomTheme['fonts'] | undefined {
   const fonts: Record<string, string> = {};
   for (const role of ['body', 'heading', 'code'] as const) {
     const v = (source as Record<string, unknown>)[role];
-    // Google Font names: letters, numbers, spaces, hyphens
     if (typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9 \-]{0,40}$/.test(v.trim())) {
       fonts[role] = v.trim();
     }
@@ -49,19 +56,23 @@ function sanitizeFonts(source: unknown): CustomTheme['fonts'] | undefined {
   return Object.keys(fonts).length > 0 ? (fonts as CustomTheme['fonts']) : undefined;
 }
 
+function toCustomTheme(data: unknown): CustomTheme | null {
+  if (typeof data !== 'object' || !data) return null;
+  const d = data as Record<string, unknown>;
+  const tokens = sanitizeTokens(d.tokens ?? d);
+  const fonts = sanitizeFonts(d.fonts);
+  if (Object.keys(tokens).length === 0 && !fonts) return null;
+  return {
+    name: typeof d.name === 'string' ? d.name : 'Custom',
+    tokens,
+    fonts,
+  };
+}
+
 function decodeThemeParam(param: string): CustomTheme | null {
   try {
     const b64 = param.replace(/-/g, '+').replace(/_/g, '/');
-    const data = JSON.parse(atob(b64));
-    if (typeof data !== 'object' || !data) return null;
-    const tokens = sanitizeTokens(data.tokens ?? data);
-    const fonts = sanitizeFonts(data.fonts);
-    if (!tokens && !fonts) return null;
-    return {
-      name: typeof data.name === 'string' ? data.name : 'Custom',
-      tokens: tokens ?? {},
-      fonts,
-    };
+    return toCustomTheme(JSON.parse(atob(b64)));
   } catch {
     return null;
   }
@@ -70,26 +81,38 @@ function decodeThemeParam(param: string): CustomTheme | null {
 function loadStored(): CustomTheme | null {
   try {
     const stored = window.localStorage.getItem(THEME_KEY);
-    if (stored) {
-      const data = JSON.parse(stored);
-      const tokens = sanitizeTokens(data?.tokens);
-      if (tokens) {
-        return {
-          name: typeof data.name === 'string' ? data.name : 'Custom',
-          tokens,
-          fonts: sanitizeFonts(data?.fonts),
-        };
-      }
-    }
+    if (stored) return toCustomTheme(JSON.parse(stored));
   } catch {
     /* ignore */
   }
   return null;
 }
 
-export function useCustomTheme(active: boolean) {
+function slug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'custom';
+}
+
+/**
+ * Build a DefinedTheme that progressively extends starlogTheme.
+ * The <Theme> provider injects its CSS at runtime (unbuilt mode).
+ */
+export function buildCustomTheme(custom: CustomTheme): DefinedTheme {
+  return defineTheme({
+    name: `starlog-${slug(custom.name)}`,
+    extends: starlogTheme,
+    tokens: custom.tokens,
+    ...(custom.fonts && {
+      typography: {
+        ...(custom.fonts.body && { body: { family: custom.fonts.body } }),
+        ...(custom.fonts.heading && { heading: { family: custom.fonts.heading } }),
+        ...(custom.fonts.code && { code: { family: custom.fonts.code } }),
+      },
+    }),
+  });
+}
+
+export function useCustomTheme() {
   const [customTheme, setCustomTheme] = useState<CustomTheme | null>(() => {
-    // URL param wins (and gets persisted + stripped from the URL)
     try {
       const params = new URLSearchParams(window.location.search);
       const param = params.get('theme');
@@ -116,63 +139,31 @@ export function useCustomTheme(active: boolean) {
     return loadStored();
   });
 
-  // Apply/remove token overrides on the Astryx theme element.
-  // Must target the specific [data-astryx-theme="starlog"] scope root:
-  // the built CSS defines variables on :scope there via @scope, so
-  // overrides must be inline on that exact element to win.
-  useEffect(() => {
-    if (!active || !customTheme) return;
-    const root = document.querySelector(
-      '[data-astryx-theme="starlog"]'
-    ) as HTMLElement | null;
-    if (!root) return;
-    for (const [k, v] of Object.entries(customTheme.tokens)) {
-      root.style.setProperty(k, v);
-    }
-    // Fonts map to the theme's --font-family-* tokens.
-    if (customTheme.fonts?.body) {
-      root.style.setProperty('--font-family-body', `'${customTheme.fonts.body}', ${getComputedStyle(root).getPropertyValue('--font-family-body') || 'sans-serif'}`);
-    }
-    if (customTheme.fonts?.heading) {
-      root.style.setProperty('--font-family-heading', `'${customTheme.fonts.heading}', ${getComputedStyle(root).getPropertyValue('--font-family-heading') || 'sans-serif'}`);
-    }
-    if (customTheme.fonts?.code) {
-      root.style.setProperty('--font-family-code', `'${customTheme.fonts.code}', ${getComputedStyle(root).getPropertyValue('--font-family-code') || 'monospace'}`);
-    }
-    return () => {
-      for (const k of Object.keys(customTheme.tokens)) {
-        root.style.removeProperty(k);
-      }
-      root.style.removeProperty('--font-family-body');
-      root.style.removeProperty('--font-family-heading');
-      root.style.removeProperty('--font-family-code');
-    };
-  }, [active, customTheme]);
+  // The built theme object, memoized so <Theme> gets a stable reference.
+  const builtTheme = useMemo(
+    () => (customTheme ? buildCustomTheme(customTheme) : null),
+    [customTheme]
+  );
 
   // Load Google Fonts for the custom theme's font families.
   useEffect(() => {
-    if (!active || !customTheme?.fonts) return;
-    const families = Object.values(customTheme.fonts);
+    const families = customTheme?.fonts ? Object.values(customTheme.fonts) : [];
+    document.getElementById(FONT_LINK_ID)?.remove();
     if (families.length === 0) return;
-    const id = 'starlog-custom-fonts';
-    let link = document.getElementById(id) as HTMLLinkElement | null;
-    const href =
+    const link = document.createElement('link');
+    link.id = FONT_LINK_ID;
+    link.rel = 'stylesheet';
+    link.href =
       'https://fonts.googleapis.com/css2?' +
       families
         .map((f) => `family=${encodeURIComponent(f)}:wght@400;500;600;700`)
         .join('&') +
       '&display=swap';
-    if (!link) {
-      link = document.createElement('link');
-      link.id = id;
-      link.rel = 'stylesheet';
-      document.head.appendChild(link);
-    }
-    link.href = href;
+    document.head.appendChild(link);
     return () => {
-      document.getElementById(id)?.remove();
+      document.getElementById(FONT_LINK_ID)?.remove();
     };
-  }, [active, customTheme]);
+  }, [customTheme]);
 
   const removeCustomTheme = () => {
     try {
@@ -183,22 +174,13 @@ export function useCustomTheme(active: boolean) {
     setCustomTheme(null);
   };
 
-  // Install from pasted JSON or a ?theme= code. Returns error or null.
   const installCustomTheme = (input: string): string | null => {
     const trimmed = input.trim();
     if (!trimmed) return 'Paste a theme first.';
     let theme: CustomTheme | null = null;
     if (trimmed.startsWith('{')) {
       try {
-        const data = JSON.parse(trimmed);
-        const tokens = sanitizeTokens(data.tokens ?? data);
-        const fonts = sanitizeFonts(data.fonts);
-        if (!tokens && !fonts) return 'No usable --color-* tokens or fonts found.';
-        theme = {
-          name: typeof data.name === 'string' ? data.name : 'Custom',
-          tokens: tokens ?? {},
-          fonts,
-        };
+        theme = toCustomTheme(JSON.parse(trimmed));
       } catch {
         return 'That is not valid JSON.';
       }
@@ -215,7 +197,6 @@ export function useCustomTheme(active: boolean) {
     return null;
   };
 
-  // Re-apply if the stored theme changes in another tab.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === THEME_KEY) setCustomTheme(loadStored());
@@ -224,7 +205,7 @@ export function useCustomTheme(active: boolean) {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  return { customTheme, removeCustomTheme, installCustomTheme };
+  return { customTheme, builtTheme, removeCustomTheme, installCustomTheme };
 }
 
 // Encode a theme for sharing via URL: returns the ?theme= param value.

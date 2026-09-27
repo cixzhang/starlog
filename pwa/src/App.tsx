@@ -191,7 +191,9 @@ export default function App() {
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('journal');
   const [mode, setMode] = useState<Mode>(initialMode);
-  const { customTheme, removeCustomTheme, installCustomTheme } = useCustomTheme(mode === 'custom');
+  const { customTheme, builtTheme, removeCustomTheme, installCustomTheme } = useCustomTheme();
+  // In custom mode with a theme installed, use the progressively-extended theme.
+  const appliedTheme = mode === 'custom' && builtTheme ? builtTheme : starlogTheme;
   const [jump, setJump] = useState<{ weekday: number; date: string } | null>(
     null,
   );
@@ -280,7 +282,7 @@ export default function App() {
   }
 
   return (
-    <Theme theme={starlogTheme} mode={resolvedMode}>
+    <Theme theme={appliedTheme} mode={resolvedMode}>
       <div {...stylex.props(styles.root)}>
         {showInstall ? (
           <InstallApp
