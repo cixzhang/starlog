@@ -46,8 +46,6 @@ interface WeekdaySheetProps {
   onJumpHandled: () => void;
   /** Request the parent to extend the shared window (for jump-to-date). */
   onNeedWindow: (past: number, future: number) => void;
-  /** The shared scroll container (owned by parent). */
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 function relativeLabel(k: number): string | null {
@@ -133,7 +131,6 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     jumpDate,
     onJumpHandled,
     onNeedWindow,
-    scrollContainerRef,
   } = props;
 
   const innerRef = useRef<HTMLDivElement>(null);
@@ -226,17 +223,11 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
   useLayoutEffect(() => {
     if (!jumpDate) return;
     if (!dates.some((d) => d.iso === jumpDate)) return;
-    const container = scrollContainerRef.current;
-    const el = container?.querySelector(`[data-sheet-iso="${jumpDate}"]`);
-    if (el && container) {
-      const cRect = container.getBoundingClientRect();
-      const eRect = (el as HTMLElement).getBoundingClientRect();
-      // Top-align with 16px padding (not centered). Manual scrollTop ensures
-      // the top stays visible even if the content is taller than the viewport.
-      container.scrollTop += eRect.top - cRect.top - 16;
-    }
+    const el = document.querySelector(`[data-sheet-iso="${jumpDate}"]`);
+    // Top-align via scrollIntoView; scroll-margin-top leaves room for header.
+    (el as HTMLElement | null)?.scrollIntoView({ block: 'start' });
     onJumpHandled();
-  }, [jumpDate, dates, onJumpHandled, scrollContainerRef]);
+  }, [jumpDate, dates, onJumpHandled]);
 
   // (Prepend stability via absolute positioning: the layout effect above
   // recalculates all tops on every render, so k=0 never shifts.)
@@ -360,6 +351,7 @@ const styles = stylex.create({
     borderRightWidth: 1,
     borderRightStyle: 'solid',
     borderRightColor: 'var(--color-border)',
+    boxSizing: 'border-box',
   },
   sheet: {
     padding: '20px 20px 28px',
@@ -367,13 +359,18 @@ const styles = stylex.create({
     // Each day holds its ground even when empty — the min-height is the
     // breathing room between date headings.
     minHeight: '20vh',
+    // For scrollIntoView({block: 'start'}): leave room for the sticky header.
+    scrollMarginTop: '80px',
+    // Explicit border-box: the Astryx reset is in a @layer (lower priority
+    // than unlayered StyleX), so don't rely on it for layout-critical dims.
+    boxSizing: 'border-box',
   },
   // Divider between dates: top border (longhands — StyleX drops the
   // shorthand with var() colors). Applied to all but the first date.
   sheetDivider: {
     borderTopWidth: '1px',
     borderTopStyle: 'solid',
-    borderTopColor: 'var(--sl-line)',
+    borderTopColor: 'var(--color-border)',
   },
   // Non-current weeks recede: dimmer text via secondary token.
   // The current week gets a lifted background per the plan mock

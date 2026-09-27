@@ -113,7 +113,7 @@ const styles = stylex.create({
     borderRadius: 12,
     padding: '12px 14px',
     maxWidth: 260,
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+    boxShadow: 'var(--shadow-md)',
   },
   popupTitle: {
     fontSize: 14,
@@ -161,10 +161,8 @@ export default function ReminderRadar({
 
   // Observe reminder date sheets. Re-observe when reminders or weekday change
   // (sheets re-render). The observer hides a planet when its date is visible.
+  // Root is null (browser viewport) since the body is the scroll container.
   useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-
     // Clean up previous observer
     reminderObserverRef.current?.disconnect();
 
@@ -192,7 +190,7 @@ export default function ReminderRadar({
         });
       },
       {
-        root: viewport,
+        root: null,
         threshold: 0.1, // At least 10% visible counts as "on screen"
       },
     );

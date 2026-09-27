@@ -89,84 +89,92 @@ export default function Journal({
   const [future, setFuture] = useState(8);
   const initializedRef = useRef(false);
 
-  // Scroll the shared container so the given weekday's k=0 is at the top.
+  // Scroll the BODY so the given weekday's k=0 is at the top.
+  // The body is the single scroll container (not stripViewport).
+  // scrollIntoView({block: 'start'}) top-aligns; scroll-margin-top on the
+  // date leaves room for the sticky header. No manual math needed.
   const scrollToK0 = useCallback((wd: number) => {
-    const container = stripViewportRef.current;
-    if (!container) return;
-    const k0El = container.querySelector(
+    console.log('[scroll-init] scrollToK0 called for weekday', wd);
+    const k0El = document.querySelector(
       `[data-sheet-column="${wd}"] [data-sheet-k="0"]`,
     ) as HTMLElement | null;
-    if (!k0El) return;
-    // Use getBoundingClientRect for robust positioning: offsetTop is
-    // relative to the offsetParent (the inner canvas div), not the scroll
-    // container. The rect difference gives the true scroll adjustment.
-    // Top-align with 16px padding (not centered) — the top stays visible
-    // even if the content is taller than the viewport.
-    const cRect = container.getBoundingClientRect();
-    const eRect = k0El.getBoundingClientRect();
-    container.scrollTop += eRect.top - cRect.top - 16;
+    if (!k0El) {
+      console.log('[scroll-init] k0 element NOT FOUND for weekday', wd);
+      return;
+    }
+    console.log('[scroll-init] found k0 element, offsetTop:', k0El.offsetTop, 'calling scrollIntoView');
+    k0El.scrollIntoView({ block: 'start' });
+    console.log('[scroll-init] scrollIntoView called, window.scrollY now:', window.scrollY);
   }, []);
 
   // Initial scroll: land on this week's date.
   useEffect(() => {
     if (initializedRef.current) return;
+    console.log('[scroll-init] effect running, weekday:', weekday);
     const tryInit = () => {
-      const container = stripViewportRef.current;
-      const k0El = container?.querySelector(
+      const k0El = document.querySelector(
         `[data-sheet-column="${weekday}"] [data-sheet-k="0"]`,
       ) as HTMLElement | null;
-      // Check if the element has been positioned (absolute positioning applied).
-      // offsetTop will be MIDDLE (15000) once laid out, 0 before.
-      if (!k0El || k0El.offsetTop === 0) {
+      if (!k0El) {
+        console.log('[scroll-init] tryInit: k0 not found, retrying...');
         requestAnimationFrame(tryInit);
         return;
       }
+      // Check if the element has been positioned (absolute positioning applied).
+      // offsetTop will be MIDDLE (15000) once laid out, 0 before.
+      console.log('[scroll-init] tryInit: found k0, offsetTop =', k0El.offsetTop);
+      if (k0El.offsetTop === 0) {
+        console.log('[scroll-init] tryInit: not positioned yet (offsetTop=0), retrying...');
+        requestAnimationFrame(tryInit);
+        return;
+      }
+      console.log('[scroll-init] tryInit: positioned, calling scrollToK0');
       scrollToK0(weekday);
       initializedRef.current = true;
+      console.log('[scroll-init] done, initializedRef set');
     };
     requestAnimationFrame(tryInit);
   }, [weekday, scrollToK0]);
 
-  // Infinite scroll on the shared container. Triggers off the rendered
-  // content edges (not the 30,000px canvas edges).
+  // Infinite scroll on the BODY. Triggers off the rendered content edges
+  // (not the 30,000px canvas edges). The canvas is fixed, so prepending
+  // dates does not change document height — no scroll adjustment needed.
   useEffect(() => {
-    const container = stripViewportRef.current;
-    if (!container) return;
     let cooldown = false;
     const onScroll = () => {
       if (cooldown) return;
-      const { scrollTop, scrollHeight, clientHeight } = container;
       const EDGE_PX = 800;
-      // Find the active sheet's content edges via its first/last date.
-      const activeCol = container.querySelector(
-        `[data-sheet-column="${weekday}"]`,
-      );
-      const firstEl = activeCol?.querySelector(
-        `[data-sheet-k="${-past}"]`,
+      // Find the active sheet's first/last rendered dates.
+      const firstEl = document.querySelector(
+        `[data-sheet-column="${weekday}"] [data-sheet-k="${-past}"]`,
       ) as HTMLElement | null;
-      const lastEl = activeCol?.querySelector(
-        `[data-sheet-k="${future}"]`,
+      const lastEl = document.querySelector(
+        `[data-sheet-column="${weekday}"] [data-sheet-k="${future}"]`,
       ) as HTMLElement | null;
-      const contentTop = firstEl?.offsetTop ?? 15000;
-      const contentBottom = lastEl
-        ? lastEl.offsetTop + lastEl.offsetHeight
-        : 15000;
-      if (scrollTop < contentTop + EDGE_PX) {
-        cooldown = true;
-        const oldHeight = scrollHeight;
-        setPast((p) => p + 8);
-        requestAnimationFrame(() => {
-          container.scrollTop = scrollTop + (container.scrollHeight - oldHeight);
+      if (!firstEl || !lastEl) return;
+      const firstTop = firstEl.getBoundingClientRect().top;
+      const lastBottom = lastEl.getBoundingClientRect().bottom;
+      const vh = window.innerHeight;
+      if (firstTop > -EDGE_PX && firstTop < vh + EDGE_PX) {
+        // Near the top edge — extend past.
+        // (Only if we're actually near the top of the rendered content,
+        // not just because the element is in view.)
+        if (firstTop < EDGE_PX) {
+          cooldown = true;
+          setPast((p) => p + 8);
           setTimeout(() => { cooldown = false; }, 400);
-        });
-      } else if (scrollTop + clientHeight > contentBottom - EDGE_PX) {
-        cooldown = true;
-        setFuture((f) => f + 8);
-        setTimeout(() => { cooldown = false; }, 400);
+        }
+      }
+      if (lastBottom > -EDGE_PX && lastBottom < vh + EDGE_PX) {
+        if (lastBottom > vh - EDGE_PX) {
+          cooldown = true;
+          setFuture((f) => f + 8);
+          setTimeout(() => { cooldown = false; }, 400);
+        }
       }
     };
-    container.addEventListener('scroll', onScroll, { passive: true });
-    return () => container.removeEventListener('scroll', onScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, [weekday, past, future]);
 
   const [entriesByDate, setEntriesByDate] = useState<Record<string, Entry>>({});
@@ -560,7 +568,6 @@ export default function Journal({
                 setPast((prev) => Math.max(prev, p));
                 setFuture((prev) => Math.max(prev, f));
               }}
-              scrollContainerRef={stripViewportRef}
             />
           ))}
         </div>
@@ -586,16 +593,15 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
   },
-  // Clips the strip to the visible area; touch gestures start here.
+  // Clips the strip horizontally for the carousel; vertically the content
+  // expands the page and the BODY is the single scroll container.
   stripViewport: {
-    overflowY: 'auto',
     overflowX: 'hidden',
     position: 'relative',
     flex: 1,
     minHeight: 0,
     display: 'flex',
     flexDirection: 'column',
-    touchAction: 'pan-y',
   },
   // 700% wide flex row of 7 columns; transform positions index 3 at -300/7%.
   // On desktop (min-width 768px), the strip shrinks to 700/3% so each column
