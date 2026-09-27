@@ -93,7 +93,7 @@ const styles = stylex.create({
     border: 'none',
     background: 'transparent',
     color: 'var(--color-text-secondary)',
-    padding: '8px 10px',
+    padding: '6px 8px',
     borderRadius: 8,
     cursor: 'pointer',
     display: 'inline-flex',
@@ -287,7 +287,7 @@ export default function App() {
                       onClick={() => weekdayCtl.move(-1)}
                       aria-label="Previous weekday"
                     >
-                      <ChevronLeft size={20} />
+                      <ChevronLeft size={16} />
                     </button>
                     <Token
                       label={WEEKDAY_NAMES[weekdayCtl.weekday - 1].toUpperCase()}
@@ -302,7 +302,7 @@ export default function App() {
                       onClick={() => weekdayCtl.move(1)}
                       aria-label="Next weekday"
                     >
-                      <ChevronRight size={20} />
+                      <ChevronRight size={16} />
                     </button>
                   </>
                 )}
@@ -311,21 +311,23 @@ export default function App() {
                 <IconButton
                   icon={
                     tab === 'journal' ? (
-                      <CalendarIcon size={19} />
+                      <CalendarIcon size={16} />
                     ) : (
-                      <BookOpen size={19} />
+                      <BookOpen size={16} />
                     )
                   }
                   label={tab === 'journal' ? 'Open calendar' : 'Back to journal'}
                   variant="ghost"
+                  size="sm"
                   onClick={() =>
                     setTab((t) => (t === 'journal' ? 'calendar' : 'journal'))
                   }
                 />
               <IconButton
-                icon={<Ellipsis size={19} />}
+                icon={<Ellipsis size={16} />}
                 label="Settings"
                 variant="ghost"
+                size="sm"
                 onClick={() => setMenuOpen(true)}
               />
               <Suspense fallback={null}>
