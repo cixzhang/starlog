@@ -427,7 +427,6 @@ const styles = stylex.create({
   sheetMuted: {
     color: 'var(--color-text-secondary)',
     backgroundColor: 'var(--color-background-surface)',
-    borderRadius: 12,
   },
   sheetHead: {
     display: 'flex',
