@@ -16,7 +16,7 @@ import {
   isoWeekday,
   toISODate,
 } from '../lib/dates';
-import { ErrorNote, Loading } from '../components/ui';
+import { ErrorNote } from '../components/ui';
 import { WEEKDAY_SHORT } from '../lib/dates';
 
 const INIT_PAST = 2;
@@ -250,7 +250,6 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
           <ErrorNote title="The calendar didn’t load." detail={error} />
         </div>
       )}
-      {!error && dates === null && <Loading label="Turning pages…" />}
 
       {months.map(({ k, start, key }, i) => {
         const { cells } = cellsFor(start);
@@ -275,30 +274,32 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                     {d}
                   </div>
                 ))}
-                {dates !== null &&
-                  cells.map((d) => {
-                    const iso = toISODate(d);
-                    const inMonth = d.getMonth() === start.getMonth();
-                    const hasEntry = dates.has(iso);
-                    return (
-                      <button
-                        key={iso}
-                        role="gridcell"
-                        aria-label={`${iso}${hasEntry ? ', has entry' : ''}`}
-                        {...stylex.props(
-                          styles.cell,
-                          !inMonth && styles.cellDim,
-                          iso === todayIso && styles.cellToday,
-                        )}
-                        onClick={() => onPickDay(iso)}
-                      >
-                        {d.getDate()}
-                        <span
-                          {...stylex.props(hasEntry ? styles.dot : styles.dotEmpty)}
-                        />
-                      </button>
-                    );
-                  })}
+                {cells.map((d) => {
+                  const iso = toISODate(d);
+                  const inMonth = d.getMonth() === start.getMonth();
+                  // Dots fill in when entry dates arrive; cells render
+                  // immediately so month heights (and scroll position)
+                  // stay stable from the first paint.
+                  const hasEntry = dates !== null && dates.has(iso);
+                  return (
+                    <button
+                      key={iso}
+                      role="gridcell"
+                      aria-label={`${iso}${hasEntry ? ', has entry' : ''}`}
+                      {...stylex.props(
+                        styles.cell,
+                        !inMonth && styles.cellDim,
+                        iso === todayIso && styles.cellToday,
+                      )}
+                      onClick={() => onPickDay(iso)}
+                    >
+                      {d.getDate()}
+                      <span
+                        {...stylex.props(hasEntry ? styles.dot : styles.dotEmpty)}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             </section>
           </Fragment>
