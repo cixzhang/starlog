@@ -1,11 +1,11 @@
 // ReminderRadar: supplementary ambient overlay showing upcoming reminders as
-// planets on an "endless sheet" model.
+// planets on an endless 2D sheet.
 //
-// The journal is treated as one big endless vertical sheet. Each reminder's
-// date has an estimated Y position on that sheet (measured from loaded sheets,
-// estimated for unloaded ones). The planet appears at the closest screen edge
-// to that position. If the date is actually visible on screen, the planet is
-// removed entirely.
+// The journal is a 2D grid: X = weekdays (swipe left/right), Y = weeks
+// (scroll up/down). Each reminder has a 2D vector from the current position.
+// The planet appears at the closest screen edge in that direction, with the
+// arrow rotated to point along the vector. If the date is visible on screen,
+// the planet is removed entirely.
 //
 // Visual encoding:
 // - Size (12-24px): soonness — larger = sooner
@@ -18,7 +18,7 @@
 import * as stylex from '@stylexjs/stylex';
 import { useEffect, useMemo, useState } from 'react';
 import type { Reminder } from '../lib/supabase';
-import { toISODate } from '../lib/dates';
+import { toISODate, isoWeekday } from '../lib/dates';
 
 const CORAL = '#F16E56';
 const CORAL_LIGHT = '#ff9a82';
@@ -28,11 +28,16 @@ const STONE_LIGHT = '#b8b0a2';
 const MAX_SIZE = 24;
 const MIN_SIZE = 12;
 const WINDOW_DAYS = 21; // current week + next two weeks
+const EDGE_MARGIN = 8;
 
 interface ReminderRadarProps {
   reminders: Reminder[];
   // Ref to the scroll viewport containing the sheets
   viewportRef: React.RefObject<HTMLDivElement | null>;
+  // Current weekday (1-7, 1=Monday)
+  currentWeekday: number;
+  // Anchor date for the current week (the current weekday's date)
+  anchorDate: Date;
   // Callback to scroll to a date when a planet is tapped
   onPlanetTap?: (date: string) => void;
 }
@@ -46,9 +51,11 @@ interface PlanetData {
   color: string;
   colorLight: string;
   glow: boolean;
-  // Estimated Y position of the date on the endless sheet,
-  // relative to the viewport top (negative = above, > height = below)
-  estimatedY: number;
+  // 2D vector from current position to reminder (in "grid units")
+  dx: number;
+  dy: number;
+  // Angle in degrees (0 = right, 90 = down)
+  angle: number;
   // Whether the date is currently visible (planet should be removed)
   inView: boolean;
 }
@@ -93,82 +100,26 @@ const styles = stylex.create({
 });
 
 /**
- * Estimate the Y position of a date on the endless sheet, relative to the
- * viewport top. Uses actual DOM measurements for loaded sheets, estimates
- * for unloaded ones based on week difference and average sheet height.
+ * Check if a date's sheet is currently visible in the viewport.
  */
-function estimateDateY(
-  dateIso: string,
-  viewport: HTMLElement,
-): { y: number; inView: boolean } | null {
-  const viewportRect = viewport.getBoundingClientRect();
-
-  // Try to find the actual sheet element
+function isDateVisible(dateIso: string, viewport: HTMLElement): boolean {
   const el = document.getElementById(`sheet-${dateIso}`);
-  if (el) {
-    const rect = el.getBoundingClientRect();
-    const y = rect.top - viewportRect.top + rect.height / 2;
-    const inView =
-      rect.bottom > viewportRect.top && rect.top < viewportRect.bottom;
-    return { y, inView };
-  }
-
-  // Not loaded: estimate from nearest loaded sheet
-  const sheets = Array.from(
-    document.querySelectorAll('[id^="sheet-"]'),
-  ) as HTMLElement[];
-  if (sheets.length === 0) return null;
-
-  // Parse dates and find nearest
-  const target = new Date(dateIso + 'T12:00:00');
-  let nearest: HTMLElement | null = null;
-  let nearestDiff = Infinity;
-
-  for (const sheet of sheets) {
-    const iso = sheet.id.replace('sheet-', '');
-    const d = new Date(iso + 'T12:00:00');
-    const diff = Math.abs(d.getTime() - target.getTime());
-    if (diff < nearestDiff) {
-      nearestDiff = diff;
-      nearest = sheet;
-    }
-  }
-
-  if (!nearest) return null;
-
-  const nearestIso = nearest.id.replace('sheet-', '');
-  const nearestDate = new Date(nearestIso + 'T12:00:00');
-  const weekDiff = Math.round(
-    (target.getTime() - nearestDate.getTime()) / (7 * 24 * 60 * 60 * 1000),
-  );
-
-  // Average sheet height from loaded sheets
-  const heights = sheets.map((s) => s.getBoundingClientRect().height);
-  const avgHeight =
-    heights.reduce((a, b) => a + b, 0) / heights.length;
-
-  const nearestRect = nearest.getBoundingClientRect();
-  const nearestY =
-    nearestRect.top - viewportRect.top + nearestRect.height / 2;
-  const y = nearestY + weekDiff * avgHeight;
-
-  // Estimate inView: if the weekDiff is 0, it should be near the nearest
-  // sheet; otherwise it's definitely off-screen
-  const inView = weekDiff === 0 &&
-    nearestRect.bottom > viewportRect.top &&
-    nearestRect.top < viewportRect.bottom;
-
-  return { y, inView };
+  if (!el) return false;
+  const viewportRect = viewport.getBoundingClientRect();
+  const rect = el.getBoundingClientRect();
+  return rect.bottom > viewportRect.top && rect.top < viewportRect.bottom;
 }
 
 export default function ReminderRadar({
   reminders,
   viewportRef,
+  currentWeekday,
+  anchorDate,
   onPlanetTap,
 }: ReminderRadarProps) {
   const [scrollTick, setScrollTick] = useState(0);
 
-  // Re-estimate positions on scroll
+  // Re-calculate on scroll (for visibility checks)
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -206,14 +157,40 @@ export default function ReminderRadar({
         if (daysUntil < 0 || daysUntil > WINDOW_DAYS) return null;
 
         const dateIso = toISODate(remindDate);
-        const pos = estimateDateY(dateIso, viewport);
-        if (!pos) return null;
 
-        // If the date is visible on screen, remove the planet entirely
-        if (pos.inView) return null;
+        // If the date is visible, remove the planet entirely
+        if (isDateVisible(dateIso, viewport)) return null;
+
+        // 2D vector: dx = weekday distance, dy = week distance
+        const remindWeekday = isoWeekday(remindDate);
+
+        // Shortest weekday path (signed: + = via nextWeekday/swipe left,
+        // - = via prevWeekday/swipe right)
+        const forward = (remindWeekday - currentWeekday + 7) % 7;
+        const backward = (currentWeekday - remindWeekday + 7) % 7;
+        const dx = forward <= backward ? forward : -backward;
+
+        // Week distance: positive = future (below), negative = past (above)
+        // Use day difference / 7 for smooth positioning
+        const dayDiff =
+          (remindDate.getTime() - anchorDate.getTime()) / (1000 * 60 * 60 * 24);
+        const dy = dayDiff / 7;
+
+        // Angle in screen coordinates (0 = right, 90 = down)
+        // dx: + = right (swipe left goes to next weekday which is... hmm)
+        //
+        // Actually: swipe left → nextWeekday. On screen, swiping left means
+        // content moves left, revealing the right side. So nextWeekday is
+        // to the RIGHT in the 2D sheet. Therefore +dx = right.
+        //
+        // dy: + = future = below in the scroll. So +dy = down.
+        const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
 
         // Size: 12px (far) -> 24px (soon)
-        const soonness = 1 - daysUntil / WINDOW_DAYS;
+        // Use 2D distance for soonness
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = Math.sqrt(3 * 3 + 3 * 3); // ~3 weeks in any direction
+        const soonness = Math.max(0, 1 - dist / maxDist);
         const size = Math.round(MIN_SIZE + soonness * (MAX_SIZE - MIN_SIZE));
 
         // Opacity: 0.35 (far) -> 1.0 (near)
@@ -233,19 +210,21 @@ export default function ReminderRadar({
           color,
           colorLight: light,
           glow,
-          estimatedY: pos.y,
+          dx,
+          dy,
+          angle,
           inView: false,
         } as PlanetData;
       })
       .filter((p): p is PlanetData => p !== null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reminders, viewportRef, scrollTick]);
+  }, [reminders, viewportRef, currentWeekday, anchorDate, scrollTick]);
 
   if (planets.length === 0) return null;
 
   return (
     <div {...stylex.props(styles.container)} aria-hidden="true">
-      {planets.map((planet, index) => {
+      {planets.map((planet) => {
         const {
           reminder,
           size,
@@ -254,26 +233,55 @@ export default function ReminderRadar({
           color,
           colorLight,
           glow,
-          estimatedY,
+          angle,
         } = planet;
 
-        // Closest edge: if estimatedY is above viewport, pin to top;
-        // if below, pin to bottom. The arrow points toward the date.
-        const isAbove = estimatedY < 0;
-        const rotation = isAbove ? 0 : 180; // 0=up, 180=down
+        // Position at the screen edge in the direction of the angle.
+        // Use ray casting from center to find the edge intersection.
+        //
+        // For simplicity, determine the dominant axis and place at that edge,
+        // with the perpendicular position interpolated for diagonals.
+        const rad = (angle * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
 
-        // Horizontal: stagger slightly to avoid overlap, centered
-        const stagger = (index % 3) * 36 - 36;
+        // Rotation: arrow points up at 0°, so rotate by (angle + 90°)
+        // to point along the vector. 0° (right) → 90°, 90° (down) → 180°.
+        const rotation = angle + 90;
 
-        const positionStyle = isAbove
-          ? {
-              left: `calc(50% - 12px + ${stagger}px)`,
-              top: '8px',
-            }
-          : {
-              left: `calc(50% - 12px + ${stagger}px)`,
-              top: 'calc(100% - 32px)',
-            };
+        let left: string;
+        let top: string;
+
+        // Determine which edge the ray hits first
+        const absCos = Math.abs(cos);
+        const absSin = Math.abs(sin);
+
+        if (absCos > absSin) {
+          // Hits left or right edge
+          const isRight = cos > 0;
+          left = isRight
+            ? `calc(100% - ${EDGE_MARGIN + size}px)`
+            : `${EDGE_MARGIN}px`;
+          // Interpolate vertical position: center + tan(angle) * halfWidth
+          // Clamped to stay within edges
+          const t = absSin / absCos; // 0 (horizontal) to 1 (diagonal)
+          const verticalOffset = t * 35; // max 35% from center
+          const baseTop = 50 + (sin > 0 ? verticalOffset : -verticalOffset);
+          const clampedTop = Math.max(10, Math.min(90, baseTop));
+          top = `${clampedTop}%`;
+        } else {
+          // Hits top or bottom edge
+          const isBottom = sin > 0;
+          top = isBottom
+            ? `calc(100% - ${EDGE_MARGIN + size + 16}px)` // +16 for arrow
+            : `${EDGE_MARGIN}px`;
+          // Interpolate horizontal position
+          const t = absCos / absSin;
+          const horizontalOffset = t * 35;
+          const baseLeft = 50 + (cos > 0 ? horizontalOffset : -horizontalOffset);
+          const clampedLeft = Math.max(10, Math.min(90, baseLeft));
+          left = `${clampedLeft}%`;
+        }
 
         return (
           <div
@@ -290,7 +298,8 @@ export default function ReminderRadar({
               cursor: 'pointer',
               transition:
                 'left 0.4s ease-out, top 0.4s ease-out, transform 0.4s ease-out, opacity 0.4s ease-out',
-              ...positionStyle,
+              left,
+              top,
             }}
             onClick={() =>
               onPlanetTap?.(toISODate(new Date(reminder.remind_at)))

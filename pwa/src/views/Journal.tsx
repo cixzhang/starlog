@@ -950,6 +950,8 @@ export default function Journal({
       <ReminderRadar
         reminders={allReminders}
         viewportRef={viewportRef}
+        currentWeekday={weekday}
+        anchorDate={anchor}
         onPlanetTap={(date) => {
           // TODO: scroll to the date's sheet
           console.log('Radar tap:', date);
