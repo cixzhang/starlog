@@ -177,16 +177,19 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     const raf = requestAnimationFrame(() => {
       if (alignState.current === 'pending' && !userScrolled.current) {
         alignToCurrentWeek();
-        alignState.current = 'initial';
+        // Mark done, not initial — the data-driven re-alignment above
+        // handles the post-load correction if it hasn't already.
+        alignState.current = 'done';
       }
     });
     return () => cancelAnimationFrame(raf);
   }, [alignToCurrentWeek]);
 
   // Re-align once after the first data arrives, since entry/prompt heights
-  // can shift dates. Never after the user has scrolled.
+  // can shift dates. Never after the user has scrolled. Runs even if the
+  // initial alignment hasn't fired yet (data can beat rAF).
   useEffect(() => {
-    if (alignState.current === 'initial' && !userScrolled.current) {
+    if (alignState.current !== 'done' && !userScrolled.current) {
       alignToCurrentWeek();
       alignState.current = 'done';
     }
