@@ -55,8 +55,9 @@ function relativeLabel(k: number): string | null {
   if (k === 0) return 'this week';
   if (k === 1) return 'next week';
   if (k === -1) return 'last week';
-  if (k > 1) return `${k} weeks out`;
-  return `${-k} weeks ago`;
+  if (k === 2 || k === 3) return `${k} weeks out`;
+  if (k === -2 || k === -3) return `${-k} weeks ago`;
+  return null;
 }
 
 // Decoration color palette: names tied to theme tokens.
