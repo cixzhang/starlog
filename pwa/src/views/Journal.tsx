@@ -331,8 +331,10 @@ export default function Journal({
   const reminderBounds = useRef<{ from: Date; to: Date } | null>(null);
   const centerDate = useRef<string | null>(toISODate(now));
   const jumpPending = useRef(false);
-  const pendingPrepend = useRef<number | null>(null);
   const scrollCooldown = useRef(0);
+  // Anchor for prepend stability: the ISO of the topmost sheet and its
+  // offset from the viewport top, captured before prepending.
+  const prependAnchor = useRef<{ iso: string; top: number } | null>(null);
 
   // The k=0 sheet: the selected weekday's date in the current week.
   // Offset of an ISO weekday from the configured week start.
@@ -349,6 +351,9 @@ export default function Journal({
     }
     return out;
   }, [anchor, past, future]);
+  // Ref for the scroll handler (which has empty deps) to access current sheets.
+  const sheetsListRef = useRef(sheets);
+  sheetsListRef.current = sheets;
 
   // Initialize activeSheets with all current sheet ISOs.
   // The observer will remove far ones as it fires.
@@ -576,12 +581,18 @@ export default function Journal({
   }, [sheets, centerNonce]);
 
   // Keep the visual position stable when sheets are prepended above.
+  // Anchors to the topmost sheet's position instead of measuring document
+  // height deltas, which are unreliable with content-visibility estimates.
   useLayoutEffect(() => {
-    if (pendingPrepend.current != null) {
-      const delta =
-        document.documentElement.scrollHeight - pendingPrepend.current;
-      pendingPrepend.current = null;
-      if (delta > 0) window.scrollBy(0, delta);
+    const anchor = prependAnchor.current;
+    if (anchor) {
+      prependAnchor.current = null;
+      const el = document.getElementById(`sheet-${anchor.iso}`);
+      if (el) {
+        const newTop = el.getBoundingClientRect().top;
+        const delta = newTop - anchor.top;
+        if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+      }
     }
   });
 
@@ -597,7 +608,17 @@ export default function Journal({
       if (!nearTop && !nearBottom) return;
       scrollCooldown.current = t;
       if (nearTop) {
-        pendingPrepend.current = doc.scrollHeight;
+        // Capture the topmost sheet as an anchor before prepending.
+        const firstSheet = sheetsListRef.current[0];
+        if (firstSheet) {
+          const el = document.getElementById(`sheet-${firstSheet.iso}`);
+          if (el) {
+            prependAnchor.current = {
+              iso: firstSheet.iso,
+              top: el.getBoundingClientRect().top,
+            };
+          }
+        }
         setPast((p) => p + EXTEND_PAST);
       }
       if (nearBottom) setFuture((f) => f + EXTEND_FUTURE);
