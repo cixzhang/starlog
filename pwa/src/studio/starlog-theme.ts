@@ -53,4 +53,15 @@ export const starlogTheme = defineTheme({
     '--sl-surface': ['#ece9dd', '#1c2420'],
     '--sl-mark-tile': ['#ece9dd', '#193346'],
   },
+  // Astryx surface colors: map Starlog's palette onto Astryx's semantic
+  // tokens so the app background, cards, borders, and text use the
+  // lunar palette instead of neutral defaults.
+  tokens: {
+    '--color-background-body': ['#f5f3ec', '#141a17'],
+    '--color-background-card': ['#ece9dd', '#1c2420'],
+    '--color-background-surface': ['#ece9dd', '#1c2420'],
+    '--color-border': ['#ddd8c8', '#2b342f'],
+    '--color-text-primary': ['#17231f', '#ece9dd'],
+    '--color-text-secondary': ['#3d4a44', '#c2cabd'],
+  },
 });

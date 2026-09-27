@@ -347,27 +347,27 @@ export default function ReminderRadar({
             top = `${Math.max(5, Math.min(95, pct))}%`;
           }
         } else {
-          // Estimate from the 2D vector: place at the nearest edge
-          // in the direction of (dx, dy).
-          if (absSin > absCos) {
-            const isBelow = sin > 0;
-            top = isBelow
-              ? `calc(100% - ${EDGE_MARGIN + 24 + 16}px)`
-              : `${EDGE_MARGIN}px`;
-            // Shift horizontally based on dx for diagonal directions
-            const t = absCos / absSin;
-            const horizontalOffset = t * 30;
-            const basePct = 50 + (cos > 0 ? horizontalOffset : -horizontalOffset);
-            left = `${Math.max(10, Math.min(90, basePct))}%`;
-          } else {
-            const isRight = cos > 0;
+          // Estimate from the 2D vector.
+          // If dx != 0 (different weekday), the user must swipe horizontally
+          // first — place the planet on the left/right edge. The vertical
+          // position hints at the week offset within the target sheet.
+          // If dx == 0 (same weekday), place on top/bottom for vertical scroll.
+          if (dx !== 0) {
+            const isRight = dx > 0;
             left = isRight
               ? `calc(100% - ${EDGE_MARGIN + 24}px)`
               : `${EDGE_MARGIN}px`;
-            const t = absSin / absCos;
-            const verticalOffset = t * 30;
-            const basePct = 50 + (sin > 0 ? verticalOffset : -verticalOffset);
+            // Vertical offset based on dy: positive dy (future) shifts down,
+            // negative dy (past) shifts up. Clamp to avoid edges.
+            const verticalShift = Math.max(-30, Math.min(30, dy * 15));
+            const basePct = 50 + verticalShift;
             top = `${Math.max(10, Math.min(90, basePct))}%`;
+          } else {
+            const isBelow = dy > 0;
+            top = isBelow
+              ? `calc(100% - ${EDGE_MARGIN + 24 + 16}px)`
+              : `${EDGE_MARGIN}px`;
+            left = '50%';
           }
         }
 
