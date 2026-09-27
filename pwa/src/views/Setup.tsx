@@ -11,9 +11,7 @@ import {
   saveConfig,
   type SbConfig,
 } from '../lib/supabase';
-import { StarlogMark } from '../components/mark';
-
-const styles = stylex.create({
+import { StarlogMark } from '../components/mark';const styles = stylex.create({
   wrap: {
     minHeight: '100dvh',
     display: 'flex',
@@ -69,7 +67,73 @@ const styles = stylex.create({
     color: 'var(--sl-ink-soft)',
     margin: '16px 0 0',
   },
+  agentPanel: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopStyle: 'solid',
+    borderTopColor: 'var(--sl-line)',
+    textAlign: 'left',
+  },
+  agentTitle: {
+    fontSize: 15,
+    fontWeight: 600,
+    color: 'var(--sl-ink)',
+    margin: '0 0 8px',
+    textAlign: 'center',
+  },
+  agentSub: {
+    fontSize: 13.5,
+    lineHeight: 1.65,
+    color: 'var(--sl-ink-soft)',
+    margin: '0 0 16px',
+    textAlign: 'center',
+  },
+  promptBox: {
+    fontFamily: 'var(--font-code)',
+    fontSize: 12,
+    lineHeight: 1.6,
+    color: 'var(--sl-ink-soft)',
+    backgroundColor: 'var(--sl-band)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--sl-line)',
+    borderRadius: 12,
+    padding: '16px',
+    margin: '0 0 16px',
+    maxHeight: 220,
+    overflowY: 'auto',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    textAlign: 'left',
+  },
+  copyRow: {
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  copied: {
+    fontSize: 13,
+    color: 'var(--sl-ink-soft)',
+    margin: '12px 0 0',
+    textAlign: 'center',
+  },
 });
+
+// Copy-paste prompt for the user's AI agent to provision the backend.
+const AGENT_PROMPT = `Set up a Supabase backend for Starlog, a read-only journaling PWA.
+
+1. Create a new Supabase project (free tier is fine, any region).
+2. Open the SQL editor and run the Starlog v0.4.0 schema. Fetch the raw SQL from:
+   https://starlog-journal.vercel.app/schema/0001_init.sql
+   It's self-contained — run it once, in full.
+3. Go to Project Settings → API. Copy the Project URL and the anon / public key.
+4. Reply with a one-tap setup link in this exact format:
+   https://starlog-journal.vercel.app?supabase_url=<PROJECT_URL>&anon_key=<ANON_KEY>
+
+Rules:
+- Do not insert any sample data. An empty journal is correct.
+- The app only reads; it never writes to the database.
+- Treat the anon key like a password — don't share it beyond the setup link.`;
 
 export default function Setup({
   onDone,
@@ -82,6 +146,17 @@ export default function Setup({
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(AGENT_PROMPT);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   // A one-tap setup link pasted into the URL field fills in both fields.
   // This is the way to configure the installed PWA, whose storage is
@@ -187,6 +262,27 @@ export default function Setup({
           They stay on this device only. The app can only read — it never
           writes to your journal.
         </p>
+
+        <div {...stylex.props(styles.agentPanel)}>
+          <h2 {...stylex.props(styles.agentTitle)}>No project yet?</h2>
+          <p {...stylex.props(styles.agentSub)}>
+            Copy this prompt, send it to your AI agent, and paste back the
+            setup link it gives you.
+          </p>
+          <div {...stylex.props(styles.promptBox)}>{AGENT_PROMPT}</div>
+          <div {...stylex.props(styles.copyRow)}>
+            <Button
+              label={copied ? 'Copied' : 'Copy agent prompt'}
+              variant="secondary"
+              onClick={copyPrompt}
+            />
+          </div>
+          {copied && (
+            <p {...stylex.props(styles.copied)}>
+              Past it to your agent — it’ll hand you a setup link.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
