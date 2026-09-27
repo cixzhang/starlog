@@ -376,6 +376,24 @@ export default function App() {
                       }
                     },
                   },
+                  {
+                    type: 'section',
+                    title: 'About',
+                    items: [
+                      {
+                        id: 'build-hash',
+                        label: `Build ${__COMMIT_HASH__}`,
+                        hasCloseOnSelect: false,
+                        onClick: () => {
+                          try {
+                            navigator.clipboard.writeText(__COMMIT_HASH__);
+                          } catch {
+                            /* clipboard unavailable */
+                          }
+                        },
+                      },
+                    ],
+                  },
                 ]}
               />
             </div>
