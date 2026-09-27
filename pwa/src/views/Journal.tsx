@@ -85,13 +85,15 @@ const styles = stylex.create({
   },
   sheet: {
     padding: '20px 20px 28px',
+    color: 'var(--sl-ink)',
     // Each day holds its ground even when empty — the min-height is the
     // breathing room between date headings.
     minHeight: '20vh',
   },
-  // Weeks other than this one recede into a muted full-bleed band.
+  // Weeks other than this one recede: muted band, muted text.
   sheetMuted: {
     backgroundColor: 'var(--sl-paper-deep)',
+    color: 'var(--sl-ink-soft)',
   },
   sheetHead: {
     display: 'flex',
@@ -106,7 +108,6 @@ const styles = stylex.create({
     fontWeight: 600,
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
-    color: 'var(--sl-ink)',
     margin: 0,
   },
   relLabel: {
