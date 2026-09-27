@@ -123,7 +123,7 @@ const styles = stylex.create({
   },
   sheetHead: {
     display: 'flex',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
     marginBottom: 12,
