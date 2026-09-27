@@ -226,11 +226,13 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     inner.style.height = `${alignOffset + bottomTotal}px`;
 
     // Initialize scroll so k=0 sits at the viewport top in every sheet.
+    // Wait until alignOffset > 0 (all sheets have reported); otherwise we'd
+    // pin scrollTop=0 and never show the current date.
     // On prepend (alignOffset grows), increase scrollTop by the delta.
-    if (!initializedRef.current) {
+    if (!initializedRef.current && alignOffset > 0) {
       initializedRef.current = true;
       container.scrollTop = alignOffset;
-    } else {
+    } else if (initializedRef.current) {
       const prevAlign = (container as any)._prevAlignOffset ?? alignOffset;
       const delta = alignOffset - prevAlign;
       if (Math.abs(delta) > 1) {
