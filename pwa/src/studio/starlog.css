@@ -79,6 +79,8 @@
 
 @layer astryx-base {
 :root {
+  --color-coral: light-dark(#F16E56, #F28A76);
+  --color-navy: light-dark(#193346, #8FB4D1);
   --color-data-categorical-blue: light-dark(#0171E3, #0171E3);
   --color-data-categorical-orange: light-dark(#EB6E00, #EB6E00);
   --color-data-categorical-purple: light-dark(#6B1EFD, #6B1EFD);

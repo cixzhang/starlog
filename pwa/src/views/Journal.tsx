@@ -48,6 +48,51 @@ import ReminderRadar from '../components/ReminderRadar';
 
 const INIT_PAST = 3;
 const INIT_FUTURE = 3;
+
+// Decoration color palette: names tied to theme tokens.
+// Agents specify meta.color as one of these; the PWA resolves to
+// the CSS variable so decorations adapt to light/dark mode.
+// SVGs should use stroke="currentColor" / fill="currentColor".
+const DECO_PALETTE: Record<string, string> = {
+  ink: '--color-text-primary',
+  muted: '--color-text-secondary',
+  coral: '--color-coral',
+  navy: '--color-navy',
+};
+
+// Agent-controlled decoration presentation via meta:
+// { width (px max), align (left|center|right), rotation (deg), color (palette name) }
+function DecoView({ d }: { d: { id: string; svg: string; meta?: unknown } }) {
+  const svg = sanitizeSvg(d.svg);
+  if (!svg) return null;
+  const meta = (d.meta ?? {}) as {
+    width?: number;
+    align?: 'left' | 'center' | 'right';
+    rotation?: number;
+    color?: string;
+  };
+  const colorVar = DECO_PALETTE[meta.color ?? 'ink'] ?? DECO_PALETTE.ink;
+  const style: import('react').CSSProperties = {
+    color: `var(${colorVar})`,
+  };
+  if (meta.width) {
+    style.maxWidth = meta.width;
+    style.width = '100%';
+  }
+  if (meta.align === 'left') style.marginRight = 'auto';
+  else if (meta.align === 'right') style.marginLeft = 'auto';
+  if (meta.rotation) {
+    style.transform = `rotate(${meta.rotation}deg)`;
+  }
+  return (
+    <div
+      key={d.id}
+      {...stylex.props(styles.deco)}
+      style={style}
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
+}
 const EXTEND_PAST = 8;
 const EXTEND_FUTURE = 4;
 const EDGE_PX = 240;
@@ -815,17 +860,9 @@ export default function Journal({
                       ))}
                     </div>
                   )}
-                  {decos.map((d) => {
-                    const svg = sanitizeSvg(d.svg);
-                    if (!svg) return null;
-                    return (
-                      <div
-                        key={d.id}
-                        {...stylex.props(styles.deco)}
-                        dangerouslySetInnerHTML={{ __html: svg }}
-                      />
-                    );
-                  })}
+                  {decos.map((d) => (
+                    <DecoView key={d.id} d={d} />
+                  ))}
                 </article>
               </Fragment>
             );
@@ -1047,17 +1084,9 @@ export default function Journal({
                   ))}
                 </div>
               )}
-              {decos.map((d) => {
-                const svg = sanitizeSvg(d.svg);
-                if (!svg) return null;
-                return (
-                  <div
-                    key={d.id}
-                    {...stylex.props(styles.deco)}
-                    dangerouslySetInnerHTML={{ __html: svg }}
-                  />
-                );
-              })}
+              {decos.map((d) => (
+                <DecoView key={d.id} d={d} />
+              ))}
               </Activity>
             </article>
             </Fragment>
