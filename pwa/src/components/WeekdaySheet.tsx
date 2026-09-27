@@ -133,7 +133,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onJumpHandled,
   } = props;
 
-  const [past, setPast] = useState(0);
+  const [past, setPast] = useState(INIT_PAST);
   const [future, setFuture] = useState(INIT_FUTURE);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -157,33 +157,22 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
   }, [dates, onNeedDates]);
 
   // (alignToCurrentWeek removed: k=0 starts at top by construction, no
-  // scroll-to alignment needed.)
-  // Initialize: k=0 starts at the top (past=0). After mount, prepend the
-  // past dates while preserving scroll position, so k=0 stays pinned.
-  // No scroll-to alignment needed — the layout is deterministic.
-  useEffect(() => {
+  // (Two-phase prepend removed: fragile with off-screen carousel sheets.)
+  // Initialize: render the full window, then set scrollTop to k=0's offsetTop
+  // in a layout effect. offsetTop is relative to the container, so it's
+  // deterministic and doesn't depend on viewport position.
+  useLayoutEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
-    // Anchor k=0 (currently the first element, at the top).
-    const first = datesRef.current[0];
-    if (first && first.k === 0) {
-      const el = container.querySelector(`[data-sheet-iso="${first.iso}"]`);
-      if (el) {
-        prependAnchor.current = {
-          iso: first.iso,
-          top: (el as HTMLElement).getBoundingClientRect().top,
-        };
-      }
+    const k0 = datesRef.current.find((d) => d.k === 0);
+    if (!k0) return;
+    const el = container.querySelector(
+      `[data-sheet-iso="${k0.iso}"]`,
+    ) as HTMLElement | null;
+    if (el) {
+      container.scrollTop = el.offsetTop;
     }
-    setPast(INIT_PAST);
   }, []);
-
-  // Re-align once after the first data arrives, since entry/prompt heights
-  // can shift dates. Never after the user has scrolled. Runs even if the
-  // (Data-driven re-alignment removed: k=0 is pinned by construction via
-  // prepend preservation, so data loading can't shift it.)
-
-  // (User-scroll tracking removed: no auto-alignment to fight the user.)
 
   // Jump-to-date: extend the window to include the target date, then scroll
   // this sheet (and only this sheet) to it.
