@@ -117,11 +117,14 @@ export function useCustomTheme(active: boolean) {
   });
 
   // Apply/remove token overrides on the Astryx theme element.
-  // Must target [data-astryx-theme], not <html>: the provider scopes its
-  // variables there, and inline custom properties on that element win.
+  // Must target the specific [data-astryx-theme="starlog"] scope root:
+  // the built CSS defines variables on :scope there via @scope, so
+  // overrides must be inline on that exact element to win.
   useEffect(() => {
     if (!active || !customTheme) return;
-    const root = document.querySelector('[data-astryx-theme]') as HTMLElement | null;
+    const root = document.querySelector(
+      '[data-astryx-theme="starlog"]'
+    ) as HTMLElement | null;
     if (!root) return;
     for (const [k, v] of Object.entries(customTheme.tokens)) {
       root.style.setProperty(k, v);
