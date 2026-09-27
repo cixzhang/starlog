@@ -9,8 +9,8 @@
  * - Keep it simple: no background sync, no push.
  */
 
-const SHELL = 'starlog-shell-v3';
-const ASSETS = 'starlog-assets-v3';
+const SHELL = 'starlog-shell-v4';
+const ASSETS = 'starlog-assets-v4';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
