@@ -22,14 +22,23 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Starlog" />
+    <style>
+      /* Instant splash styles: in <head> so they apply before body renders */
+      @keyframes sl-spin { to { transform: rotate(360deg); } }
+      .sl-splash { min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: #f5f3ec; }
+      .sl-spinner { width: 48px; height: 48px; border-radius: 50%; border: 3px solid #e0ddd2; border-top-color: #8a8478; animation: sl-spin 0.8s linear infinite; }
+      @media (prefers-color-scheme: dark) {
+        .sl-splash { background: #1a1a1a; }
+        .sl-spinner { border-color: #3a3a3a; border-top-color: #8a8478; }
+      }
+    </style>
   </head>
   <body>
     <div id="root">
       <!-- Instant splash: shows before the JS bundle parses -->
-      <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#f5f3ec">
-        <div style="width:48px;height:48px;border-radius:50%;border:3px solid #e0ddd2;border-top-color:#8a8478;animation:sl-spin 0.8s linear infinite"></div>
+      <div class="sl-splash">
+        <div class="sl-spinner"></div>
       </div>
-      <style>@keyframes sl-spin{to{transform:rotate(360deg)}}</style>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
