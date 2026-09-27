@@ -133,13 +133,14 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onJumpHandled,
   } = props;
 
-  const [past, setPast] = useState(INIT_PAST);
+  const [past, setPast] = useState(0);
   const [future, setFuture] = useState(INIT_FUTURE);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollCooldown = useRef(0);
   const prependAnchor = useRef<{ iso: string; top: number } | null>(null);
   const datesRef = useRef<DateItem[]>([]);
+  const initialPrependDone = useRef(false);
 
   const dates = useMemo<DateItem[]>(() => {
     const out: DateItem[] = [];
@@ -156,13 +157,15 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onNeedDates(dates.map((d) => d.iso));
   }, [dates, onNeedDates]);
 
-  // (alignToCurrentWeek removed: k=0 starts at top by construction, no
-  // (Two-phase prepend removed: fragile with off-screen carousel sheets.)
-  // Initialize: render the full window, then set scrollTop to k=0's offsetTop.
-  // Deferred to rAF so the layout (fonts, content heights) is complete.
-  // offsetTop is relative to the container, so it's deterministic.
-  useLayoutEffect(() => {
-    const raf = requestAnimationFrame(() => {
+  // Initialize: k=0 renders at the top (past=0). After the first data
+  // arrives (so k=0's height is stable — previous weeks' data is variable),
+  // prepend the past weeks, pinning k=0 in place via the prepend anchor.
+  // The prepended content's bottom lands flush at k=0's top.
+  // Falls back to a timeout in case there's no data (empty journal).
+  useEffect(() => {
+    if (initialPrependDone.current) return;
+    const doPrepend = () => {
+      if (initialPrependDone.current) return;
       const container = scrollRef.current;
       if (!container) return;
       const k0 = datesRef.current.find((d) => d.k === 0);
@@ -170,12 +173,28 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
       const el = container.querySelector(
         `[data-sheet-iso="${k0.iso}"]`,
       ) as HTMLElement | null;
-      if (el) {
-        container.scrollTop = el.offsetTop;
-      }
-    });
-    return () => cancelAnimationFrame(raf);
-  }, []);
+      if (!el) return;
+      initialPrependDone.current = true;
+      prependAnchor.current = {
+        iso: k0.iso,
+        top: el.getBoundingClientRect().top,
+      };
+      setPast(INIT_PAST);
+    };
+    // If data has arrived for any date, prepend now.
+    const hasData =
+      Object.keys(entriesByDate).length > 0 ||
+      Object.keys(promptsByDate).length > 0 ||
+      Object.keys(decosByDate).length > 0 ||
+      Object.keys(remindersByDate).length > 0;
+    if (hasData) {
+      doPrepend();
+      return;
+    }
+    // Otherwise wait for data, with a timeout fallback.
+    const t = setTimeout(doPrepend, 1500);
+    return () => clearTimeout(t);
+  }, [entriesByDate, promptsByDate, decosByDate, remindersByDate]);
 
   // Jump-to-date: extend the window to include the target date, then scroll
   // this sheet (and only this sheet) to it.
