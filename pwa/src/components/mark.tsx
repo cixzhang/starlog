@@ -1,31 +1,27 @@
-// The Starlog mark: a terminal-log line — a plump rounded sparkle
-// followed by three log lines (≡). Cindy's sketch, cleaned up.
-// Wide aspect (120x64); height derives from the `size` width.
-// Theme-aware: coral lightens in night mode via --sl-coral.
+// The Starlog mark: Lucide's `galaxy` icon (ISC license), drawn in the
+// theme-aware Starlog coral. Temporary direction while the custom mark
+// exploration continues.
 
 export function StarlogMark({ size = 32 }: { size?: number }) {
-  const h = (size * 64) / 120;
   const c = "var(--sl-coral)";
   return (
     <svg
       width={size}
-      height={h}
-      viewBox="0 0 120 64"
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={c}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
       role="img"
       aria-label="Starlog logo"
     >
-      {/* plump rounded sparkle: four round-capped arms */}
-      <path
-        d="M44,32 L44,12 M44,32 L64,32 M44,32 L44,52 M44,32 L24,32"
-        fill="none"
-        stroke={c}
-        strokeWidth={13}
-        strokeLinecap="round"
-      />
-      {/* log lines */}
-      <g fill={c}>
-        <rect x="78" y="20" width="22" height="6" rx="3"/><rect x="78" y="29" width="22" height="6" rx="3"/><rect x="78" y="38" width="22" height="6" rx="3"/>
-      </g>
+      <path d="M16.005 15.108a5.041 6.52 28.25 00-8.008-6.217 5.041 6.52 28.25 008.008 6.217A11.884 7.288-60.76 014.029 7.001" />
+      <path d="M17 21h.01" />
+      <path d="M7 3h.01" />
+      <path d="M7.997 8.891a11.885 7.288-60.756 0111.977 8.107" />
+      <circle cx="12" cy="12" r="1" fill={c} />
     </svg>
   );
 }
