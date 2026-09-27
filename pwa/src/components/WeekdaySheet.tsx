@@ -415,7 +415,7 @@ const styles = stylex.create({
   },
   sheetHead: {
     display: 'flex',
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
     marginBottom: 10,
@@ -434,7 +434,7 @@ const styles = stylex.create({
   },
   relLabel: {
     fontSize: 12,
-    opacity: 0.55,
+    color: 'var(--color-text-secondary)',
     whiteSpace: 'nowrap',
   },
   todayPill: {
