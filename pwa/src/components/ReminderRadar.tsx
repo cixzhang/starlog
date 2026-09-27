@@ -15,7 +15,7 @@
 import * as stylex from '@stylexjs/stylex';
 import { useMemo } from 'react';
 import type { Reminder } from '../lib/supabase';
-import { toISODate } from '../lib/dates';
+import { toISODate, isoWeekday } from '../lib/dates';
 
 const CORAL = '#F16E56';
 const CORAL_LIGHT = '#ff9a82';
@@ -30,6 +30,8 @@ interface ReminderRadarProps {
   reminders: Reminder[];
   // ISO dates currently visible in the viewport
   visibleDates: Set<string>;
+  // Current weekday (1-7, 1=Monday) for shortest-path calculation
+  currentWeekday: number;
   // Callback to scroll to a date when a planet is tapped
   onPlanetTap?: (date: string) => void;
 }
@@ -91,6 +93,7 @@ const styles = stylex.create({
 export default function ReminderRadar({
   reminders,
   visibleDates,
+  currentWeekday,
   onPlanetTap,
 }: ReminderRadarProps) {
   const planets = useMemo(() => {
@@ -124,21 +127,27 @@ export default function ReminderRadar({
 
         const { color, light, glow } = urgencyToColor(r.urgency);
 
-        // Edge and rotation based on where the date sits relative to now.
-        // The journal scrolls vertically: future is below, past is above.
-        // For v1, all future reminders pin to the bottom edge (pointing down),
-        // past reminders to the top edge (pointing up).
+        // Edge and rotation: point along the shortest swipe path from the
+        // current weekday to the reminder's weekday.
+        // - Swipe left (dragDir=1) goes to nextWeekday; arrow points left (-90°)
+        // - Swipe right (dragDir=-1) goes to prevWeekday; arrow points right (90°)
+        const remindWeekday = isoWeekday(remindDate);
+
+        // Steps via nextWeekday (swipe left) vs prevWeekday (swipe right)
+        const stepsForward = (remindWeekday - currentWeekday + 7) % 7;
+        const stepsBackward = (currentWeekday - remindWeekday + 7) % 7;
+
         let edge: PlanetData['edge'];
         let rotation: number;
 
-        if (daysUntil >= 0) {
-          // Future: below in the scroll
-          edge = 'bottom';
-          rotation = 180;
+        if (stepsForward <= stepsBackward) {
+          // Swipe left to reach it
+          edge = 'left';
+          rotation = -90;
         } else {
-          // Past: above in the scroll
-          edge = 'top';
-          rotation = 0;
+          // Swipe right to reach it
+          edge = 'right';
+          rotation = 90;
         }
 
         return {
@@ -156,7 +165,7 @@ export default function ReminderRadar({
         } as PlanetData;
       })
       .filter((p): p is PlanetData => p !== null);
-  }, [reminders, visibleDates]);
+  }, [reminders, visibleDates, currentWeekday]);
 
   if (planets.length === 0) return null;
 

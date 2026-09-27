@@ -950,6 +950,7 @@ export default function Journal({
       <ReminderRadar
         reminders={allReminders}
         visibleDates={new Set(sheets.map((s) => s.iso))}
+        currentWeekday={weekday}
         onPlanetTap={(date) => {
           // TODO: scroll to the date's sheet
           console.log('Radar tap:', date);
