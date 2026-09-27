@@ -2,7 +2,7 @@
 // multi-page build. Saves config to localStorage and redirects to the app.
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Theme } from '@astryxdesign/core';
+import { Theme } from '@astryxdesign/core/theme';
 import { starlogTheme } from './studio/starlog.js';
 import Setup from './views/Setup';
 import { consumeLinkConfig } from './lib/supabase';

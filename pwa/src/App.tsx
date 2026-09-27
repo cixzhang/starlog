@@ -3,7 +3,8 @@
 
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { IconButton, Token } from '@astryxdesign/core';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Token } from '@astryxdesign/core/Token';
 // Code-split: Calendar and Settings load on demand, not in the initial bundle.
 const Calendar = lazy(() => import('./views/Calendar'));
 const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
@@ -14,7 +15,7 @@ import {
   ChevronRight,
   Ellipsis,
 } from 'lucide-react';
-import { Theme } from '@astryxdesign/core';
+import { Theme } from '@astryxdesign/core/theme';
 import { starlogTheme } from './studio/starlog.js';
 import {
   clearConfig,

@@ -1,7 +1,9 @@
 // Shared quiet UI primitives, built on Astryx.
 
 import * as stylex from '@stylexjs/stylex';
-import { Banner, EmptyState, Spinner } from '@astryxdesign/core';
+import { Banner } from '@astryxdesign/core/Banner';
+import { EmptyState } from '@astryxdesign/core/EmptyState';
+import { Spinner } from '@astryxdesign/core/Spinner';
 
 const styles = stylex.create({
   center: {

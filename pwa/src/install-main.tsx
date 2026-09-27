@@ -2,7 +2,7 @@
 // Vite multi-page build.
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Theme } from '@astryxdesign/core';
+import { Theme } from '@astryxdesign/core/theme';
 import { starlogTheme } from './studio/starlog.js';
 import InstallApp from './views/InstallApp';
 import './studio/starlog.css';

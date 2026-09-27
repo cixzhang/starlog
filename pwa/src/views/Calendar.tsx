@@ -5,7 +5,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { Divider } from '@astryxdesign/core';
+import { Divider } from '@astryxdesign/core/Divider';
 import { createClient } from '@supabase/supabase-js';
 import {
   fetchEntryDates,

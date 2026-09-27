@@ -3,8 +3,8 @@
 
 import { useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
-import { Button } from '@astryxdesign/core';
-import { TextInput } from '@astryxdesign/core';
+import { Button } from '@astryxdesign/core/Button';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import {
   getCapabilities,
   isValidProjectUrl,

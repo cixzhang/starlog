@@ -1,5 +1,7 @@
 import * as stylex from '@stylexjs/stylex';
-import { Dialog, DialogHeader, AlertDialog, SelectableCard } from '@astryxdesign/core';
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
+import { SelectableCard } from '@astryxdesign/core/SelectableCard';
 import { Check, Sun, Moon, MonitorSmartphone, Palette, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 

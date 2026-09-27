@@ -1,4 +1,4 @@
-import { defineTheme } from '@astryxdesign/core';
+import { defineTheme } from '@astryxdesign/core/theme';
 import { neutralTheme } from '@astryxdesign/theme-neutral';
 
 /**
