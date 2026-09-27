@@ -9,7 +9,6 @@
 // centered, with a peek of last week above and next week below.
 
 import {
-  Activity,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -177,11 +176,6 @@ const styles = stylex.create({
     // Each day holds its ground even when empty — the min-height is the
     // breathing room between date headings.
     minHeight: '20vh',
-    // Skip rendering off-screen sheets to reduce scroll jank from
-    // variable-height content. The intrinsic size estimate prevents
-    // layout shifts.
-    contentVisibility: 'auto',
-    containIntrinsicSize: 'auto 20vh',
   },
   // Weeks other than this one recede: muted band, muted text.
   sheetMuted: {
@@ -208,6 +202,12 @@ const styles = stylex.create({
     textTransform: 'uppercase',
     margin: 0,
     color: 'var(--sl-ink)',
+  },
+  yearLabel: {
+    fontSize: 16,
+    fontWeight: 400,
+    color: 'var(--sl-ink-soft)',
+    letterSpacing: '0.04em',
   },
   relLabel: {
     fontFamily: 'var(--font-code)',
@@ -307,14 +307,8 @@ export default function Journal({
 }) {
   const [weekday, setWeekday] = useState<number>(() => isoWeekday(new Date()));
   // Track which sheets are near the viewport for Activity recycling.
-  // Only ~7 sheets are visible/active at once; the rest are hidden
-  // (state preserved) via React Activity.
-  const [activeSheets, setActiveSheets] = useState<Set<string>>(new Set());
-  // Initialize activeSheets with all sheet ISOs on first render.
-  // Sheets are visible by default; the observer removes far ones.
-  // This prevents blank screens if the observer is slow to fire.
-  const sheetsInitializedRef = useRef(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
+  // (Activity-based sheet recycling removed: hidden sheets collapsing
+  // caused jarring scroll jumps. All sheets render normally.)
   const [past, setPast] = useState(INIT_PAST);
   const [future, setFuture] = useState(INIT_FUTURE);
   const [entriesByDate, setEntriesByDate] = useState<Record<string, Entry>>({});
@@ -355,15 +349,6 @@ export default function Journal({
   // Ref for the scroll handler (which has empty deps) to access current sheets.
   const sheetsListRef = useRef(sheets);
   sheetsListRef.current = sheets;
-
-  // Initialize activeSheets with all current sheet ISOs.
-  // The observer will remove far ones as it fires.
-  useEffect(() => {
-    if (!sheetsInitializedRef.current) {
-      sheetsInitializedRef.current = true;
-      setActiveSheets(new Set(sheets.map((s) => s.iso)));
-    }
-  }, [sheets]);
 
   // Adjacent weekdays for the swipe previews (1-7, wrapping).
   const prevWeekday = ((weekday - 2 + 7) % 7) + 1;
@@ -838,6 +823,11 @@ export default function Journal({
                       }
                     >
                       {formatShort(date)}
+                      {date.getFullYear() !== now.getFullYear() && (
+                        <span {...stylex.props(styles.yearLabel)}>
+                          {' '}{date.getFullYear()}
+                        </span>
+                      )}
                     </h2>
                     {iso === todayIso ? (
                       <span {...stylex.props(styles.todayPill)}>TODAY</span>
@@ -932,84 +922,7 @@ export default function Journal({
     setPreviewTop(offset);
   }, [dragX, dragDir, anchor, nextWeekday, prevWeekday]);
 
-  // IntersectionObserver: track which sheets are near the viewport.
-  // Only ~7 sheets stay "visible" in Activity; the rest are hidden
-  // (state preserved) for performance.
-  // Uses a callback ref (not querySelectorAll) so sheets are observed
-  // as soon as they mount, even on first render.
-  const observeSheet = useCallback((el: HTMLElement | null) => {
-    const observer = observerRef.current;
-    if (!observer || !el) return;
-    observer.observe(el);
-    // Also mark as active immediately if it's already in view
-    // (handles the case where observer hasn't fired yet)
-    const iso = el.dataset.sheetIso;
-    if (iso) {
-      const rect = el.getBoundingClientRect();
-      const viewport = viewportRef.current;
-      if (viewport) {
-        const vpRect = viewport.getBoundingClientRect();
-        // Check with 200% margin (matches observer rootMargin)
-        const margin = vpRect.height * 2;
-        if (rect.bottom > vpRect.top - margin && rect.top < vpRect.bottom + margin) {
-          setActiveSheets((prev) => {
-            if (prev.has(iso)) return prev;
-            const next = new Set(prev);
-            next.add(iso);
-            return next;
-          });
-        }
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        setActiveSheets((prev) => {
-          const next = new Set(prev);
-          let changed = false;
-          for (const entry of entries) {
-            const iso = (entry.target as HTMLElement).dataset.sheetIso;
-            if (!iso) continue;
-            if (entry.isIntersecting) {
-              if (!next.has(iso)) {
-                next.add(iso);
-                changed = true;
-              }
-            } else {
-              if (next.has(iso)) {
-                next.delete(iso);
-                changed = true;
-              }
-            }
-          }
-          return changed ? next : prev;
-        });
-      },
-      {
-        root: viewport,
-        // 200% vertical margin: preload ~3 sheets above/below
-        rootMargin: '200% 0px 200% 0px',
-        threshold: 0,
-      },
-    );
-
-    observerRef.current = observer;
-
-    // Observe sheets that already mounted (callback refs fire before
-    // this effect runs, so they couldn't observe themselves yet).
-    const existing = viewport.querySelectorAll('[data-sheet-iso]');
-    existing.forEach((el) => observer.observe(el));
-
-    return () => {
-      observer.disconnect();
-      observerRef.current = null;
-    };
-  }, []); // Create once, callback refs handle the observing
+  // (Sheet visibility observer removed with Activity recycling.)
 
   return (
     <div {...stylex.props(styles.swipeViewport)} ref={viewportRef}>
@@ -1044,14 +957,12 @@ export default function Journal({
               <article
               id={`sheet-${iso}`}
               data-sheet-iso={iso}
-              ref={observeSheet}
               {...stylex.props(
                 styles.sheet,
                 k !== 0 && styles.sheetMuted,
                 highlighted === iso && styles.highlight,
               )}
             >
-              <Activity mode={activeSheets.has(iso) ? 'visible' : 'hidden'}>
               <div {...stylex.props(styles.sheetHead)}>
                 <h2
                   {...stylex.props(styles.sheetDate)}
@@ -1062,6 +973,11 @@ export default function Journal({
                   }
                 >
                   {formatShort(date)}
+                  {date.getFullYear() !== now.getFullYear() && (
+                    <span {...stylex.props(styles.yearLabel)}>
+                      {' '}{date.getFullYear()}
+                    </span>
+                  )}
                 </h2>
                 {iso === todayIso ? (
                   <span {...stylex.props(styles.todayPill)}>TODAY</span>
@@ -1106,7 +1022,6 @@ export default function Journal({
               {decos.map((d) => (
                 <DecoView key={d.id} d={d} />
               ))}
-              </Activity>
             </article>
             </Fragment>
           );
