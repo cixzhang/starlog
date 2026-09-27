@@ -19,7 +19,6 @@ import {
 } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { Divider } from '@astryxdesign/core';
-import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe';
 import {
   fetchDecorations,
   fetchEntriesByDates,
@@ -74,6 +73,11 @@ function relativeLabel(k: number): string | null {
 }
 
 const styles = stylex.create({
+  // Swipe viewport: clips the off-screen weekday previews.
+  swipeViewport: {
+    overflow: 'hidden',
+    position: 'relative',
+  },
   sheets: {
     maxWidth: 680,
     margin: '0 auto',
@@ -82,6 +86,28 @@ const styles = stylex.create({
     // vertical pans, so iOS can't hijack a diagonal swipe for scrolling
     // (which would cancel our touchend and "lose" the gesture).
     touchAction: 'pan-y',
+    willChange: 'transform',
+  },
+  // Off-screen weekday preview, slides in under the finger during a swipe.
+  preview: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+    willChange: 'transform',
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  previewInner: {
+    width: '100%',
+    maxWidth: 680,
+  },
+  previewSheet: {
+    padding: '20px 20px 28px',
+    minHeight: '20vh',
+    color: 'var(--sl-ink-faint)',
   },
   sheet: {
     padding: '20px 20px 28px',
@@ -443,10 +469,126 @@ export default function Journal({
     setCenterNonce((n) => n + 1);
   }, [jump, now]);
 
-  // Horizontal swipe changes the weekday; vertical scroll is untouched.
-  // Native non-passive listeners (see hook) so iOS can't cancel the gesture.
+  // Finger-tracking weekday swipe: the sheets follow the finger, with the
+  // adjacent weekday's preview sliding in from off-screen. Native non-passive
+  // listeners so iOS can't cancel the gesture mid-drag.
   const sheetsRef = useRef<HTMLDivElement>(null);
-  useHorizontalSwipe(sheetsRef, (dir) => move(dir));
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [dragX, setDragX] = useState<number | null>(null);
+  const dragState = useRef<{
+    startX: number;
+    startY: number;
+    claimed: boolean;
+  } | null>(null);
+  const animRef = useRef<number | null>(null);
+
+  const SWIPE_THRESHOLD = 80;
+
+  // Adjacent weekdays for the previews (1-7, wrapping).
+  const prevWeekday = ((weekday - 2 + 7) % 7) + 1;
+  const nextWeekday = (weekday % 7) + 1;
+
+  // Anchor date for a given weekday: its date in the current week.
+  const anchorFor = (w: number) =>
+    addDays(startOfWeek(now, weekStart), weekOffset(w));
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const getViewportWidth = () => viewport.clientWidth;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = null;
+      }
+      const t = e.touches[0];
+      dragState.current = { startX: t.clientX, startY: t.clientY, claimed: false };
+      setDragX(null);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const s = dragState.current;
+      if (!s) return;
+      const t = e.touches[0];
+      const dx = t.clientX - s.startX;
+      const dy = t.clientY - s.startY;
+      if (!s.claimed) {
+        // Claim once the drag is clearly horizontal.
+        if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+          s.claimed = true;
+          e.preventDefault();
+        } else {
+          return;
+        }
+      } else {
+        e.preventDefault();
+      }
+      setDragX(dx);
+    };
+
+    const animateTo = (
+      from: number,
+      to: number,
+      duration: number,
+      onDone: () => void,
+    ) => {
+      const start = performance.now();
+      const step = (t: number) => {
+        const p = Math.min(1, (t - start) / duration);
+        // Ease-out cubic.
+        const eased = 1 - Math.pow(1 - p, 3);
+        setDragX(from + (to - from) * eased);
+        if (p < 1) {
+          animRef.current = requestAnimationFrame(step);
+        } else {
+          animRef.current = null;
+          onDone();
+        }
+      };
+      animRef.current = requestAnimationFrame(step);
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      const s = dragState.current;
+      dragState.current = null;
+      if (!s || !s.claimed) {
+        setDragX(null);
+        return;
+      }
+      const dx = e.changedTouches[0].clientX - s.startX;
+      const w = getViewportWidth();
+      if (Math.abs(dx) > SWIPE_THRESHOLD) {
+        const dir = dx < 0 ? 1 : -1;
+        // Slide the preview fully into place, then commit the weekday.
+        animateTo(dx, dir * w, 180, () => {
+          move(dir);
+          setDragX(null);
+        });
+      } else {
+        // Spring back.
+        animateTo(dx, 0, 200, () => setDragX(null));
+      }
+    };
+
+    const onTouchCancel = () => {
+      dragState.current = null;
+      setDragX(null);
+    };
+
+    viewport.addEventListener('touchstart', onTouchStart, { passive: true });
+    viewport.addEventListener('touchmove', onTouchMove, { passive: false });
+    viewport.addEventListener('touchend', onTouchEnd, { passive: true });
+    viewport.addEventListener('touchcancel', onTouchCancel, { passive: true });
+    return () => {
+      viewport.removeEventListener('touchstart', onTouchStart);
+      viewport.removeEventListener('touchmove', onTouchMove);
+      viewport.removeEventListener('touchend', onTouchEnd);
+      viewport.removeEventListener('touchcancel', onTouchCancel);
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [move]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -459,11 +601,56 @@ export default function Journal({
 
   const todayIso = toISODate(now);
 
+  // Preview sheets for the adjacent weekday, shown off-screen during a swipe.
+  // Lightweight: date headers only, no data fetching — it's a gesture hint,
+  // not a full render. The real content loads when the swipe commits.
+  const renderPreview = (targetWeekday: number, dir: 1 | -1) => {
+    if (dragX == null) return null;
+    const vw = viewportRef.current?.clientWidth ?? 0;
+    if (vw === 0) return null;
+    // Position: off-screen in the swipe direction, sliding in with the finger.
+    // dir=1 (swipe left): preview comes from the right.
+    // dir=-1 (swipe right): preview comes from the left.
+    const x = dir === 1 ? vw + dragX : -vw + dragX;
+    const targetAnchor = anchorFor(targetWeekday);
+    return (
+      <div
+        {...stylex.props(styles.preview)}
+        style={{ transform: `translateX(${x}px)` }}
+        aria-hidden="true"
+      >
+        <div {...stylex.props(styles.previewInner)}>
+          {[-1, 0, 1].map((k) => {
+            const date = addDays(targetAnchor, k * 7);
+            return (
+              <div key={k} {...stylex.props(styles.previewSheet)}>
+                <div {...stylex.props(styles.sheetHead)}>
+                  <h2 {...stylex.props(styles.sheetDate)}>
+                    {formatShort(date)}
+                  </h2>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const dragDir = dragX != null ? (dragX < 0 ? 1 : -1) as 1 | -1 : null;
+
   return (
-    <div>
+    <div {...stylex.props(styles.swipeViewport)} ref={viewportRef}>
+      {/* Off-screen previews, visible only during a swipe. */}
+      {dragDir === 1 && renderPreview(nextWeekday, 1)}
+      {dragDir === -1 && renderPreview(prevWeekday, -1)}
+
       <div
         {...stylex.props(styles.sheets)}
         ref={sheetsRef}
+        style={
+          dragX != null ? { transform: `translateX(${dragX}px)` } : undefined
+        }
       >
 
         {fetchError && (
