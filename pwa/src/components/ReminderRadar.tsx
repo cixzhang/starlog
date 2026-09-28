@@ -44,7 +44,7 @@ interface ReminderRadarProps {
   // Anchor date for the current week (the current weekday's date)
   anchorDate: Date;
   // Callback to scroll to a date when a planet is tapped
-  onPlanetTap?: (date: string) => void;
+  onPlanetTap?: (date: string, reminderId: string) => void;
 }
 
 interface PlanetData {
@@ -431,7 +431,7 @@ export default function ReminderRadar({
               top,
             }}
             onClick={() => {
-              onPlanetTap?.(toISODate(new Date(reminder.remind_at)));
+              onPlanetTap?.(toISODate(new Date(reminder.remind_at)), reminder.id);
             }}
             title={reminder.title}
           >

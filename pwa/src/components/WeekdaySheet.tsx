@@ -29,6 +29,16 @@ import type {
 const CONTAINER_HEIGHT = 30000;
 const MIDDLE = CONTAINER_HEIGHT / 2;
 
+/**
+ * Merge the plain-CSS jump-highlight class with a stylex props object.
+ * The highlight ring is a plain `.sl-sheet-highlight::after` rule in
+ * index.css because the build silently drops stylex nested
+ * pseudo-element selectors.
+ */
+function hlClass(sxClassName: string | undefined, on: boolean): string {
+  return [sxClassName, on && 'sl-sheet-highlight'].filter(Boolean).join(' ');
+}
+
 interface DateItem {
   k: number;
   date: Date;
@@ -40,7 +50,10 @@ interface WeekdaySheetProps {
   anchor: Date;
   now: Date;
   todayIso: string;
-  highlighted: string | null;
+  /** ISO date whose header should flash (jump target). */
+  highlightedDate: string | null;
+  /** Reminder row that should flash (radar jump target). */
+  highlightedReminderId: string | null;
   fetchError: string | null;
   /** Weeks rendered before/after k=0. Owned by the parent (shared). */
   past: number;
@@ -131,7 +144,8 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     anchor,
     now,
     todayIso,
-    highlighted,
+    highlightedDate,
+    highlightedReminderId,
     fetchError,
     past,
     future,
@@ -274,6 +288,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
               k !== 0 && styles.sheetMuted,
               i > 0 && styles.sheetDivider,
             );
+            const headSx = stylex.props(styles.sheetHead);
             return (
               <article
                 id={`sheet-${iso}`}
@@ -281,11 +296,14 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                 data-sheet-k={k}
                 data-muted={k !== 0 ? 'true' : undefined}
                 {...sheetSx}
-                className={[sheetSx.className, highlighted === iso && 'sl-sheet-highlight']
-                  .filter(Boolean)
-                  .join(' ')}
               >
-                  <div {...stylex.props(styles.sheetHead)}>
+                  <div
+                    {...headSx}
+                    className={hlClass(
+                      headSx.className,
+                      highlightedDate === iso,
+                    )}
+                  >
                     <h2
                       {...stylex.props(styles.sheetDate)}
                       style={
@@ -325,18 +343,28 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                           <span>{prompt.body}</span>
                         </div>
                       )}
-                      {dayReminders.map((r) => (
-                        <div key={r.id} {...stylex.props(styles.annoLine)}>
-                          {r.importance === 'high' ? (
-                            <span {...stylex.props(styles.annoDot)} />
-                          ) : (
-                            <span {...stylex.props(styles.annoLabel)}>
-                              {r.urgency === 'high' ? s.sheet.important : s.sheet.reminder}
-                            </span>
-                          )}
-                          <span>{r.title}</span>
-                        </div>
-                      ))}
+                      {dayReminders.map((r) => {
+                        const rowSx = stylex.props(styles.annoLine);
+                        return (
+                          <div
+                            key={r.id}
+                            {...rowSx}
+                            className={hlClass(
+                              rowSx.className,
+                              highlightedReminderId === r.id,
+                            )}
+                          >
+                            {r.importance === 'high' ? (
+                              <span {...stylex.props(styles.annoDot)} />
+                            ) : (
+                              <span {...stylex.props(styles.annoLabel)}>
+                                {r.urgency === 'high' ? s.sheet.important : s.sheet.reminder}
+                              </span>
+                            )}
+                            <span>{r.title}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   {decos.map((d) => (

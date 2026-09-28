@@ -177,9 +177,16 @@ export default function Journal({
   >({});
   const [allReminders, setAllReminders] = useState<Reminder[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const [highlighted, setHighlighted] = useState<{
+    date: string;
+    reminderId?: string;
+  } | null>(null);
   // Local jump for radar taps (separate from the Calendar jump prop).
-  const [radarJump, setRadarJump] = useState<{ weekday: number; date: string } | null>(null);
+  const [radarJump, setRadarJump] = useState<{
+    weekday: number;
+    date: string;
+    reminderId: string;
+  } | null>(null);
   const [fetchVersion, setFetchVersion] = useState(0);
 
   const [now, setNow] = useState(() => new Date());
@@ -466,7 +473,7 @@ export default function Journal({
   useEffect(() => {
     if (!jump) return;
     setWeekday(jump.weekday);
-    setHighlighted(jump.date);
+    setHighlighted({ date: jump.date });
     // Clear after the flash animation so re-jumping re-triggers it.
     const t = setTimeout(() => setHighlighted(null), 1700);
     return () => clearTimeout(t);
@@ -476,7 +483,7 @@ export default function Journal({
   useEffect(() => {
     if (!radarJump) return;
     setWeekday(radarJump.weekday);
-    setHighlighted(radarJump.date);
+    setHighlighted({ date: radarJump.date, reminderId: radarJump.reminderId });
     const t = setTimeout(() => setHighlighted(null), 1700);
     return () => clearTimeout(t);
   }, [radarJump]);
@@ -639,7 +646,8 @@ export default function Journal({
               anchor={anchors[w]}
               now={now}
               todayIso={todayIso}
-              highlighted={highlighted}
+              highlightedDate={highlighted?.date ?? null}
+              highlightedReminderId={highlighted?.reminderId ?? null}
               fetchError={fetchError}
               past={past}
               future={future}
@@ -666,12 +674,12 @@ export default function Journal({
           reminders={allReminders}
           currentWeekday={weekday}
           anchorDate={anchors[weekday]}
-          onPlanetTap={(date) => {
+          onPlanetTap={(date, reminderId) => {
             // Jump to the reminder's date: switch to its weekday column
             // and smooth-scroll to the date.
             const d = new Date(date + 'T00:00:00');
             const wd = isoWeekday(d);
-            setRadarJump({ weekday: wd, date });
+            setRadarJump({ weekday: wd, date, reminderId });
           }}
         />
       </div>
