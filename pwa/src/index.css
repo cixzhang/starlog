@@ -157,12 +157,29 @@ body {
 
 /* ---------- keyframes (plain CSS: the build drops stylex keyframes) ---------- */
 
+/* Jump-to-date flash: an inset ::after ring so column overflow can never
+   clip it. Lives in plain CSS because the build silently drops stylex
+   nested pseudo-element selectors. */
+.sl-sheet-highlight {
+  position: relative;
+}
+.sl-sheet-highlight::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: var(--radius-md);
+  border: 3px solid var(--color-accent);
+  pointer-events: none;
+  opacity: 0;
+  animation: sl-flash-outline 1.6s ease-out;
+}
+
 @keyframes sl-flash-outline {
   0%, 100% {
-    box-shadow: 0 0 0 0 transparent;
+    opacity: 0;
   }
   20%, 60% {
-    box-shadow: 0 0 0 3px var(--color-accent);
+    opacity: 1;
   }
 }
 

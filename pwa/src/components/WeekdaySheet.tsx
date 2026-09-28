@@ -269,18 +269,21 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
             const decos = decosByDate[iso] ?? [];
             const label = relativeLabel(k, s);
             const hasAnno = prompt != null || dayReminders.length > 0;
+            const sheetSx = stylex.props(
+              styles.sheet,
+              k !== 0 && styles.sheetMuted,
+              i > 0 && styles.sheetDivider,
+            );
             return (
               <article
                 id={`sheet-${iso}`}
                 data-sheet-iso={iso}
                 data-sheet-k={k}
                 data-muted={k !== 0 ? 'true' : undefined}
-                {...stylex.props(
-                  styles.sheet,
-                  k !== 0 && styles.sheetMuted,
-                  highlighted === iso && styles.highlight,
-                  i > 0 && styles.sheetDivider,
-                )}
+                {...sheetSx}
+                className={[sheetSx.className, highlighted === iso && 'sl-sheet-highlight']
+                  .filter(Boolean)
+                  .join(' ')}
               >
                   <div {...stylex.props(styles.sheetHead)}>
                     <h2
@@ -478,11 +481,5 @@ const styles = stylex.create({
   },
   fetchError: {
     padding: '12px 0 0',
-  },
-  highlight: {
-    animationName: 'sl-flash-outline',
-    animationDuration: '1.6s',
-    animationTimingFunction: 'ease-out',
-    borderRadius: 'var(--radius-md)',
   },
 });
