@@ -137,7 +137,10 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
     [today],
   );
 
-  const [past, setPast] = useState(INIT_PAST);
+  // Start with the full past window: the mount-time recenter lands the
+  // current month mid-list, so no prepend (and no scroll event to trigger
+  // one) is needed on mount.
+  const [past, setPast] = useState(INIT_PAST + EXTEND_PAST);
   const [future, setFuture] = useState(INIT_FUTURE);
   const [dates, setDates] = useState<Set<string> | null>(null);
   const [reminders, setReminders] = useState<Map<string, Reminder[]>>(new Map());
@@ -260,6 +263,18 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Prepends are compensated manually (see below). Native scroll anchoring
+  // would compensate a second time and fling the viewport, so it stays off
+  // while the calendar is mounted.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const prev = root.style.overflowAnchor;
+    root.style.overflowAnchor = 'none';
+    return () => {
+      root.style.overflowAnchor = prev;
+    };
   }, []);
 
   // Center the current month vertically on first paint.
