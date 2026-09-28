@@ -151,6 +151,25 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
   const fetchedRef = useRef<{ from: string; to: string } | null>(null);
   const pendingPrepend = useRef<number | null>(null);
   const scrollCooldown = useRef(0);
+
+  // Foreground refresh: the realtime socket may have missed changes while
+  // the app was backgrounded. Invalidate the range cache and refetch, same
+  // as a realtime event would.
+  useEffect(() => {
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - hiddenAt < 10000) return;
+      fetchedRef.current = null;
+      setRealtimeNonce((n) => n + 1);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
   const centerKey = useRef<string | null>(monthKey(base));
 
   const months = useMemo(() => {

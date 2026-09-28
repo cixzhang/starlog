@@ -218,6 +218,8 @@ export default function Journal({
   }, [now, weekStart]);
 
   // Fetch data for any dates the sheets request (the union across all seven).
+  // Depends on fetchVersion so a foreground refresh (which bumps it) makes
+  // every sheet re-request its dates.
   const onNeedDates = useCallback(
     (dates: string[]) => {
       const fresh = dates.filter((d) => !fetchedDates.current.has(d));
@@ -275,8 +277,37 @@ export default function Journal({
         }
       })();
     },
-    [cfg, tenantId],
+    [cfg, tenantId, fetchVersion],
   );
+
+  // Foreground refresh: when the app returns from the background the
+  // realtime socket may have missed changes while it was dead. Invalidate
+  // the fetch caches and reload the visible window so reopening the app
+  // always shows the latest data.
+  useEffect(() => {
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (document.visibilityState !== 'visible') return;
+      // Skip the refresh for very brief backgroundings (quick app switches);
+      // the realtime socket covers those.
+      if (Date.now() - hiddenAt < 10000) return;
+      fetchedDates.current.clear();
+      reminderBounds.current = null;
+      // Reset so the refetch repopulates cleanly (no duplicates, no stale rows).
+      setEntriesByDate({});
+      setPromptsByDate({});
+      setDecosByDate({});
+      setScoresByEntryId({});
+      setAllReminders([]);
+      setFetchVersion((v) => v + 1);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   // Realtime updates for entries, prompts, and reminders.
   useEffect(() => {
