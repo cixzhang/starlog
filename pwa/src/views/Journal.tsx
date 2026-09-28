@@ -23,12 +23,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import * as stylex from '@stylexjs/stylex';
 import {
-  fetchAttachmentsByEntryIds,
+  fetchScoresByEntryIds,
   fetchDecorations,
   fetchEntriesByDates,
   fetchPromptsByDates,
   fetchReminders,
-  type Attachment,
+  type Score,
   type Decoration,
   type Entry,
   type Prompt,
@@ -172,8 +172,8 @@ export default function Journal({
   const [entriesByDate, setEntriesByDate] = useState<Record<string, Entry>>({});
   const [promptsByDate, setPromptsByDate] = useState<Record<string, Prompt>>({});
   const [decosByDate, setDecosByDate] = useState<Record<string, Decoration[]>>({});
-  const [attachmentsByEntryId, setAttachmentsByEntryId] = useState<
-    Record<string, Attachment[]>
+  const [scoresByEntryId, setScoresByEntryId] = useState<
+    Record<string, Score[]>
   >({});
   const [allReminders, setAllReminders] = useState<Reminder[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -224,7 +224,7 @@ export default function Journal({
             fetchPromptsByDates(cfg, tenantId, fresh),
             fetchDecorations(cfg, tenantId, fresh),
           ]);
-          const as = await fetchAttachmentsByEntryIds(
+          const scs = await fetchScoresByEntryIds(
             cfg,
             tenantId,
             es.map((e) => e.id),
@@ -250,12 +250,12 @@ export default function Journal({
             }
             return next;
           });
-          setAttachmentsByEntryId((prev) => {
+          setScoresByEntryId((prev) => {
             const next = { ...prev };
-            for (const a of as) {
-              if (fetchedDates.current.has(`att:${a.id}`)) continue;
-              fetchedDates.current.add(`att:${a.id}`);
-              (next[a.entry_id] ??= []).push(a);
+            for (const sc of scs) {
+              if (fetchedDates.current.has(`score:${sc.id}`)) continue;
+              fetchedDates.current.add(`score:${sc.id}`);
+              (next[sc.entry_id] ??= []).push(sc);
             }
             return next;
           });
@@ -363,31 +363,31 @@ export default function Journal({
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'attachments' },
+        { event: '*', schema: 'public', table: 'scores' },
         (payload) => {
-          const row = (payload.new ?? payload.old) as Attachment | null;
+          const row = (payload.new ?? payload.old) as Score | null;
           if (!row?.id) return;
-          const entryId = (row as Attachment).entry_id;
+          const entryId = (row as Score).entry_id;
           if (!entryId) return;
           if (payload.eventType === 'DELETE') {
-            setAttachmentsByEntryId((prev) => {
+            setScoresByEntryId((prev) => {
               const next = { ...prev };
               next[entryId] = (next[entryId] ?? []).filter(
-                (a) => a.id !== row.id,
+                (sc) => sc.id !== row.id,
               );
               return next;
             });
           } else if (payload.eventType === 'INSERT') {
-            setAttachmentsByEntryId((prev) => {
+            setScoresByEntryId((prev) => {
               const list = prev[entryId] ?? [];
-              if (list.some((a) => a.id === row.id)) return prev;
-              return { ...prev, [entryId]: [...list, row as Attachment] };
+              if (list.some((sc) => sc.id === row.id)) return prev;
+              return { ...prev, [entryId]: [...list, row as Score] };
             });
           } else {
-            setAttachmentsByEntryId((prev) => {
+            setScoresByEntryId((prev) => {
               const next = { ...prev };
-              next[entryId] = (next[entryId] ?? []).map((a) =>
-                a.id === row.id ? (row as Attachment) : a,
+              next[entryId] = (next[entryId] ?? []).map((sc) =>
+                sc.id === row.id ? (row as Score) : sc,
               );
               return next;
             });
@@ -647,7 +647,7 @@ export default function Journal({
               promptsByDate={promptsByDate}
               decosByDate={decosByDate}
               remindersByDate={remindersByDate}
-              attachmentsByEntryId={attachmentsByEntryId}
+              scoresByEntryId={scoresByEntryId}
               cfg={cfg}
               onNeedDates={onNeedDates}
               jumpDate={

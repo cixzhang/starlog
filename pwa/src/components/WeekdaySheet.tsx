@@ -17,7 +17,7 @@ import { sanitizeSvg } from '../lib/svg';
 import { ErrorNote } from './ui';
 import SoundSnippets from './SoundSnippets';
 import type {
-  Attachment,
+  Score,
   Decoration,
   Entry,
   Prompt,
@@ -48,7 +48,7 @@ interface WeekdaySheetProps {
   promptsByDate: Record<string, Prompt>;
   decosByDate: Record<string, Decoration[]>;
   remindersByDate: Record<string, Reminder[]>;
-  attachmentsByEntryId: Record<string, Attachment[]>;
+  scoresByEntryId: Record<string, Score[]>;
   cfg: SbConfig;
   onNeedDates: (dates: string[]) => void;
   /** ISO date to jump to. Only set on the sheet whose weekday matches. */
@@ -116,6 +116,7 @@ function DecoView({ d }: { d: { id: string; svg: string; meta?: unknown } }) {
   return (
     <div
       key={d.id}
+      data-decoration-id={d.id}
       {...stylex.props(styles.deco)}
       style={style}
       dangerouslySetInnerHTML={{ __html: svg }}
@@ -137,7 +138,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     promptsByDate,
     decosByDate,
     remindersByDate,
-    attachmentsByEntryId,
+    scoresByEntryId,
     cfg,
     onNeedDates,
     jumpDate,
@@ -338,8 +339,8 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                   ))}
                   <SoundSnippets
                     cfg={cfg}
-                    attachments={
-                      entry ? (attachmentsByEntryId[entry.id] ?? []) : []
+                    scores={
+                      entry ? (scoresByEntryId[entry.id] ?? []) : []
                     }
                   />
                 </article>

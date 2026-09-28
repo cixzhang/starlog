@@ -161,6 +161,20 @@ export interface Attachment {
   created_at: string;
 }
 
+/** A sound described as data: a note list rendered by the PWA synth. */
+export interface Score {
+  id: string;
+  entry_id: string;
+  decoration_id: string | null;
+  title: string | null;
+  score: {
+    voice?: string;
+    room?: number;
+    notes: Array<{ n: number; t: number; d: number; v: number }>;
+  };
+  created_at: string;
+}
+
 export interface Capabilities {
   spec_version: string;
   operations: string[];
@@ -304,4 +318,20 @@ export async function fetchAttachmentsByEntryIds(
 /** Public URL for a stored audio file (bucket is public-read). */
 export function audioPublicUrl(cfg: SbConfig, storagePath: string): string {
   return `${cfg.url}/storage/v1/object/public/audio-snippets/${storagePath}`;
+}
+
+/** Sound scores for the given entry ids, oldest first. */
+export async function fetchScoresByEntryIds(
+  cfg: SbConfig,
+  tenantId: string,
+  entryIds: string[],
+): Promise<Score[]> {
+  if (entryIds.length === 0) return [];
+  const list = entryIds.join(',');
+  return (await sbFetch(
+    cfg,
+    `/scores?tenant_id=eq.${tenantId}&entry_id=in.(${list})` +
+      `&order=created_at` +
+      `&select=id,entry_id,decoration_id,title,score,created_at`,
+  )) as Score[];
 }

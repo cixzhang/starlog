@@ -1,21 +1,24 @@
-// SoundSnippets: play audio snippets on a journal date.
+// SoundSnippets: play sound scores on a journal date.
 //
-// Read-only playback. The PWA never records or uploads — snippets are added
-// by the agent (e.g. from audio Cindy shares in chat). Each snippet renders
-// a play/pause button with its duration.
+// Sounds are data: each score is a note list rendered by the PWA's felt-piano
+// Web Audio synth (see lib/feltPiano). The PWA never records or uploads —
+// scores are composed by the agent. Each score renders a play/pause button
+// with its title and duration. When a score links to a decoration, playback
+// drives that decoration's SVG animation.
 
 import { useEffect, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { Pause, Play } from 'lucide-react';
+import { type SbConfig, type Score } from '../lib/supabase';
 import {
-  audioPublicUrl,
-  type Attachment,
-  type SbConfig,
-} from '../lib/supabase';
+  playScoreData,
+  scoreDurationMs,
+  type ScoreHandle,
+} from '../lib/feltPiano';
 
 interface SoundSnippetsProps {
   cfg: SbConfig;
-  attachments: Attachment[];
+  scores: Score[];
 }
 
 function formatDuration(ms: number | null | undefined): string {
@@ -24,70 +27,80 @@ function formatDuration(ms: number | null | undefined): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function SnippetPlayer({
-  cfg,
-  attachment,
-}: {
-  cfg: SbConfig;
-  attachment: Attachment;
-}) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+/** Drive the linked decoration's SVG animation while the score plays. */
+function syncDecoration(decorationId: string | null, playing: boolean) {
+  if (!decorationId) return;
+  const el = document.querySelector(
+    `[data-decoration-id="${decorationId}"] svg`,
+  ) as unknown as SVGSVGElement | null;
+  if (!el) return;
+  try {
+    if (playing) {
+      el.setCurrentTime(0);
+      el.unpauseAnimations();
+    } else {
+      el.pauseAnimations();
+    }
+  } catch {
+    /* SVG animation API unavailable — leave the decoration as is */
+  }
+}
+
+function ScorePlayer({ score }: { score: Score }) {
+  const handleRef = useRef<ScoreHandle | null>(null);
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const onEnded = () => setPlaying(false);
-    audio.addEventListener('ended', onEnded);
     return () => {
-      audio.removeEventListener('ended', onEnded);
-      audio.pause();
+      handleRef.current?.stop();
+      syncDecoration(score.decoration_id, false);
     };
-  }, []);
+  }, [score.decoration_id]);
 
   const toggle = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
     if (playing) {
-      audio.pause();
+      handleRef.current?.stop();
+      handleRef.current = null;
+      syncDecoration(score.decoration_id, false);
       setPlaying(false);
-    } else {
-      void audio.play().then(
-        () => setPlaying(true),
-        () => setPlaying(false),
-      );
+      return;
     }
+    const handle = playScoreData(score.score);
+    if (!handle) return;
+    handleRef.current = handle;
+    syncDecoration(score.decoration_id, true);
+    setPlaying(true);
+    void handle.done.then(() => {
+      handleRef.current = null;
+      syncDecoration(score.decoration_id, false);
+      setPlaying(false);
+    });
   };
 
   return (
     <div {...stylex.props(styles.snippet)}>
-      <audio
-        ref={audioRef}
-        src={audioPublicUrl(cfg, attachment.storage_path)}
-        preload="metadata"
-      />
       <button
         type="button"
         onClick={toggle}
-        aria-label={playing ? 'Pause sound snippet' : 'Play sound snippet'}
+        aria-label={playing ? 'Pause sound' : 'Play sound'}
         {...stylex.props(styles.playButton)}
       >
         {playing ? <Pause size={15} /> : <Play size={15} />}
       </button>
       <span {...stylex.props(styles.snippetMeta)}>
-        sound · {formatDuration(attachment.duration_ms)}
+        {score.title ?? 'sound'} · {formatDuration(scoreDurationMs(score.score))}
       </span>
       {playing && <span {...stylex.props(styles.eq)} aria-hidden="true" />}
     </div>
   );
 }
 
-export default function SoundSnippets({ cfg, attachments }: SoundSnippetsProps) {
-  if (attachments.length === 0) return null;
+export default function SoundSnippets({ cfg: _cfg, scores }: SoundSnippetsProps) {
+  if (scores.length === 0) return null;
   return (
     <div {...stylex.props(styles.root)}>
-      {attachments.map((a) => (
-        <SnippetPlayer key={a.id} cfg={cfg} attachment={a} />
+      {scores.map((s) => (
+        <ScorePlayer key={s.id} score={s} />
       ))}
     </div>
   );
@@ -125,7 +138,7 @@ const styles = stylex.create({
     color: 'var(--color-text-secondary)',
     fontFamily: 'var(--font-code)',
   },
-  // Tiny animated equalizer shown while a snippet plays.
+  // Tiny animated equalizer shown while a score plays.
   eq: {
     width: 14,
     height: 12,
