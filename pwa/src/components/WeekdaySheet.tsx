@@ -252,9 +252,13 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
   useLayoutEffect(() => {
     if (!jumpDate) return;
     if (!dates.some((d) => d.iso === jumpDate)) return;
-    const el = document.querySelector(`[data-sheet-iso="${jumpDate}"]`);
+    // Scoped to this column's container: the target date lives in exactly
+    // one column, and a global query could grab a stale node mid-reorder.
+    const el = innerRef.current?.querySelector(
+      `[data-sheet-iso="${jumpDate}"]`,
+    ) as HTMLElement | null;
     // Top-align with smooth animation. scroll-margin-top leaves room for header.
-    (el as HTMLElement | null)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     onJumpHandled();
   }, [jumpDate, dates, onJumpHandled]);
 

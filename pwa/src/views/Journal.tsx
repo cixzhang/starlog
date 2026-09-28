@@ -470,8 +470,11 @@ export default function Journal({
 
   // Calendar jump: switch to the target weekday and let its sheet scroll to
   // the exact date. The sheet consumes the jump when it has scrolled.
+  // Cancels any in-flight radar jump: two concurrent jumps fight over the
+  // scroll position (each target column scrolls), so only one may be live.
   useEffect(() => {
     if (!jump) return;
+    setRadarJump(null);
     setWeekday(jump.weekday);
     setHighlighted({ date: jump.date });
     // Clear after the flash animation so re-jumping re-triggers it.
@@ -676,7 +679,10 @@ export default function Journal({
           anchorDate={anchors[weekday]}
           onPlanetTap={(date, reminderId) => {
             // Jump to the reminder's date: switch to its weekday column
-            // and smooth-scroll to the date.
+            // and smooth-scroll to the date. Cancel any in-flight calendar
+            // jump first: two concurrent jumps fight over the scroll
+            // position, so only one may be live.
+            onJumpConsumed();
             const d = new Date(date + 'T00:00:00');
             const wd = isoWeekday(d);
             setRadarJump({ weekday: wd, date, reminderId });
