@@ -2,6 +2,7 @@ import * as stylex from '@stylexjs/stylex';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { AlertDialog } from '@astryxdesign/core/AlertDialog';
 import { SelectableCard } from '@astryxdesign/core/SelectableCard';
+import { Selector } from '@astryxdesign/core/Selector';
 import { Check, Sun, Moon, MonitorSmartphone, Palette, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -9,7 +10,7 @@ export type WeekStart = 1 | 7;
 export type ThemeMode = 'light' | 'dark' | 'auto' | 'custom';
 
 import type { CustomTheme } from '../lib/customTheme';
-import { useStrings, type LangPref } from '../lib/i18n';
+import { useStrings, systemLangName, type LangPref } from '../lib/i18n';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -202,26 +203,18 @@ export default function SettingsPanel({
         </div>
 
         <div {...stylex.props(styles.sectionTitle)}>{s.settings.language}</div>
-        <div {...stylex.props(styles.tiles)}>
-          <Tile
-            label={s.settings.auto}
-            selected={lang === 'auto'}
-            onClick={() => onLang('auto')}
-          />
-          <Tile
-            label="English"
-            selected={lang === 'en'}
-            onClick={() => onLang('en')}
-          />
-          <Tile
-            label="中文"
-            selected={lang === 'zh'}
-            onClick={() => onLang('zh')}
-          />
-          <Tile
-            label="日本語"
-            selected={lang === 'ja'}
-            onClick={() => onLang('ja')}
+        <div style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 4, paddingBottom: 4 }}>
+          <Selector
+            label={s.settings.language}
+            isLabelHidden
+            options={[
+              { value: 'auto', label: `${s.settings.auto} (${systemLangName()})` },
+              { value: 'en', label: 'English' },
+              { value: 'zh', label: '中文' },
+              { value: 'ja', label: '日本語' },
+            ]}
+            value={lang}
+            onChange={(v) => onLang(v as LangPref)}
           />
         </div>
 

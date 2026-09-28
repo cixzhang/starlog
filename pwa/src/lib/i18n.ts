@@ -64,6 +64,19 @@ export function intlLocale(): string {
   return l === 'zh' ? 'zh-CN' : l === 'ja' ? 'ja-JP' : 'en-US';
 }
 
+/** Native name of the locale the system language resolves to — shown
+ *  next to the "Auto" option so the user knows what Auto means. */
+export function systemLangName(): string {
+  try {
+    const nav = (navigator.language || '').toLowerCase();
+    if (nav.startsWith('zh')) return '中文';
+    if (nav.startsWith('ja')) return '日本語';
+  } catch {
+    /* ignore */
+  }
+  return 'English';
+}
+
 function applyLangAttr(l: Locale): void {
   try {
     document.documentElement.lang = l === 'zh' ? 'zh-CN' : l === 'ja' ? 'ja' : 'en';
