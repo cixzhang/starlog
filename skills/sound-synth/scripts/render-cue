@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Render a felt-piano cue in the starlog-sound-palette voice.
+
+The synthesis recipe is fixed here so renders can't repeat the v1 mistakes:
+  - every note gets the palette's lowpass sweep (1650 -> 620 Hz)
+  - the felt thump is lowpassed at 850 Hz
+  - the mix is normalized, never hard-clipped
+  - the reverb impulse is darkened so the tail doesn't hiss
+
+Usage:
+  render-cue --notes '[{"midi":48,"t":0,"d":2.2,"v":0.42}]' --out cue.wav
+  render-cue --notes-file notes.json --out cue.wav --room 0.4
+
+Note spec: midi (MIDI number), t (start seconds), d (duration seconds),
+v (velocity 0..1).
+"""
+import argparse
+import json
+import sys
+import wave
+
+import numpy as np
+from scipy.signal import fftconvolve
+
+SR = 44100
+
+
+def onepole_lowpass(x, fc):
+    """One-pole lowpass; fc is scalar or per-sample array."""
+    a = 1.0 - np.exp(-2.0 * np.pi * fc / SR)
+    y = np.empty_like(x)
+    acc = 0.0
+    if np.ndim(a) == 0:
+        b = float(a)
+        for n in range(len(x)):
+            acc += b * (x[n] - acc)
+            y[n] = acc
+        return y
+    for n in range(len(x)):
+        acc += a[n] * (x[n] - acc)
+        y[n] = acc
+    return y
+
+
+def felt_note(midi, duration, velocity):
+    n = int(SR * (duration + 0.1))
+    t = np.arange(n) / SR
+    f = 440.0 * 2 ** ((midi - 69) / 12.0)
+    # soft partials, then the palette's lowpass sweep 1650 -> 620 Hz
+    y = (np.sin(2 * np.pi * f * t)
+         + 0.18 * np.sin(2 * np.pi * 2 * f * t)
+         + 0.06 * np.sin(2 * np.pi * 3 * f * t))
+    fc = 1650.0 * (620.0 / 1650.0) ** (t / max(duration, 1e-6))
+    y = onepole_lowpass(y, np.minimum(fc, 1650.0))
+    # 28ms attack, exponential decay to 0.0001
+    attack = int(SR * 0.028)
+    env = np.empty(n)
+    env[:attack] = np.linspace(0.0001, velocity, attack)
+    k = np.arange(n - attack) / (SR * duration)
+    env[attack:] = np.maximum(
+        velocity * np.exp(-np.log(velocity / 0.0001) * k), 0.0001)
+    out = y * env
+    # felt thump: 45ms decaying noise, lowpassed at 850 Hz
+    nl = int(SR * 0.045)
+    noise = np.random.randn(nl) * np.linspace(1, 0, nl)
+    noise = onepole_lowpass(noise, 850.0)
+    out[:nl] += noise * velocity * 0.11
+    return out
+
+
+def render(notes, room=0.58):
+    total = max(n["t"] + n["d"] for n in notes) + 1.2
+    dry = np.zeros(int(SR * total))
+    for n in notes:
+        sig = felt_note(n["midi"], n["d"], n["v"])
+        i = int(SR * n["t"])
+        dry[i:i + len(sig)] += sig
+    # room: 2.45s decaying-noise stereo impulse, darkened tail
+    imp_len = int(SR * 2.45)
+    decay = np.power(1 - np.arange(imp_len) / imp_len, 2.9)
+    impulse = np.random.randn(2, imp_len) * decay
+    impulse = np.array([onepole_lowpass(impulse[c], 2400.0) for c in range(2)])
+    wet_l = fftconvolve(dry, impulse[0])[:len(dry)]
+    wet_r = fftconvolve(dry, impulse[1])[:len(dry)]
+    wet_gain = 0.08 + room * 0.25
+    dry_gain = 0.96 - room * 0.22
+    master = 0.52
+    left = master * (dry * dry_gain + wet_l * wet_gain)
+    right = master * (dry * dry_gain + wet_r * wet_gain)
+    stereo = np.stack([left, right], axis=1)
+    peak = np.max(np.abs(stereo))
+    if peak > 0:
+        stereo = stereo / peak * 0.89  # normalize; never hard-clip
+    return (stereo * 32767).astype(np.int16), len(stereo) / SR
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Render a felt-piano cue")
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--notes", help="JSON list of note specs")
+    src.add_argument("--notes-file", help="file holding JSON list of note specs")
+    ap.add_argument("--out", required=True, help="output .wav path")
+    ap.add_argument("--room", type=float, default=0.58,
+                    help="room ambience 0..1 (default 0.58)")
+    args = ap.parse_args()
+
+    raw = args.notes
+    if args.notes_file:
+        with open(args.notes_file, encoding="utf-8") as f:
+            raw = f.read()
+    try:
+        notes = json.loads(raw)
+    except json.JSONDecodeError as e:
+        sys.exit(f"bad notes JSON: {e}")
+    for n in notes:
+        for key in ("midi", "t", "d", "v"):
+            if key not in n:
+                sys.exit(f"note missing {key!r}: {n}")
+        if not (0 <= n["v"] <= 1):
+            sys.exit(f"velocity must be 0..1: {n}")
+
+    pcm, seconds = render(notes, room=args.room)
+    with wave.open(args.out, "w") as w:
+        w.setnchannels(2)
+        w.setsampwidth(2)
+        w.setframerate(SR)
+        w.writeframes(pcm.tobytes())
+    print(json.dumps({"ok": True, "out": args.out,
+                      "seconds": round(seconds, 1)}))
+
+
+if __name__ == "__main__":
+    main()

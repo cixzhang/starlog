@@ -120,20 +120,16 @@ import { StarlogMark } from '../components/mark';const styles = stylex.create({
 });
 
 // Copy-paste prompt for the user's AI agent to provision the backend.
-const AGENT_PROMPT = `Set up a Supabase backend for Starlog, a read-only journaling PWA.
+const AGENT_PROMPT = `Set up Starlog for me — a read-only journaling PWA.
 
-1. Create a new Supabase project (free tier is fine, any region).
-2. Open the SQL editor and run the Starlog v0.4.0 schema. Fetch the raw SQL from:
-   https://starlog-journal.vercel.app/schema/0001_init.sql
-   It's self-contained — run it once, in full.
-3. Go to Project Settings → API. Copy the Project URL and the anon / public key.
-4. Reply with a one-tap setup link in this exact format:
+1. Install the Starlog skill: npx skills add cixzhang/starlog --skill starlog --yes
+2. Follow the skill's "First-time setup" section (Supabase project, schema, CLI config).
+3. Reply with a one-tap setup link in this exact format:
    https://starlog-journal.vercel.app?supabase_url=<PROJECT_URL>&anon_key=<ANON_KEY>
 
 Rules:
 - Do not insert any sample data. An empty journal is correct.
-- The app only reads; it never writes to the database.
-- Treat the anon key like a password — don't share it beyond the setup link.`;
+- Treat the anon key like a password — it only goes into the setup link.`;
 
 export default function Setup({
   onDone,

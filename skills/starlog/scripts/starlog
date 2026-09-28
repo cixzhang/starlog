@@ -1,0 +1,758 @@
+#!/usr/bin/env python3
+"""Write and read journal entries, prompts, reminders, decorations, sounds,
+and scores in a Starlog database (Supabase/PostgREST).
+
+Configuration (env vars take precedence over ~/.config/starlog/config.json):
+  STARLOG_SUPABASE_URL   Supabase project URL (required)
+  STARLOG_SUPABASE_KEY   Project API key, e.g. the anon key (required,
+                         unless running in a Hatch workspace holding a
+                         `custom.supabase` credential, which is used as a
+                         fallback)
+  STARLOG_TENANT_SLUG    Tenant slug (default: "personal")
+  STARLOG_TIMEZONE       IANA timezone for bare YYYY-MM-DD reminder times
+                         and local-day semantics (default: system local)
+
+The key is sent as both the `apikey` header and `Authorization: Bearer`
+(PostgREST accepts either; Storage requires Bearer). This script never
+prints or logs the key.
+
+Entry semantics (spec v0.4.0+):
+- One row per local calendar day; re-sending the same photo is a no-op via
+  the `source_photo_hash` unique index.
+- `--merge`: append to the existing entry for the date instead of replacing.
+- Photo bytes are NEVER stored -- only the sha256 hex of the intake photo.
+- `body_text` must be the `starlog-md-1` subset (text-only CommonMark core:
+  no raw HTML, no external images, no uploads).
+"""
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import urllib.request
+import urllib.error
+from datetime import datetime, timezone
+
+def _local_timezone_name():
+    tz = os.environ.get("TZ")
+    if tz:
+        return tz
+    try:
+        with open("/etc/timezone") as f:
+            name = f.read().strip()
+            if name:
+                return name
+    except OSError:
+        pass
+    return "UTC"
+
+
+def _load_config():
+    """Config resolution: env vars take precedence over the config file."""
+    cfg = {}
+    cfg_path = os.path.expanduser("~/.config/starlog/config.json")
+    try:
+        with open(cfg_path) as f:
+            cfg = json.load(f) or {}
+    except (OSError, ValueError):
+        pass
+    return {
+        "supabase_url": (
+            os.environ.get("STARLOG_SUPABASE_URL")
+            or cfg.get("supabase_url")
+            or ""
+        ).rstrip("/"),
+        "supabase_key": (
+            os.environ.get("STARLOG_SUPABASE_KEY") or cfg.get("supabase_key") or ""
+        ),
+        "tenant_slug": (
+            os.environ.get("STARLOG_TENANT_SLUG") or cfg.get("tenant_slug") or "personal"
+        ),
+        "timezone": (
+            os.environ.get("STARLOG_TIMEZONE")
+            or cfg.get("timezone")
+            or _local_timezone_name()
+        ),
+    }
+
+
+CONFIG = _load_config()
+SB_URL = CONFIG["supabase_url"]
+if not SB_URL:
+    raise SystemExit(
+        "Starlog: no Supabase URL configured. Set STARLOG_SUPABASE_URL "
+        'or create ~/.config/starlog/config.json with {"supabase_url": "..."}.'
+    )
+ALLOWED_HOSTS = [SB_URL.replace("https://", "").replace("http://", "").split("/")[0]]
+BODY_FORMAT = "starlog-md-1"
+
+
+def _tz():
+    from zoneinfo import ZoneInfo
+    return ZoneInfo(CONFIG["timezone"])
+
+
+def _apply_auth(req):
+    """Attach Supabase auth to a request.
+
+    Primary: STARLOG_SUPABASE_KEY (or config `supabase_key`), sent as both
+    the `apikey` header and `Authorization: Bearer`.
+
+    Fallback: the Hatch dynamic-credentials surrogate, when this script
+    runs inside a Hatch workspace holding a `custom.supabase` credential.
+    The script never sees the real key -- only `hsurr:*` surrogate values
+    travel, and only to the Starlog host.
+    """
+    key = CONFIG["supabase_key"]
+    if key:
+        req.add_header("apikey", key)
+        req.add_header("Authorization", f"Bearer {key}")
+        return
+    sys.path.insert(0, "/opt/hatch/skills/skill-creator/bin")
+    try:
+        from dynamic_credentials import (  # noqa: E402
+            add_surrogate_to_request,
+        )
+    except ImportError:
+        raise SystemExit(
+            "Starlog: no API key configured. Set STARLOG_SUPABASE_KEY "
+            'or add "supabase_key" to ~/.config/starlog/config.json.'
+        )
+    # The helper attaches the surrogate exactly where the connector's
+    # placement says (the `apikey` header); the egress proxy swaps it for
+    # the real key. Do NOT add the surrogate anywhere else manually --
+    # unswapped copies reach the server raw and break auth.
+    add_surrogate_to_request(req, "custom.supabase", allowed_hosts=ALLOWED_HOSTS)
+
+
+def _request(method, path, query="", body=None, prefer=None):
+    url = SB_URL + path + query
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    _apply_auth(req)
+    if body is not None:
+        req.add_header("Content-Type", "application/json")
+    if prefer:
+        req.add_header("Prefer", prefer)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            raw = resp.read().decode("utf-8").strip()
+            return resp.status, json.loads(raw) if raw else None
+    except urllib.error.HTTPError as e:
+        try:
+            payload = json.loads(e.read().decode("utf-8"))
+        except Exception:
+            payload = {"message": e.reason}
+        return e.code, payload
+
+
+def resolve_tenant():
+    slug = CONFIG["tenant_slug"]
+    status, payload = _request(
+        "GET", "/rest/v1/tenants", query=f"?slug=eq.{slug}&select=id"
+    )
+    if status != 200 or not payload:
+        raise SystemExit(f"tenant lookup failed ({status}): {payload}")
+    return payload[0]["id"]
+
+
+def get_entry(tenant_id, entry_date):
+    status, payload = _request(
+        "GET",
+        "/rest/v1/entries",
+        query=(
+            f"?tenant_id=eq.{tenant_id}&entry_date=eq.{entry_date}"
+            "&select=id,entry_date,body_text,body_format,source_photo_hash"
+        ),
+    )
+    if status != 200:
+        raise SystemExit(f"entry lookup failed ({status}): {payload}")
+    return payload[0] if payload else None
+
+
+def get_prompt(tenant_id, prompt_date):
+    status, payload = _request(
+        "GET",
+        "/rest/v1/prompts",
+        query=(
+            f"?tenant_id=eq.{tenant_id}&prompt_date=eq.{prompt_date}"
+            "&select=id,prompt_date,body,flavor,delivered_at"
+        ),
+    )
+    if status != 200:
+        raise SystemExit(f"prompt lookup failed ({status}): {payload}")
+    return payload[0] if payload else None
+
+
+PROMPT_FLAVORS = ("short", "deep", "maker", "odd")
+
+
+def cmd_get_prompt(args):
+    tenant_id = resolve_tenant()
+    prompt = get_prompt(tenant_id, args.date)
+    print(json.dumps({"found": prompt is not None, "prompt": prompt}, indent=2))
+
+
+def cmd_upsert_prompt(args):
+    if args.body_file:
+        with open(args.body_file, encoding="utf-8") as f:
+            body = f.read()
+    else:
+        body = args.body or sys.stdin.read()
+    body = body.strip("\n")
+    if not body:
+        raise SystemExit("refusing to write an empty prompt body")
+
+    problems = check_markdown_subset(body)
+    if problems:
+        raise SystemExit("STARLOG_VALIDATION_FAILED: " + "; ".join(problems))
+
+    flavor = args.flavor or "short"
+    if flavor not in PROMPT_FLAVORS:
+        raise SystemExit(f"flavor must be one of {PROMPT_FLAVORS}")
+
+    delivered_at = args.delivered_at or datetime.now(timezone.utc).isoformat()
+
+    tenant_id = resolve_tenant()
+    existing = get_prompt(tenant_id, args.date)
+    prompt_id = existing["id"] if existing else __import__("uuid").uuid4().hex
+
+    row = {
+        "id": prompt_id,
+        "tenant_id": tenant_id,
+        "prompt_date": args.date,
+        "body": body,
+        "flavor": flavor,
+        "delivered_at": delivered_at,
+    }
+    status, payload = _request(
+        "PUT",
+        "/rest/v1/prompts",
+        query=f"?id=eq.{prompt_id}",
+        body=row,
+        prefer="resolution=merge-duplicates,return=representation",
+    )
+    if status in (200, 201):
+        print(json.dumps({"ok": True, "merged": bool(existing),
+                           "prompt": payload}, indent=2))
+        return
+    raise SystemExit(f"upsert failed ({status}): {json.dumps(payload)}")
+
+
+REMINDER_LEVELS = ("low", "normal", "high")
+
+
+def parse_remind_at(value):
+    """Accept YYYY-MM-DD (→ 09:00 in the configured timezone) or a full ISO datetime."""
+    value = value.strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        dt = datetime.strptime(value, "%Y-%m-%d").replace(
+            hour=9, minute=0, tzinfo=_tz())
+        return dt.isoformat()
+    # full ISO: require an explicit offset; assume local tz if naive
+    dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_tz())
+    return dt.isoformat()
+
+
+def cmd_add_reminder(args):
+    title = (args.title or "").strip()
+    if not title:
+        raise SystemExit("refusing to write a reminder with no title")
+    for field in ("importance", "urgency"):
+        val = getattr(args, field)
+        if val not in REMINDER_LEVELS:
+            raise SystemExit(f"{field} must be one of {REMINDER_LEVELS}")
+
+    tenant_id = resolve_tenant()
+    row = {
+        "id": __import__("uuid").uuid4().hex,
+        "tenant_id": tenant_id,
+        "title": title,
+        "detail": args.detail or "",
+        "remind_at": parse_remind_at(args.remind_at),
+        "importance": args.importance,
+        "urgency": args.urgency,
+        "status": "open",
+        "created_by": "agent",
+    }
+    status, payload = _request(
+        "POST", "/rest/v1/reminders", body=row,
+        prefer="return=representation",
+    )
+    if status in (200, 201):
+        print(json.dumps({"ok": True, "reminder": payload}, indent=2))
+        return
+    raise SystemExit(f"reminder insert failed ({status}): {json.dumps(payload)}")
+
+
+def cmd_add_decoration(args):
+    svg = (args.svg or "").strip()
+    if not svg:
+        # Try reading from file or stdin
+        if args.svg_file:
+            with open(args.svg_file, "r", encoding="utf-8") as f:
+                svg = f.read().strip()
+        else:
+            svg = sys.stdin.read().strip()
+    if not svg:
+        raise SystemExit("refusing to write a decoration with no SVG")
+    if len(svg) > 65536:
+        raise SystemExit("SVG too large (max 65536 chars)")
+    if args.kind not in ("sketch", "doodle", "sticker"):
+        raise SystemExit("kind must be sketch | doodle | sticker")
+
+    tenant_id = resolve_tenant()
+    row = {
+        "id": __import__("uuid").uuid4().hex,
+        "tenant_id": tenant_id,
+        "entry_date": args.date,
+        "kind": args.kind,
+        "svg": svg,
+        "z": args.z or 0,
+        "meta": json.loads(args.meta) if args.meta else {},
+        "created_by": "agent",
+    }
+    status, payload = _request(
+        "POST", "/rest/v1/decorations", body=row,
+        prefer="return=representation",
+    )
+    if status in (200, 201):
+        print(json.dumps({"ok": True, "decoration": payload}, indent=2))
+        return
+    raise SystemExit(f"decoration insert failed ({status}): {json.dumps(payload)}")
+
+
+def cmd_delete_decoration(args):
+    status, payload = _request(
+        "DELETE",
+        "/rest/v1/decorations",
+        query=f"?id=eq.{args.id}",
+        prefer="return=representation",
+    )
+    if status in (200, 204):
+        print(json.dumps({"ok": True, "deleted": payload}, indent=2))
+        return
+    raise SystemExit(f"decoration delete failed ({status}): {json.dumps(payload)}")
+
+
+AUDIO_MIME_BY_EXT = {
+    ".m4a": "audio/mp4",
+    ".mp4": "audio/mp4",
+    ".webm": "audio/webm",
+    ".ogg": "audio/ogg",
+    ".oga": "audio/ogg",
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+}
+AUDIO_BUCKET_LIMIT = 10 * 1024 * 1024
+
+
+def _upload_audio(storage_path, audio_bytes, mime_type):
+    """PUT raw bytes to the audio-snippets bucket (anon insert policy)."""
+    import urllib.request
+    import urllib.error
+
+    url = SB_URL + f"/storage/v1/object/audio-snippets/{storage_path}"
+    req = urllib.request.Request(url, data=audio_bytes, method="POST")
+    _apply_auth(req)
+    req.add_header("Content-Type", mime_type)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return resp.status, None
+    except urllib.error.HTTPError as e:
+        try:
+            payload = json.loads(e.read().decode("utf-8"))
+        except Exception:
+            payload = {"message": e.reason}
+        return e.code, payload
+
+
+def cmd_add_score(args):
+    import uuid as uuid_mod
+
+    raw = args.notes
+    if args.notes_file:
+        with open(args.notes_file, encoding="utf-8") as f:
+            raw = f.read()
+    try:
+        notes = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise SystemExit(f"bad notes JSON: {e}")
+    if not isinstance(notes, list) or not notes:
+        raise SystemExit("notes must be a non-empty JSON list")
+    for n in notes:
+        for key in ("n", "t", "d", "v"):
+            if key not in n:
+                raise SystemExit(f"note missing {key!r}: {n}")
+        if not (0 <= n["v"] <= 1):
+            raise SystemExit(f"velocity must be 0..1: {n}")
+        if n["d"] <= 0 or n["t"] < 0:
+            raise SystemExit(f"bad timing: {n}")
+    duration_ms = int(max(n["t"] + n["d"] for n in notes) * 1000)
+
+    tenant_id = resolve_tenant()
+    entry = get_entry(tenant_id, args.date)
+    if entry is None:
+        entry_id = uuid_mod.uuid4().hex
+        status, payload = _request(
+            "POST",
+            "/rest/v1/entries",
+            body={
+                "id": entry_id,
+                "tenant_id": tenant_id,
+                "entry_date": args.date,
+                "body_text": "",
+                "body_format": BODY_FORMAT,
+                "created_by": "agent",
+            },
+            prefer="return=representation",
+        )
+        if status not in (200, 201):
+            raise SystemExit(
+                f"entry create failed ({status}): {json.dumps(payload)}"
+            )
+        entry = payload[0]
+    entry_id = entry["id"]
+
+    row = {
+        "id": uuid_mod.uuid4().hex,
+        "tenant_id": tenant_id,
+        "entry_id": entry_id,
+        "title": args.title,
+        "score": {
+            "voice": args.voice,
+            "room": args.room,
+            "notes": notes,
+        },
+        "created_by": "agent",
+    }
+    if args.decoration_id:
+        row["decoration_id"] = args.decoration_id
+    status, payload = _request(
+        "POST", "/rest/v1/scores", body=row,
+        prefer="return=representation",
+    )
+    if status in (200, 201):
+        print(json.dumps({
+            "ok": True,
+            "score": payload[0],
+            "duration_ms": duration_ms,
+        }, indent=2))
+        return
+    raise SystemExit(f"score insert failed ({status}): {json.dumps(payload)}")
+
+
+def cmd_add_attachment(args):
+    import os
+    import uuid as uuid_mod
+
+    audio_file = args.audio_file
+    if not os.path.isfile(audio_file):
+        raise SystemExit(f"audio file not found: {audio_file}")
+    with open(audio_file, "rb") as f:
+        audio_bytes = f.read()
+    if not audio_bytes:
+        raise SystemExit("refusing to upload an empty audio file")
+    if len(audio_bytes) > AUDIO_BUCKET_LIMIT:
+        raise SystemExit("audio file too large (bucket limit 10MB)")
+    ext = os.path.splitext(audio_file)[1].lower()
+    mime_type = AUDIO_MIME_BY_EXT.get(ext)
+    if not mime_type:
+        raise SystemExit(
+            f"unsupported audio extension {ext!r} "
+            "(want .m4a/.mp4/.webm/.ogg/.wav/.mp3)"
+        )
+
+    tenant_id = resolve_tenant()
+    entry = get_entry(tenant_id, args.date)
+    if entry is None:
+        # The day has no entry yet — create an empty one to attach to.
+        entry_id = uuid_mod.uuid4().hex
+        status, payload = _request(
+            "POST",
+            "/rest/v1/entries",
+            body={
+                "id": entry_id,
+                "tenant_id": tenant_id,
+                "entry_date": args.date,
+                "body_text": "",
+                "body_format": BODY_FORMAT,
+                "created_by": "agent",
+            },
+            prefer="return=representation",
+        )
+        if status not in (200, 201):
+            raise SystemExit(
+                f"entry create failed ({status}): {json.dumps(payload)}"
+            )
+        entry = payload[0]
+    entry_id = entry["id"]
+
+    storage_path = f"{tenant_id}/{args.date}/{uuid_mod.uuid4().hex}{ext}"
+    status, payload = _upload_audio(storage_path, audio_bytes, mime_type)
+    if status not in (200, 201):
+        raise SystemExit(
+            f"audio upload failed ({status}): {json.dumps(payload)}"
+        )
+
+    duration_ms = args.duration_ms
+    if duration_ms is not None and duration_ms < 0:
+        raise SystemExit("duration_ms must be >= 0")
+    row = {
+        "id": uuid_mod.uuid4().hex,
+        "tenant_id": tenant_id,
+        "entry_id": entry_id,
+        "type": "audio",
+        "storage_path": storage_path,
+        "duration_ms": duration_ms,
+        "mime_type": mime_type,
+    }
+    if args.decoration_id:
+        row["decoration_id"] = args.decoration_id
+    status, payload = _request(
+        "POST", "/rest/v1/attachments", body=row,
+        prefer="return=representation",
+    )
+    if status in (200, 201):
+        print(json.dumps({"ok": True, "attachment": payload[0]}, indent=2))
+        return
+    raise SystemExit(f"attachment insert failed ({status}): {json.dumps(payload)}")
+
+
+def cmd_update_reminder(args):
+    patch = {}
+    if args.title is not None:
+        title = args.title.strip()
+        if not title:
+            raise SystemExit("refusing to set an empty reminder title")
+        patch["title"] = title
+    if args.detail is not None:
+        patch["detail"] = args.detail
+    if args.remind_at is not None:
+        patch["remind_at"] = parse_remind_at(args.remind_at)
+    for field in ("importance", "urgency"):
+        val = getattr(args, field)
+        if val is not None:
+            if val not in REMINDER_LEVELS:
+                raise SystemExit(f"{field} must be one of {REMINDER_LEVELS}")
+            patch[field] = val
+    if args.status is not None:
+        if args.status not in ("open", "done"):
+            raise SystemExit("status must be open | done")
+        patch["status"] = args.status
+    if not patch:
+        raise SystemExit("nothing to update — pass a field to change")
+
+    status, payload = _request(
+        "PATCH",
+        "/rest/v1/reminders",
+        query=f"?id=eq.{args.id}",
+        body=patch,
+        prefer="return=representation",
+    )
+    if status in (200, 204):
+        print(json.dumps({"ok": True, "reminder": payload}, indent=2))
+        return
+    raise SystemExit(f"reminder update failed ({status}): {json.dumps(payload)}")
+
+
+def cmd_list_reminders(args):
+    tenant_id = resolve_tenant()
+    query = (f"?tenant_id=eq.{tenant_id}&order=remind_at.asc"
+             "&select=id,title,detail,remind_at,importance,urgency,status")
+    if args.status != "all":
+        query += f"&status=eq.{args.status}"
+    status, payload = _request("GET", "/rest/v1/reminders", query=query)
+    if status != 200:
+        raise SystemExit(f"reminder list failed ({status}): {payload}")
+    print(json.dumps({"reminders": payload}, indent=2))
+
+
+def check_markdown_subset(body):
+    """Client-side dry-run validation for the starlog-md-1 subset."""
+    problems = []
+    if re.search(r"<[a-zA-Z/!][^>]*>", body):
+        problems.append("raw HTML is not allowed in starlog-md-1")
+    if re.search(r"!\[[^\]]*\]\(https?://", body):
+        problems.append("external images are not allowed in starlog-md-1")
+    return problems
+
+
+def cmd_get_entry(args):
+    tenant_id = resolve_tenant()
+    entry = get_entry(tenant_id, args.date)
+    print(json.dumps({"found": entry is not None, "entry": entry}, indent=2))
+
+
+def cmd_upsert_entry(args):
+    if args.body_file:
+        with open(args.body_file, encoding="utf-8") as f:
+            body = f.read()
+    else:
+        body = args.body or sys.stdin.read()
+    body = body.strip("\n")
+    if not body:
+        raise SystemExit("refusing to write an empty entry body")
+
+    problems = check_markdown_subset(body)
+    if problems:
+        raise SystemExit("STARLOG_VALIDATION_FAILED: " + "; ".join(problems))
+
+    photo_hash = args.photo_hash
+    if photo_hash and not re.fullmatch(r"[0-9a-f]{64}", photo_hash):
+        raise SystemExit("photo_hash must be 64 lowercase hex chars (sha256)")
+
+    tenant_id = resolve_tenant()
+    existing = get_entry(tenant_id, args.date)
+
+    if existing and args.merge:
+        entry_id = existing["id"]
+        body = (existing["body_text"] or "").rstrip("\n") + "\n\n" + body
+        # keep the first photo hash; a second photo for the same day does
+        # not replace the dedupe key
+        photo_hash = existing.get("source_photo_hash") or photo_hash
+    elif existing and not args.merge:
+        entry_id = existing["id"]
+    else:
+        entry_id = args.entry_id or __import__("uuid").uuid4().hex
+
+    row = {
+        "id": entry_id,
+        "tenant_id": tenant_id,
+        "entry_date": args.date,
+        "body_text": body,
+        "body_format": BODY_FORMAT,
+        "source_photo_hash": photo_hash,
+        "created_by": "agent",
+    }
+    status, payload = _request(
+        "PUT",
+        "/rest/v1/entries",
+        query=f"?id=eq.{entry_id}",
+        body=row,
+        prefer="resolution=merge-duplicates,return=representation",
+    )
+    if status in (200, 201):
+        print(json.dumps({"ok": True, "merged": bool(existing),
+                           "entry": payload}, indent=2))
+        return
+    if status == 409:
+        # photo-hash dedupe hit: re-sent photo, read the existing row back
+        code = (payload or {}).get("code", "")
+        if code == "23505" and photo_hash:
+            dup = _request(
+                "GET", "/rest/v1/entries",
+                query=f"?source_photo_hash=eq.{photo_hash}"
+                      "&select=id,entry_date",
+            )[1]
+            print(json.dumps({"ok": True, "duplicate_photo": True,
+                               "entry": dup}, indent=2))
+            return
+    raise SystemExit(f"upsert failed ({status}): {json.dumps(payload)}")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    g = sub.add_parser("get-entry", help="read back one day's entry")
+    g.add_argument("--date", required=True, help="local day, YYYY-MM-DD")
+    g.set_defaults(fn=cmd_get_entry)
+
+    u = sub.add_parser("upsert-entry", help="idempotent write of one day's entry")
+    u.add_argument("--date", required=True, help="local day, YYYY-MM-DD")
+    u.add_argument("--body", help="markdown body (starlog-md-1)")
+    u.add_argument("--body-file", help="file holding the markdown body")
+    u.add_argument("--photo-hash",
+                   help="sha256 hex of the intake photo (dedupe key)")
+    u.add_argument("--entry-id", help="explicit UUID (default: generated)")
+    u.add_argument("--merge", action="store_true",
+                   help="append to the existing entry for the date")
+    u.set_defaults(fn=cmd_upsert_entry)
+
+    gp = sub.add_parser("get-prompt", help="read back one day's prompt")
+    gp.add_argument("--date", required=True, help="local day, YYYY-MM-DD")
+    gp.set_defaults(fn=cmd_get_prompt)
+
+    up = sub.add_parser("upsert-prompt",
+                        help="idempotent write of one day's prompt")
+    up.add_argument("--date", required=True, help="local day, YYYY-MM-DD")
+    up.add_argument("--body", help="prompt text (starlog-md-1)")
+    up.add_argument("--body-file", help="file holding the prompt text")
+    up.add_argument("--flavor", default="short",
+                    help="short | deep | maker | odd (default: short)")
+    up.add_argument("--delivered-at",
+                    help="ISO timestamp of delivery (default: now)")
+    up.set_defaults(fn=cmd_upsert_prompt)
+
+    ar = sub.add_parser("add-reminder", help="create a new reminder")
+    ar.add_argument("--title", required=True, help="reminder title")
+    ar.add_argument("--detail", default="",
+                    help="extra detail (starlog-md-1)")
+    ar.add_argument("--remind-at", required=True,
+                    help="YYYY-MM-DD (= 9am local) or full ISO datetime")
+    ar.add_argument("--importance", default="normal",
+                    help="low | normal | high (default: normal)")
+    ar.add_argument("--urgency", default="normal",
+                    help="low | normal | high (default: normal)")
+    ar.set_defaults(fn=cmd_add_reminder)
+
+    lr = sub.add_parser("list-reminders", help="list reminders")
+    lr.add_argument("--status", default="open",
+                    help="open | done | all (default: open)")
+    lr.set_defaults(fn=cmd_list_reminders)
+
+    ur = sub.add_parser("update-reminder", help="update a reminder by id")
+    ur.add_argument("--id", required=True, help="reminder id")
+    ur.add_argument("--title", help="new title")
+    ur.add_argument("--detail", help="new detail")
+    ur.add_argument("--remind-at", help="YYYY-MM-DD (= 9am local) or full ISO")
+    ur.add_argument("--importance", help="low | normal | high")
+    ur.add_argument("--urgency", help="low | normal | high")
+    ur.add_argument("--status", help="open | done")
+    ur.set_defaults(fn=cmd_update_reminder)
+
+    ad = sub.add_parser("add-decoration", help="add an SVG decoration to a day")
+    ad.add_argument("--date", required=True, help="YYYY-MM-DD")
+    ad.add_argument("--svg", help="SVG markup (or use --svg-file / stdin)")
+    ad.add_argument("--svg-file", help="path to SVG file")
+    ad.add_argument("--kind", default="doodle", help="sketch | doodle | sticker")
+    ad.add_argument("--z", type=int, default=0, help="z-order")
+    ad.add_argument("--meta", help="JSON UI hints (position, rotation, scale)")
+    ad.set_defaults(fn=cmd_add_decoration)
+
+    dd = sub.add_parser("delete-decoration", help="delete a decoration by id")
+    dd.add_argument("--id", required=True, help="decoration id")
+    dd.set_defaults(fn=cmd_delete_decoration)
+
+    aa = sub.add_parser("add-attachment", help="store an audio snippet on a day")
+    aa.add_argument("--date", required=True, help="YYYY-MM-DD")
+    aa.add_argument("--audio-file", required=True, help="path to audio file")
+    aa.add_argument("--duration-ms", type=int, default=None,
+                    help="clip length in ms (optional)")
+    aa.add_argument("--decoration-id",
+                    help="link to an animated SVG decoration (optional)")
+    aa.set_defaults(fn=cmd_add_attachment)
+
+    sc = sub.add_parser("add-score", help="store a sound score (notes as data) on a day")
+    sc.add_argument("--date", required=True, help="YYYY-MM-DD")
+    sc.add_argument("--title", default=None, help="short name for the sound")
+    src = sc.add_mutually_exclusive_group(required=True)
+    src.add_argument("--notes", help="JSON list of {n,t,d,v} note specs")
+    src.add_argument("--notes-file", help="file holding JSON list of note specs")
+    sc.add_argument("--voice", default="felt", help="synth voice (default felt)")
+    sc.add_argument("--room", type=float, default=0.58,
+                    help="room ambience 0..1 (default 0.58)")
+    sc.add_argument("--decoration-id",
+                    help="link to an animated SVG decoration (optional)")
+    sc.set_defaults(fn=cmd_add_score)
+
+    args = ap.parse_args()
+    args.fn(args)
+
+
+if __name__ == "__main__":
+    main()

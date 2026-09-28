@@ -73,9 +73,10 @@ all.
 ### With an agent (easiest)
 
 1. Open the app. On the setup screen, find **No project yet?**
-2. Copy the agent prompt and send it to your AI agent.
-3. The agent provisions your Supabase project, applies the Starlog
-   schema, and hands you a one-tap setup link.
+2. Copy the one-liner and send it to your AI agent:
+   `npx skills add cixzhang/starlog --skill starlog --yes`
+3. The agent installs the Starlog skill, provisions your Supabase
+   project, applies the schema, and hands you a one-tap setup link.
 4. Tap the link — the app configures itself and you're in.
 
 The setup link carries your project's anon key. Treat it like a
@@ -149,6 +150,11 @@ you, and saves it. Switch anytime in Settings → Theme.
   the Markdown subset entries support. Everything the app does must be
   provable against this contract.
 - `pwa/` — the read-only PWA (Astryx + Vite, deployed to Vercel).
+- `skills/` — agent skills, installable via
+  `npx skills add cixzhang/starlog --skill <name>`:
+  `starlog` (the writer CLI) and `sound-synth` (felt-piano cue renderer).
+  The CLI is also downloadable at
+  `https://starlog-journal.vercel.app/cli/starlog`.
 - `docs/screenshots/` — screenshots for this README.
 
 ## Status
