@@ -12,6 +12,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { addDays, daysBetween, formatShort, parseISODate, toISODate } from '../lib/dates';
+import { fmt, useStrings, type Strings } from '../lib/i18n';
 import { Markdown } from '../lib/markdown';
 import { sanitizeSvg } from '../lib/svg';
 import { ErrorNote } from './ui';
@@ -58,12 +59,12 @@ interface WeekdaySheetProps {
   onNeedWindow: (past: number, future: number) => void;
 }
 
-function relativeLabel(k: number): string | null {
-  if (k === 0) return 'this week';
-  if (k === 1) return 'next week';
-  if (k === -1) return 'last week';
-  if (k === 2 || k === 3) return `${k} weeks out`;
-  if (k === -2 || k === -3) return `${-k} weeks ago`;
+function relativeLabel(k: number, s: Strings): string | null {
+  if (k === 0) return s.sheet.thisWeek;
+  if (k === 1) return s.sheet.nextWeek;
+  if (k === -1) return s.sheet.lastWeek;
+  if (k === 2 || k === 3) return fmt(s.sheet.weeksOut, { n: k });
+  if (k === -2 || k === -3) return fmt(s.sheet.weeksAgo, { n: -k });
   return null;
 }
 
@@ -148,6 +149,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
 
   const innerRef = useRef<HTMLDivElement>(null);
   const datesRef = useRef<DateItem[]>([]);
+  const s = useStrings();
   // Rendered content edges (in container coordinates). The parent's infinite
   // scroll triggers off these, not the 30,000px canvas edges.
   const contentTopRef = useRef(MIDDLE);
@@ -257,7 +259,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
       >
           {fetchError && (
             <div {...stylex.props(styles.fetchError)}>
-              <ErrorNote title="Couldn't load entries." detail={fetchError} />
+              <ErrorNote title={s.sheet.loadError} detail={fetchError} />
             </div>
           )}
           {dates.map(({ k, date, iso }, i) => {
@@ -265,7 +267,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
             const prompt = promptsByDate[iso];
             const dayReminders = remindersByDate[iso] ?? [];
             const decos = decosByDate[iso] ?? [];
-            const label = relativeLabel(k);
+            const label = relativeLabel(k, s);
             const hasAnno = prompt != null || dayReminders.length > 0;
             return (
               <article
@@ -295,7 +297,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                       )}
                     </h2>
                     {iso === todayIso ? (
-                      <span {...stylex.props(styles.todayPill)}>TODAY</span>
+                      <span {...stylex.props(styles.todayPill)}>{s.sheet.today}</span>
                     ) : (
                       label != null && (
                         <span {...stylex.props(styles.relLabel)}>{label}</span>
@@ -304,9 +306,9 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                   </div>
                   {iso === todayIso && entry == null && (
                     <div {...stylex.props(styles.emptyState)}>
-                      Nothing here yet.
+                      {s.sheet.empty1}
                       <br />
-                      Ask your agent to add an entry for today.
+                      {s.sheet.empty2}
                     </div>
                   )}
                   {entry != null && <Markdown source={entry.body_text} />}
@@ -315,7 +317,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                       {prompt != null && (
                         <div {...stylex.props(styles.annoLine)}>
                           <span {...stylex.props(styles.annoLabel)}>
-                            PROMPT ·
+                            {s.sheet.prompt}
                           </span>
                           <span>{prompt.body}</span>
                         </div>
@@ -326,7 +328,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                             <span {...stylex.props(styles.annoDot)} />
                           ) : (
                             <span {...stylex.props(styles.annoLabel)}>
-                              {r.urgency === 'high' ? 'IMPORTANT ·' : 'REMINDER ·'}
+                              {r.urgency === 'high' ? s.sheet.important : s.sheet.reminder}
                             </span>
                           )}
                           <span>{r.title}</span>

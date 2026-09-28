@@ -25,8 +25,16 @@ import {
   saveConfig,
   type SbConfig,
 } from './lib/supabase';
-import { isoWeekday, parseISODate, WEEKDAY_NAMES } from './lib/dates';
+import { isoWeekday, parseISODate, weekdayNames } from './lib/dates';
 import { getWeekStart, setWeekStart, type WeekStart } from './lib/settings';
+import {
+  fmt,
+  getLangPref,
+  getStrings,
+  setLangPref,
+  useStrings,
+  type LangPref,
+} from './lib/i18n';
 import { useCustomTheme } from './lib/customTheme';
 import { StarlogMark } from './components/mark';
 import { ErrorNote, Loading } from './components/ui';
@@ -229,7 +237,7 @@ export default function App() {
       } catch (e) {
         if (alive)
           setTenantError(
-            e instanceof Error ? e.message : 'Couldn’t reach the journal.',
+            e instanceof Error ? e.message : getStrings().app.unreachable,
           );
       }
     })();
@@ -254,6 +262,12 @@ export default function App() {
     setWeekStart(w);
     setWeekStartState(w);
   };
+  const [lang, setLang] = useState<LangPref>(() => getLangPref());
+  const chooseLang = (l: LangPref) => {
+    setLangPref(l);
+    setLang(l);
+  };
+  const s = useStrings();
 
   const pickDay = useCallback((isoDate: string) => {
     const d = parseISODate(isoDate);
@@ -293,14 +307,16 @@ export default function App() {
                     <button
                       {...stylex.props(styles.arrow)}
                       onClick={() => weekdayCtl.move(-1)}
-                      aria-label="Previous weekday"
+                      aria-label={s.app.prevWeekday}
                     >
                       <ChevronLeft size={16} />
                     </button>
                     <Token
-                      label={WEEKDAY_NAMES[weekdayCtl.weekday - 1].toUpperCase()}
+                      label={weekdayNames()[weekdayCtl.weekday - 1].toUpperCase()}
                       onClick={weekdayCtl.goToday}
-                      description={`${WEEKDAY_NAMES[weekdayCtl.weekday - 1]} — back to today`}
+                      description={fmt(s.app.weekdayBack, {
+                        day: weekdayNames()[weekdayCtl.weekday - 1],
+                      })}
                       size="sm"
                       color="gray"
                       xstyle={[
@@ -312,7 +328,7 @@ export default function App() {
                     <button
                       {...stylex.props(styles.arrow)}
                       onClick={() => weekdayCtl.move(1)}
-                      aria-label="Next weekday"
+                      aria-label={s.app.nextWeekday}
                     >
                       <ChevronRight size={16} />
                     </button>
@@ -328,7 +344,7 @@ export default function App() {
                       <BookOpen size={16} />
                     )
                   }
-                  label={tab === 'journal' ? 'Open calendar' : 'Back to journal'}
+                  label={tab === 'journal' ? s.app.openCalendar : s.app.backToJournal}
                   variant="ghost"
                   size="sm"
                   onClick={() =>
@@ -337,7 +353,7 @@ export default function App() {
                 />
               <IconButton
                 icon={<Ellipsis size={16} />}
-                label="Settings"
+                label={s.app.settings}
                 variant="ghost"
                 size="sm"
                 onClick={() => setMenuOpen(true)}
@@ -352,6 +368,8 @@ export default function App() {
                 onWeekStart={chooseWeekStart}
                 mode={mode}
                 onMode={setMode}
+                lang={lang}
+                onLang={chooseLang}
                 onDisconnect={() => {
                   setMenuOpen(false);
                   disconnect();
@@ -375,7 +393,7 @@ export default function App() {
             <main {...stylex.props(styles.main)}>
               {tenantError && (
                 <ErrorNote
-                  title="Couldn’t reach your journal."
+                  title={s.app.unreachable}
                   detail={tenantError}
                 />
               )}

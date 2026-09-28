@@ -18,9 +18,10 @@ import {
   formatMonth,
   isoWeekday,
   toISODate,
+  weekdayShort,
 } from '../lib/dates';
 import { ErrorNote } from '../components/ui';
-import { WEEKDAY_SHORT } from '../lib/dates';
+import { useStrings } from '../lib/i18n';
 
 const INIT_PAST = 2;
 const INIT_FUTURE = 3;
@@ -142,6 +143,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
   const [reminders, setReminders] = useState<Map<string, Reminder[]>>(new Map());
   const [realtimeNonce, setRealtimeNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const s = useStrings();
 
   const fetchedRef = useRef<{ from: string; to: string } | null>(null);
   const pendingPrepend = useRef<number | null>(null);
@@ -200,7 +202,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
       } catch (e) {
         if (alive) {
           fetchedRef.current = null;
-          setError(e instanceof Error ? e.message : 'Couldn’t load the calendar.');
+          setError(e instanceof Error ? e.message : s.calendar.loadFail);
         }
       }
     })();
@@ -287,9 +289,10 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
   const dowOrder = useMemo(
     () =>
       weekStart === 7
-        ? [...WEEKDAY_SHORT.slice(6), ...WEEKDAY_SHORT.slice(0, 6)]
-        : WEEKDAY_SHORT,
-    [weekStart],
+        ? [...weekdayShort().slice(6), ...weekdayShort().slice(0, 6)]
+        : weekdayShort(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [weekStart, s],
   );
 
   const cellsFor = (monthStart: Date) => {
@@ -308,7 +311,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
     <div {...stylex.props(styles.months)}>
       {error && (
         <div style={{ padding: '0 20px' }}>
-          <ErrorNote title="The calendar didn’t load." detail={error} />
+          <ErrorNote title={s.calendar.loadError} detail={error} />
         </div>
       )}
 
@@ -364,7 +367,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                     <button
                       key={iso}
                       role="gridcell"
-                      aria-label={`${iso}${hasEntry ? ', has entry' : ''}${hasReminder ? `, ${dayReminders.length} reminder${dayReminders.length > 1 ? 's' : ''}` : ''}`}
+                      aria-label={`${iso}${hasEntry ? `, ${s.calendar.hasEntry}` : ''}${hasReminder ? `, ${dayReminders.length} ${s.calendar.reminderUnit}` : ''}`}
                       {...stylex.props(
                         styles.cell,
                         !inMonth && styles.cellDim,

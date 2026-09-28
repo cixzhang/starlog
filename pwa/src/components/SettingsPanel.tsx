@@ -9,6 +9,7 @@ export type WeekStart = 1 | 7;
 export type ThemeMode = 'light' | 'dark' | 'auto' | 'custom';
 
 import type { CustomTheme } from '../lib/customTheme';
+import { useStrings, type LangPref } from '../lib/i18n';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -17,6 +18,8 @@ interface SettingsPanelProps {
   onWeekStart: (w: WeekStart) => void;
   mode: ThemeMode;
   onMode: (m: ThemeMode) => void;
+  lang: LangPref;
+  onLang: (l: LangPref) => void;
   onDisconnect: () => void;
   buildHash: string;
   onCopyHash: () => void;
@@ -155,6 +158,8 @@ export default function SettingsPanel({
   onWeekStart,
   mode,
   onMode,
+  lang,
+  onLang,
   onDisconnect,
   buildHash,
   onCopyHash,
@@ -164,6 +169,7 @@ export default function SettingsPanel({
 }: SettingsPanelProps) {
   const [themeError, setThemeError] = useState<string | null>(null);
   const [disconnectAlertOpen, setDisconnectAlertOpen] = useState(false);
+  const s = useStrings();
 
   return (
     <Dialog
@@ -175,48 +181,72 @@ export default function SettingsPanel({
       purpose="info"
     >
       <DialogHeader
-        title="Settings"
+        title={s.settings.title}
         onOpenChange={(isOpen) => {
           if (!isOpen) onClose();
         }}
       />
       <div {...stylex.props(styles.content)}>
-        <div {...stylex.props(styles.sectionTitle)}>Week starts on</div>
+        <div {...stylex.props(styles.sectionTitle)}>{s.settings.weekStart}</div>
         <div {...stylex.props(styles.tiles)}>
           <Tile
-            label="Monday"
+            label={s.settings.monday}
             selected={weekStart === 1}
             onClick={() => onWeekStart(1)}
           />
           <Tile
-            label="Sunday"
+            label={s.settings.sunday}
             selected={weekStart === 7}
             onClick={() => onWeekStart(7)}
           />
         </div>
 
-        <div {...stylex.props(styles.sectionTitle)}>Theme</div>
+        <div {...stylex.props(styles.sectionTitle)}>{s.settings.language}</div>
         <div {...stylex.props(styles.tiles)}>
           <Tile
-            label="Light"
+            label={s.settings.auto}
+            selected={lang === 'auto'}
+            onClick={() => onLang('auto')}
+          />
+          <Tile
+            label="English"
+            selected={lang === 'en'}
+            onClick={() => onLang('en')}
+          />
+          <Tile
+            label="中文"
+            selected={lang === 'zh'}
+            onClick={() => onLang('zh')}
+          />
+          <Tile
+            label="日本語"
+            selected={lang === 'ja'}
+            onClick={() => onLang('ja')}
+          />
+        </div>
+
+        <div {...stylex.props(styles.sectionTitle)}>{s.settings.theme}</div>
+        <div {...stylex.props(styles.tiles)}>
+          <Tile
+            label={s.settings.light}
             icon={<Sun size={20} />}
             selected={mode === 'light'}
             onClick={() => onMode('light')}
           />
           <Tile
-            label="Dark"
+            label={s.settings.dark}
             icon={<Moon size={20} />}
             selected={mode === 'dark'}
             onClick={() => onMode('dark')}
           />
           <Tile
-            label="Auto"
+            label={s.settings.auto}
             icon={<MonitorSmartphone size={20} />}
             selected={mode === 'auto'}
             onClick={() => onMode('auto')}
           />
           <Tile
-            label="Custom"
+            label={s.settings.custom}
             icon={<Palette size={20} />}
             selected={mode === 'custom'}
             onClick={() => onMode('custom')}
@@ -236,7 +266,7 @@ export default function SettingsPanel({
                   }}
                 >
                   <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
-                    Custom: {customTheme.name}
+                    {s.settings.custom}: {customTheme.name}
                   </span>
                   <button
                     onClick={onRemoveCustomTheme}
@@ -249,7 +279,7 @@ export default function SettingsPanel({
                       padding: 4,
                     }}
                   >
-                    Clear
+                    {s.settings.clear}
                   </button>
                 </div>
                 <input
@@ -259,7 +289,7 @@ export default function SettingsPanel({
                     navigator.clipboard.writeText(JSON.stringify(customTheme)).catch(() => {});
                     (e.target as HTMLInputElement).select();
                   }}
-                  title="Tap to copy the full theme JSON"
+                  title={s.settings.copyThemeTitle}
                   style={{
                     width: '100%',
                     boxSizing: 'border-box',
@@ -286,7 +316,7 @@ export default function SettingsPanel({
                     await navigator.clipboard.writeText(prompt);
                     setThemeError(null);
                   } catch {
-                    setThemeError('Could not copy the prompt.');
+                    setThemeError(s.settings.copyFail);
                   }
                 }}
                 style={{
@@ -301,7 +331,7 @@ export default function SettingsPanel({
                   cursor: 'pointer',
                 }}
               >
-                Copy agent prompt
+                {s.settings.copyThemePrompt}
               </button>
               <button
                 onClick={async () => {
@@ -310,7 +340,7 @@ export default function SettingsPanel({
                     const err = onInstallCustomTheme(text);
                     setThemeError(err);
                   } catch {
-                    setThemeError('Could not read the clipboard. Paste access was denied.');
+                    setThemeError(s.settings.pasteFail);
                   }
                 }}
                 style={{
@@ -325,7 +355,7 @@ export default function SettingsPanel({
                   cursor: 'pointer',
                 }}
               >
-                Paste theme config
+                {s.settings.pasteTheme}
               </button>
             </div>
             {themeError && (
@@ -334,7 +364,7 @@ export default function SettingsPanel({
               </div>
             )}
             <div style={{ fontSize: 13, color: 'var(--color-text-disabled)', paddingTop: 8, lineHeight: 1.5 }}>
-              Copy the prompt, ask your agent to make a theme, then paste the JSON back here.
+              {s.settings.themeHint}
             </div>
           </div>
         )}
@@ -342,7 +372,7 @@ export default function SettingsPanel({
         <div {...stylex.props(styles.divider)} />
 
         <Item
-          label="Disconnect project…"
+          label={s.settings.disconnect}
           icon={<Trash2 size={18} />}
           destructive
           onClick={() => setDisconnectAlertOpen(true)}
@@ -351,9 +381,9 @@ export default function SettingsPanel({
         <AlertDialog
           isOpen={disconnectAlertOpen}
           onOpenChange={setDisconnectAlertOpen}
-          title="Disconnect project?"
-          description="This removes the Supabase connection from this device. Your journal data stays in Supabase."
-          actionLabel="Disconnect"
+          title={s.settings.disconnectTitle}
+          description={s.settings.disconnectDesc}
+          actionLabel={s.settings.disconnectAction}
           actionVariant="destructive"
           onAction={() => {
             setDisconnectAlertOpen(false);
@@ -361,8 +391,8 @@ export default function SettingsPanel({
           }}
         />
 
-        <div {...stylex.props(styles.sectionTitle)}>About</div>
-        <Item label={`Build ${buildHash}`} onClick={onCopyHash} />
+        <div {...stylex.props(styles.sectionTitle)}>{s.settings.about}</div>
+        <Item label={`${s.settings.build} ${buildHash}`} onClick={onCopyHash} />
       </div>
     </Dialog>
   );

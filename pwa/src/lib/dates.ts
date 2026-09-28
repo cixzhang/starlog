@@ -1,17 +1,26 @@
 // Date helpers. Starlog days are local calendar days; the backend derives
 // ISO weekday (1=Monday..7=Sunday) via extract(isodow from entry_date).
+import { intlLocale } from './i18n';
 
-export const WEEKDAY_NAMES = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-] as const;
+/** Locale-aware weekday names, Monday-first. Recomputed per call so a
+ *  language change takes effect on the next render. */
+function weekdayNamesFor(style: 'long' | 'short'): string[] {
+  const fmt = new Intl.DateTimeFormat(intlLocale(), { weekday: style });
+  // 2026-09-28 is a Monday; walk the week from there.
+  return Array.from({ length: 7 }, (_, i) =>
+    fmt.format(new Date(2026, 8, 28 + i)),
+  );
+}
 
-export const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+/** e.g. ["Monday", …, "Sunday"] / ["星期一", …] / ["月曜日", …] */
+export function weekdayNames(): string[] {
+  return weekdayNamesFor('long');
+}
+
+/** e.g. ["Mon", …, "Sun"] / ["周一", …] / ["月", …] */
+export function weekdayShort(): string[] {
+  return weekdayNamesFor('short');
+}
 
 /** ISO weekday: 1 (Monday) .. 7 (Sunday). Matches the entries.weekday column. */
 export function isoWeekday(d: Date): number {
@@ -37,25 +46,21 @@ export function parseISODate(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
-/** "Saturday, September 26, 2026" */
-const shortFmt = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-});
-
-/** "Sep 26" */
+/** "Sep 26" / "9月26日" — locale-aware, built per call so a language
+ *  change takes effect on the next render. */
 export function formatShort(d: Date): string {
-  return shortFmt.format(d);
+  return new Intl.DateTimeFormat(intlLocale(), {
+    month: 'short',
+    day: 'numeric',
+  }).format(d);
 }
 
-const monthFmt = new Intl.DateTimeFormat('en-US', {
-  month: 'long',
-  year: 'numeric',
-});
-
-/** "September 2026" */
+/** "September 2026" / "2026年9月" */
 export function formatMonth(d: Date): string {
-  return monthFmt.format(d);
+  return new Intl.DateTimeFormat(intlLocale(), {
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
 }
 
 /** Start of the week containing d, at local midnight. weekStart is ISO 1..7. */

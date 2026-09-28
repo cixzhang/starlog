@@ -7,6 +7,7 @@ import { useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { Button } from '@astryxdesign/core/Button';
 import { StarlogMark } from '../components/mark';
+import { useStrings } from '../lib/i18n';
 
 const styles = stylex.create({
   wrap: {
@@ -101,6 +102,7 @@ export default function InstallApp({
   onContinueInBrowser: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const s = useStrings();
 
   async function copyLink() {
     try {
@@ -118,44 +120,32 @@ export default function InstallApp({
         <div {...stylex.props(styles.mark)}>
           <StarlogMark size={72} />
         </div>
-        <h1 {...stylex.props(styles.title)}>Install Starlog first</h1>
-        <p {...stylex.props(styles.sub)}>
-          This setup link opened in the browser, but Starlog lives on your
-          home screen — and the installed app keeps its own storage. Install
-          it, then paste your link there.
-        </p>
+        <h1 {...stylex.props(styles.title)}>{s.install.title}</h1>
+        <p {...stylex.props(styles.sub)}>{s.install.sub}</p>
         <ol {...stylex.props(styles.steps)}>
           <li {...stylex.props(styles.step)}>
             <span {...stylex.props(styles.stepNum)}>1</span>
-            <span>Copy your setup link below.</span>
+            <span>{s.install.step1}</span>
           </li>
           <li {...stylex.props(styles.step)}>
             <span {...stylex.props(styles.stepNum)}>2</span>
-            <span>
-              Tap <strong>Share</strong>, then{' '}
-              <strong>Add to Home Screen</strong>.
-            </span>
+            <span>{s.install.step2}</span>
           </li>
           <li {...stylex.props(styles.step)}>
             <span {...stylex.props(styles.stepNum)}>3</span>
-            <span>
-              Open Starlog from your home screen and paste the link into the
-              Project URL field.
-            </span>
+            <span>{s.install.step3}</span>
           </li>
         </ol>
         <div {...stylex.props(styles.actions)}>
           <Button
-            label={copied ? 'Copied' : 'Copy setup link'}
+            label={copied ? s.setup.copied : s.install.copy}
             onClick={copyLink}
           />
           {copied && (
-            <p {...stylex.props(styles.copied)}>
-              Now install the app and paste it there.
-            </p>
+            <p {...stylex.props(styles.copied)}>{s.install.pasted}</p>
           )}
           <Button
-            label="Use in browser instead"
+            label={s.install.browser}
             variant="secondary"
             onClick={onContinueInBrowser}
           />

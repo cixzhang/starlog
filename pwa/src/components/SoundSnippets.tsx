@@ -15,6 +15,7 @@ import {
   scoreDurationMs,
   type ScoreHandle,
 } from '../lib/feltPiano';
+import { useStrings } from '../lib/i18n';
 
 interface SoundSnippetsProps {
   cfg: SbConfig;
@@ -49,6 +50,7 @@ function syncDecoration(decorationId: string | null, playing: boolean) {
 function ScorePlayer({ score }: { score: Score }) {
   const handleRef = useRef<ScoreHandle | null>(null);
   const [playing, setPlaying] = useState(false);
+  const s = useStrings();
 
   useEffect(() => {
     return () => {
@@ -82,13 +84,13 @@ function ScorePlayer({ score }: { score: Score }) {
       <button
         type="button"
         onClick={toggle}
-        aria-label={playing ? 'Pause sound' : 'Play sound'}
+        aria-label={playing ? s.sound.pause : s.sound.play}
         {...stylex.props(styles.playButton)}
       >
         {playing ? <Pause size={15} /> : <Play size={15} />}
       </button>
       <span {...stylex.props(styles.snippetMeta)}>
-        {score.title ?? 'sound'} · {formatDuration(scoreDurationMs(score.score))}
+        {score.title ?? s.sound.untitled} · {formatDuration(scoreDurationMs(score.score))}
       </span>
       {playing && <span {...stylex.props(styles.eq)} aria-hidden="true" />}
     </div>

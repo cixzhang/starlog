@@ -11,7 +11,8 @@ import {
   saveConfig,
   type SbConfig,
 } from '../lib/supabase';
-import { StarlogMark } from '../components/mark';const styles = stylex.create({
+import { StarlogMark } from '../components/mark';
+import { fmt, useStrings } from '../lib/i18n';const styles = stylex.create({
   wrap: {
     minHeight: '100dvh',
     display: 'flex',
@@ -143,6 +144,7 @@ export default function Setup({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const s = useStrings();
 
   async function copyPrompt() {
     try {
@@ -183,11 +185,11 @@ export default function Setup({
       anonKey: key.trim(),
     };
     if (!isValidProjectUrl(cfg.url)) {
-      setError('That doesn’t look like a Supabase project URL.');
+      setError(s.setup.badUrl);
       return;
     }
     if (cfg.anonKey.length < 20) {
-      setError('That key looks too short — paste the full anon key.');
+      setError(s.setup.shortKey);
       return;
     }
     setBusy(true);
@@ -200,8 +202,8 @@ export default function Setup({
     } catch (e) {
       setError(
         e instanceof Error
-          ? `Couldn’t reach that project: ${e.message}`
-          : 'Couldn’t reach that project.',
+          ? fmt(s.setup.unreachableWith, { msg: e.message })
+          : s.setup.unreachable,
       );
     } finally {
       setBusy(false);
@@ -216,11 +218,9 @@ export default function Setup({
         </div>
         <h1 {...stylex.props(styles.title)}>Starlog</h1>
         <p {...stylex.props(styles.sub)}>
-          A journal for focus and reflection.
+          {s.setup.tagline}
           <br />
-          {initialUrl
-            ? 'Your project link filled in the URL — just add the anon key.'
-            : 'Point it at your own Supabase project to begin. Have a setup link? Paste the whole link into the URL field.'}
+          {initialUrl ? s.setup.linkHint : s.setup.manualHint}
         </p>
         {error && (
           <p {...stylex.props(styles.error)} role="alert">
@@ -229,16 +229,16 @@ export default function Setup({
         )}
         <div {...stylex.props(styles.field)}>
           <TextInput
-            label="Supabase project URL"
+            label={s.setup.urlLabel}
             value={url}
             onChange={(v) => handleUrlChange(v)}
-            placeholder="https://xyz.supabase.co — or paste a setup link"
+            placeholder={s.setup.urlPlaceholder}
             width="100%"
           />
         </div>
         <div {...stylex.props(styles.field)}>
           <TextInput
-            label="Anon key"
+            label={s.setup.keyLabel}
             type="password"
             value={key}
             onChange={setKey}
@@ -248,35 +248,29 @@ export default function Setup({
           />
         </div>
         <Button
-          label={busy ? 'Connecting…' : 'Connect'}
+          label={busy ? s.setup.connecting : s.setup.connect}
           onClick={connect}
           isDisabled={busy}
         />
         <p {...stylex.props(styles.hint)}>
-          Find both in your Supabase dashboard under{' '}
-          <span {...stylex.props(styles.hintCode)}>Project Settings → API</span>.
-          They stay on this device only. The app can only read — it never
-          writes to your journal.
+          {s.setup.hint1}{' '}
+          <span {...stylex.props(styles.hintCode)}>{s.setup.hintApi}</span>
+          {s.setup.hint2}
         </p>
 
         <div {...stylex.props(styles.agentPanel)}>
-          <h2 {...stylex.props(styles.agentTitle)}>No project yet?</h2>
-          <p {...stylex.props(styles.agentSub)}>
-            Copy this prompt, send it to your AI agent, and paste back the
-            setup link it gives you.
-          </p>
+          <h2 {...stylex.props(styles.agentTitle)}>{s.setup.noProject}</h2>
+          <p {...stylex.props(styles.agentSub)}>{s.setup.agentSub}</p>
           <div {...stylex.props(styles.promptBox)}>{AGENT_PROMPT}</div>
           <div {...stylex.props(styles.copyRow)}>
             <Button
-              label={copied ? 'Copied' : 'Copy agent prompt'}
+              label={copied ? s.setup.copied : s.setup.copyPrompt}
               variant="secondary"
               onClick={copyPrompt}
             />
           </div>
           {copied && (
-            <p {...stylex.props(styles.copied)}>
-              Past it to your agent — it’ll hand you a setup link.
-            </p>
+            <p {...stylex.props(styles.copied)}>{s.setup.pasted}</p>
           )}
         </div>
       </div>
