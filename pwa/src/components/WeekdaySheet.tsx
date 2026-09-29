@@ -67,6 +67,8 @@ interface WeekdaySheetProps {
   onNeedDates: (dates: string[]) => void;
   /** ISO date to jump to. Only set on the sheet whose weekday matches. */
   jumpDate: string | null;
+  /** Specific reminder to scroll to (radar jumps). Falls back to jumpDate. */
+  jumpReminderId: string | null;
   /** True when this column is the centered one: the scroll must wait for
    *  the reorder transform to flush before running. */
   jumpReady: boolean;
@@ -160,6 +162,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     cfg,
     onNeedDates,
     jumpDate,
+    jumpReminderId,
     jumpReady,
     onJumpHandled,
     onNeedWindow,
@@ -264,12 +267,20 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     let raf2: number = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
-        const el = innerRef.current?.querySelector(
-          `[data-sheet-iso="${jumpDate}"]`,
-        ) as HTMLElement | null;
-        // Top-align with smooth animation. scroll-margin-top leaves room
-        // for the sticky header.
-        el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        const inner = innerRef.current;
+        // Point directly at the reminder row for radar jumps; fall back to
+        // the date sheet for calendar jumps (no specific reminder).
+        const target =
+          (jumpReminderId
+            ? inner?.querySelector(
+                `[data-reminder-id="${jumpReminderId}"]`,
+              )
+            : null) ??
+          inner?.querySelector(`[data-sheet-iso="${jumpDate}"]`);
+        (target as HTMLElement | null)?.scrollIntoView({
+          block: 'start',
+          behavior: 'smooth',
+        });
         onJumpHandled();
       });
     });
@@ -277,7 +288,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
     };
-  }, [jumpDate, jumpReady, dates, onJumpHandled]);
+  }, [jumpDate, jumpReady, jumpReminderId, dates, onJumpHandled]);
 
   // (Prepend stability via absolute positioning: the layout effect above
   // recalculates all tops on every render, so k=0 never shifts.)
@@ -369,6 +380,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                         return (
                           <div
                             key={r.id}
+                            data-reminder-id={r.id}
                             {...rowSx}
                             className={hlClass(
                               rowSx.className,

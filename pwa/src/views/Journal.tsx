@@ -685,6 +685,11 @@ export default function Journal({
                 (jump && jump.weekday === w ? jump.date : null) ||
                 (radarJump && radarJump.weekday === w ? radarJump.date : null)
               }
+              jumpReminderId={
+                radarJump && radarJump.weekday === w
+                  ? radarJump.reminderId
+                  : null
+              }
               jumpReady={weekday === w}
               onJumpHandled={handleJumpHandled}
               onNeedWindow={(p, f) => {
