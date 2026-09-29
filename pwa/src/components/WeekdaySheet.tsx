@@ -31,9 +31,9 @@ const MIDDLE = CONTAINER_HEIGHT / 2;
 
 /**
  * Merge the plain-CSS jump-highlight class with a stylex props object.
- * The highlight ring is a plain `.sl-sheet-highlight::after` rule in
- * index.css because the build silently drops stylex nested
- * pseudo-element selectors.
+ * The highlight ring is a plain `.sl-sheet-highlight` rule in index.css
+ * (outline + outline-offset) because the build silently drops stylex
+ * nested pseudo-element selectors.
  */
 function hlClass(sxClassName: string | undefined, on: boolean): string {
   return [sxClassName, on && 'sl-sheet-highlight'].filter(Boolean).join(' ');
