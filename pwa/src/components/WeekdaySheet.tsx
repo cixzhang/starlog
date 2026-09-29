@@ -67,6 +67,9 @@ interface WeekdaySheetProps {
   onNeedDates: (dates: string[]) => void;
   /** ISO date to jump to. Only set on the sheet whose weekday matches. */
   jumpDate: string | null;
+  /** True when this column is the centered one: the scroll must wait for
+   *  the reorder transform to flush before running. */
+  jumpReady: boolean;
   onJumpHandled: () => void;
   /** Request the parent to extend the shared window (for jump-to-date). */
   onNeedWindow: (past: number, future: number) => void;
@@ -157,6 +160,7 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     cfg,
     onNeedDates,
     jumpDate,
+    jumpReady,
     onJumpHandled,
     onNeedWindow,
   } = props;
@@ -249,26 +253,31 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     onNeedWindow(k < 0 ? -k + 2 : 8, k > 0 ? k + 2 : 8);
   }, [jumpDate, anchor, onNeedWindow]);
 
-  useLayoutEffect(() => {
-    if (!jumpDate) return;
+  useEffect(() => {
+    if (!jumpDate || !jumpReady) return;
     if (!dates.some((d) => d.iso === jumpDate)) return;
-    // Scoped to this column's container: the target date lives in exactly
-    // one column, and a global query could grab a stale node mid-reorder.
-    const el = innerRef.current?.querySelector(
-      `[data-sheet-iso="${jumpDate}"]`,
-    ) as HTMLElement | null;
-    if (el) {
-      // Vertical-only scroll. scrollIntoView would also scroll horizontally
-      // (inline:'nearest' sees the off-center column as off-screen and
-      // scrolls the overflow-x:hidden carousel viewport), fighting the
-      // transform-based column positioning. Compute the document Y and
-      // scroll the window so only the vertical axis moves. The -80 leaves
-      // room for the sticky header (matches scroll-margin-top).
-      const top = el.getBoundingClientRect().top + window.scrollY - 80;
-      window.scrollTo({ top, behavior: 'smooth' });
-    }
-    onJumpHandled();
-  }, [jumpDate, dates, onJumpHandled]);
+    // Scroll AFTER the column-reorder transform is flushed to the browser.
+    // Double rAF: the first fires before paint (styles applied), the second
+    // after the browser has painted the reordered columns, so
+    // scrollIntoView sees the target in its final centered position and
+    // inline:'nearest' leaves the horizontal axis alone.
+    let raf2: number = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const el = innerRef.current?.querySelector(
+          `[data-sheet-iso="${jumpDate}"]`,
+        ) as HTMLElement | null;
+        // Top-align with smooth animation. scroll-margin-top leaves room
+        // for the sticky header.
+        el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        onJumpHandled();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [jumpDate, jumpReady, dates, onJumpHandled]);
 
   // (Prepend stability via absolute positioning: the layout effect above
   // recalculates all tops on every render, so k=0 never shifts.)

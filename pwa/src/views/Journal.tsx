@@ -504,18 +504,12 @@ export default function Journal({
   // Cancels any in-flight radar jump: two concurrent jumps fight over the
   // scroll position (each target column scrolls), so only one may be live.
   // (The flash highlight is applied in App's pickDay callback, not here.)
+  // The scroll waits until this column is centered (see jumpReady).
   useEffect(() => {
     if (!jump) return;
     setRadarJump(null);
     setWeekday(jump.weekday);
   }, [jump]);
-
-  // Radar tap jump: switch to the target weekday. (The flash highlight is
-  // applied in the onPlanetTap callback, not here.)
-  useEffect(() => {
-    if (!radarJump) return;
-    setWeekday(radarJump.weekday);
-  }, [radarJump]);
 
   const handleJumpHandled = useCallback(() => {
     onJumpConsumed();
@@ -691,6 +685,7 @@ export default function Journal({
                 (jump && jump.weekday === w ? jump.date : null) ||
                 (radarJump && radarJump.weekday === w ? radarJump.date : null)
               }
+              jumpReady={weekday === w}
               onJumpHandled={handleJumpHandled}
               onNeedWindow={(p, f) => {
                 setPast((prev) => Math.max(prev, p));
@@ -709,10 +704,14 @@ export default function Journal({
             // jump first: two concurrent jumps fight over the scroll
             // position, so only one may be live. The flash highlight is
             // applied here in the callback, synchronously with the tap.
+            // setWeekday runs in the same batch as setRadarJump, so the
+            // columns reorder first and the sheet scrolls only once it is
+            // centered (see jumpReady) and the transform has flushed.
             onJumpConsumed();
             const d = new Date(date + 'T00:00:00');
             const wd = isoWeekday(d);
             flashHighlight(date, reminderId);
+            setWeekday(wd);
             setRadarJump({ weekday: wd, date, reminderId });
           }}
         />
