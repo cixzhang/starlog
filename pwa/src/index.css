@@ -166,7 +166,7 @@ body {
 .sl-sheet-highlight::after {
   content: "";
   position: absolute;
-  inset: 3px;
+  inset: 6px;
   border-radius: var(--radius-md);
   border: 3px solid var(--color-accent);
   pointer-events: none;

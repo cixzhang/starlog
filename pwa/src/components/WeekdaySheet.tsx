@@ -257,8 +257,16 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     const el = innerRef.current?.querySelector(
       `[data-sheet-iso="${jumpDate}"]`,
     ) as HTMLElement | null;
-    // Top-align with smooth animation. scroll-margin-top leaves room for header.
-    el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (el) {
+      // Vertical-only scroll. scrollIntoView would also scroll horizontally
+      // (inline:'nearest' sees the off-center column as off-screen and
+      // scrolls the overflow-x:hidden carousel viewport), fighting the
+      // transform-based column positioning. Compute the document Y and
+      // scroll the window so only the vertical axis moves. The -80 leaves
+      // room for the sticky header (matches scroll-margin-top).
+      const top = el.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
     onJumpHandled();
   }, [jumpDate, dates, onJumpHandled]);
 

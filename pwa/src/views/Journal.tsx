@@ -52,6 +52,8 @@ interface JournalProps {
   onJumpConsumed: () => void;
   onControls: (ctl: WeekdayControls | null) => void;
   weekStart: 1 | 7;
+  highlight: { date: string; reminderId?: string } | null;
+  flashHighlight: (date: string, reminderId?: string) => void;
 }
 
 const SWIPE_THRESHOLD = 80;
@@ -68,6 +70,8 @@ export default function Journal({
   onJumpConsumed,
   onControls,
   weekStart,
+  highlight,
+  flashHighlight,
 }: JournalProps) {
   const [weekday, setWeekday] = useState<number>(() => isoWeekday(new Date()));
   const [dragX, setDragX] = useState<number | null>(null);
@@ -177,10 +181,6 @@ export default function Journal({
   >({});
   const [allReminders, setAllReminders] = useState<Reminder[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [highlighted, setHighlighted] = useState<{
-    date: string;
-    reminderId?: string;
-  } | null>(null);
   // Local jump for radar taps (separate from the Calendar jump prop).
   const [radarJump, setRadarJump] = useState<{
     weekday: number;
@@ -503,23 +503,18 @@ export default function Journal({
   // the exact date. The sheet consumes the jump when it has scrolled.
   // Cancels any in-flight radar jump: two concurrent jumps fight over the
   // scroll position (each target column scrolls), so only one may be live.
+  // (The flash highlight is applied in App's pickDay callback, not here.)
   useEffect(() => {
     if (!jump) return;
     setRadarJump(null);
     setWeekday(jump.weekday);
-    setHighlighted({ date: jump.date });
-    // Clear after the flash animation so re-jumping re-triggers it.
-    const t = setTimeout(() => setHighlighted(null), 1700);
-    return () => clearTimeout(t);
   }, [jump]);
 
-  // Radar tap jump: same as Calendar jump, but from a local state.
+  // Radar tap jump: switch to the target weekday. (The flash highlight is
+  // applied in the onPlanetTap callback, not here.)
   useEffect(() => {
     if (!radarJump) return;
     setWeekday(radarJump.weekday);
-    setHighlighted({ date: radarJump.date, reminderId: radarJump.reminderId });
-    const t = setTimeout(() => setHighlighted(null), 1700);
-    return () => clearTimeout(t);
   }, [radarJump]);
 
   const handleJumpHandled = useCallback(() => {
@@ -680,8 +675,8 @@ export default function Journal({
               anchor={anchors[w]}
               now={now}
               todayIso={todayIso}
-              highlightedDate={highlighted?.date ?? null}
-              highlightedReminderId={highlighted?.reminderId ?? null}
+              highlightedDate={highlight?.date ?? null}
+              highlightedReminderId={highlight?.reminderId ?? null}
               fetchError={fetchError}
               past={past}
               future={future}
@@ -712,10 +707,12 @@ export default function Journal({
             // Jump to the reminder's date: switch to its weekday column
             // and smooth-scroll to the date. Cancel any in-flight calendar
             // jump first: two concurrent jumps fight over the scroll
-            // position, so only one may be live.
+            // position, so only one may be live. The flash highlight is
+            // applied here in the callback, synchronously with the tap.
             onJumpConsumed();
             const d = new Date(date + 'T00:00:00');
             const wd = isoWeekday(d);
+            flashHighlight(date, reminderId);
             setRadarJump({ weekday: wd, date, reminderId });
           }}
         />

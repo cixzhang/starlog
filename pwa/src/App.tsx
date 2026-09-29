@@ -1,7 +1,7 @@
 // Starlog app shell: setup gate, tenant resolution, header, tab navigation.
 // Read-only by design — the anon key this app holds has SELECT grants only.
 
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Token } from '@astryxdesign/core/Token';
@@ -194,6 +194,18 @@ export default function App() {
   const [jump, setJump] = useState<{ weekday: number; date: string } | null>(
     null,
   );
+  // Jump-target flash, applied synchronously in the tap callback (not in an
+  // effect) so the highlight is always tied to the user's action.
+  const [highlight, setHighlight] = useState<{
+    date: string;
+    reminderId?: string;
+  } | null>(null);
+  const highlightTimer = useRef<number | null>(null);
+  const flashHighlight = useCallback((date: string, reminderId?: string) => {
+    if (highlightTimer.current) window.clearTimeout(highlightTimer.current);
+    setHighlight({ date, reminderId });
+    highlightTimer.current = window.setTimeout(() => setHighlight(null), 1700);
+  }, []);
   // Weekday navigation lives in the top bar; Journal hands its controls up.
   const [weekdayCtl, setWeekdayCtl] = useState<WeekdayControls | null>(null);
   const handleControls = useCallback((ctl: WeekdayControls | null) => {
@@ -272,8 +284,9 @@ export default function App() {
   const pickDay = useCallback((isoDate: string) => {
     const d = parseISODate(isoDate);
     setJump({ weekday: isoWeekday(d), date: isoDate });
+    flashHighlight(isoDate);
     setTab('journal');
-  }, []);
+  }, [flashHighlight]);
 
   function continueInBrowser() {
     if (initial.pendingCfg) {
@@ -406,6 +419,8 @@ export default function App() {
                   onJumpConsumed={() => setJump(null)}
                   onControls={handleControls}
                   weekStart={weekStart}
+                  highlight={highlight}
+                  flashHighlight={flashHighlight}
                 />
               )}
               {!tenantError && tenantId && tab === 'calendar' && (
