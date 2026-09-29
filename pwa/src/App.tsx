@@ -196,16 +196,24 @@ export default function App() {
   );
   // Jump-target flash, applied synchronously in the tap callback (not in an
   // effect) so the highlight is always tied to the user's action.
+  // Calendar jumps highlight the date; radar jumps highlight only the
+  // specific reminder row.
   const [highlight, setHighlight] = useState<{
-    date: string;
-    reminderId?: string;
+    date: string | null;
+    reminderId: string | null;
   } | null>(null);
   const highlightTimer = useRef<number | null>(null);
-  const flashHighlight = useCallback((date: string, reminderId?: string) => {
-    if (highlightTimer.current) window.clearTimeout(highlightTimer.current);
-    setHighlight({ date, reminderId });
-    highlightTimer.current = window.setTimeout(() => setHighlight(null), 1700);
-  }, []);
+  const flashHighlight = useCallback(
+    (opts: { date?: string; reminderId?: string }) => {
+      if (highlightTimer.current) window.clearTimeout(highlightTimer.current);
+      setHighlight({
+        date: opts.date ?? null,
+        reminderId: opts.reminderId ?? null,
+      });
+      highlightTimer.current = window.setTimeout(() => setHighlight(null), 1700);
+    },
+    [],
+  );
   // Weekday navigation lives in the top bar; Journal hands its controls up.
   const [weekdayCtl, setWeekdayCtl] = useState<WeekdayControls | null>(null);
   const handleControls = useCallback((ctl: WeekdayControls | null) => {
@@ -284,7 +292,7 @@ export default function App() {
   const pickDay = useCallback((isoDate: string) => {
     const d = parseISODate(isoDate);
     setJump({ weekday: isoWeekday(d), date: isoDate });
-    flashHighlight(isoDate);
+    flashHighlight({ date: isoDate });
     setTab('journal');
   }, [flashHighlight]);
 

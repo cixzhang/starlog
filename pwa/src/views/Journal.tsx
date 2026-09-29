@@ -52,8 +52,8 @@ interface JournalProps {
   onJumpConsumed: () => void;
   onControls: (ctl: WeekdayControls | null) => void;
   weekStart: 1 | 7;
-  highlight: { date: string; reminderId?: string } | null;
-  flashHighlight: (date: string, reminderId?: string) => void;
+  highlight: { date: string | null; reminderId: string | null } | null;
+  flashHighlight: (opts: { date?: string; reminderId?: string }) => void;
 }
 
 const SWIPE_THRESHOLD = 80;
@@ -712,10 +712,11 @@ export default function Journal({
             // setWeekday runs in the same batch as setRadarJump, so the
             // columns reorder first and the sheet scrolls only once it is
             // centered (see jumpReady) and the transform has flushed.
+            // Highlight only the reminder row, not the date header.
             onJumpConsumed();
             const d = new Date(date + 'T00:00:00');
             const wd = isoWeekday(d);
-            flashHighlight(date, reminderId);
+            flashHighlight({ reminderId });
             setWeekday(wd);
             setRadarJump({ weekday: wd, date, reminderId });
           }}
