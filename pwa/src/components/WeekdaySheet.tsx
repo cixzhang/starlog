@@ -581,6 +581,9 @@ const styles = stylex.create({
     gap: 8,
     fontSize: 13,
     opacity: 0.75,
+    // Reminder rows are scrollIntoView targets too: leave room for the
+    // sticky header, same as the date sheets.
+    scrollMarginTop: '80px',
   },
   annoLabel: {
     fontSize: 10,
