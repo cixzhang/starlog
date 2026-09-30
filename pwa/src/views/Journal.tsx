@@ -487,11 +487,26 @@ export default function Journal({
 
   const remindersByDate = useMemo(() => {
     const map: Record<string, Reminder[]> = {};
+    const add = (key: string, r: Reminder) => {
+      (map[key] ??= []).push(r);
+    };
     for (const r of allReminders) {
       const d = new Date(r.remind_at);
       d.setHours(0, 0, 0, 0);
-      const key = toISODate(d);
-      (map[key] ??= []).push(r);
+      const startKey = toISODate(d);
+      add(startKey, r);
+      // Multi-day span: also list on each day through end_at (inclusive).
+      if (r.end_at) {
+        const endD = new Date(r.end_at);
+        endD.setHours(0, 0, 0, 0);
+        const endKey = toISODate(endD);
+        const cur = new Date(d);
+        cur.setDate(cur.getDate() + 1);
+        while (toISODate(cur) <= endKey) {
+          add(toISODate(cur), r);
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
     }
     for (const list of Object.values(map)) {
       list.sort((a, b) => +new Date(a.remind_at) - +new Date(b.remind_at));
@@ -515,6 +530,27 @@ export default function Journal({
     onJumpConsumed();
     setRadarJump(null);
   }, [onJumpConsumed]);
+
+  // Jump to a reminder (radar planet or span-continuation tap): switch to
+  // its weekday column and smooth-scroll to the reminder row.
+  const jumpToReminder = useCallback(
+    (date: string, reminderId: string) => {
+      // Cancel any in-flight calendar jump first: two concurrent jumps
+      // fight over the scroll position, so only one may be live. The flash
+      // highlight is applied here in the callback, synchronously with the
+      // tap. setWeekday runs in the same batch as setRadarJump, so the
+      // columns reorder first and the sheet scrolls only once it is centered
+      // (see jumpReady) and the transform has flushed.
+      // Highlight only the reminder row, not the date header.
+      onJumpConsumed();
+      const d = new Date(date + 'T00:00:00');
+      const wd = isoWeekday(d);
+      flashHighlight({ reminderId });
+      setWeekday(wd);
+      setRadarJump({ weekday: wd, date, reminderId });
+    },
+    [onJumpConsumed, flashHighlight],
+  );
 
   // --- Horizontal carousel gesture ---
   const animRef = useRef<number | null>(null);
@@ -691,6 +727,7 @@ export default function Journal({
                   : null
               }
               jumpReady={weekday === w}
+              onReminderTap={jumpToReminder}
               onJumpHandled={handleJumpHandled}
               onNeedWindow={(p, f) => {
                 setPast((prev) => Math.max(prev, p));
@@ -703,23 +740,7 @@ export default function Journal({
           reminders={allReminders}
           currentWeekday={weekday}
           anchorDate={anchors[weekday]}
-          onPlanetTap={(date, reminderId) => {
-            // Jump to the reminder's date: switch to its weekday column
-            // and smooth-scroll to the date. Cancel any in-flight calendar
-            // jump first: two concurrent jumps fight over the scroll
-            // position, so only one may be live. The flash highlight is
-            // applied here in the callback, synchronously with the tap.
-            // setWeekday runs in the same batch as setRadarJump, so the
-            // columns reorder first and the sheet scrolls only once it is
-            // centered (see jumpReady) and the transform has flushed.
-            // Highlight only the reminder row, not the date header.
-            onJumpConsumed();
-            const d = new Date(date + 'T00:00:00');
-            const wd = isoWeekday(d);
-            flashHighlight({ reminderId });
-            setWeekday(wd);
-            setRadarJump({ weekday: wd, date, reminderId });
-          }}
+          onPlanetTap={jumpToReminder}
         />
       </div>
     </div>

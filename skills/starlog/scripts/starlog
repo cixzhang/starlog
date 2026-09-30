@@ -278,6 +278,8 @@ def cmd_add_reminder(args):
         "status": "open",
         "created_by": "agent",
     }
+    if getattr(args, "end_at", None):
+        row["end_at"] = parse_remind_at(args.end_at)
     status, payload = _request(
         "POST", "/rest/v1/reminders", body=row,
         prefer="return=representation",
@@ -533,6 +535,8 @@ def cmd_update_reminder(args):
         patch["detail"] = args.detail
     if args.remind_at is not None:
         patch["remind_at"] = parse_remind_at(args.remind_at)
+    if getattr(args, "end_at", None) is not None:
+        patch["end_at"] = parse_remind_at(args.end_at) if args.end_at else None
     for field in ("importance", "urgency"):
         val = getattr(args, field)
         if val is not None:
@@ -694,6 +698,8 @@ def main():
                     help="extra detail (starlog-md-1)")
     ar.add_argument("--remind-at", required=True,
                     help="YYYY-MM-DD (= 9am local) or full ISO datetime")
+    ar.add_argument("--end-at",
+                    help="YYYY-MM-DD or full ISO datetime: multi-day span end (inclusive)")
     ar.add_argument("--importance", default="normal",
                     help="low | normal | high (default: normal)")
     ar.add_argument("--urgency", default="normal",
@@ -710,6 +716,7 @@ def main():
     ur.add_argument("--title", help="new title")
     ur.add_argument("--detail", help="new detail")
     ur.add_argument("--remind-at", help="YYYY-MM-DD (= 9am local) or full ISO")
+    ur.add_argument("--end-at", help="YYYY-MM-DD or full ISO: span end (inclusive); empty string clears")
     ur.add_argument("--importance", help="low | normal | high")
     ur.add_argument("--urgency", help="low | normal | high")
     ur.add_argument("--status", help="open | done")

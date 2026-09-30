@@ -47,6 +47,28 @@ Rules:
 - Treat the anon key like a password — it only ever goes into the setup
   link, never into chat logs or files.
 
+## Upgrading an existing backend
+
+The PWA shows a "Database update available" banner when its required spec
+is newer than the backend's. When the user pastes you the upgrade prompt:
+
+1. **Check the current version.** Query the backend:
+   `starlog` has no direct command — use the SQL editor or
+   `curl "$SUPABASE_URL/rest/v1/capabilities?select=spec_version"`.
+   Note the `spec_version` (e.g. `0.6.0`).
+2. **Apply only the missing migrations.** Each migration file
+   `spec/migrations/NNNN_*.sql` bumps the spec (the target version is in
+   the file's header comment). Run, in filename order, every migration
+   whose version is newer than the current `spec_version`, each once, in
+   full, in the SQL editor. Migrations are additive and backwards
+   compatible — existing data is untouched.
+3. **Verify.** Re-query `capabilities`; `spec_version` should now match
+   the version the app asked for. Tell the user to reopen the PWA — the
+   banner clears itself on launch.
+
+If a migration fails partway, do not retry blindly: read the error, fix
+the cause, and only then continue in order.
+
 ## Tooling
 `skills/starlog/scripts/starlog` (Python, executable, stdlib only):
 
@@ -63,7 +85,8 @@ Rules:
   - Flavor follows the prompt style: quick one-liner → `short`,
     deeper reflection → `deep`, maker/arts-flavored → `maker`,
     odd/playful → `odd`.
-- `add-reminder --title TEXT [--detail TEXT] --remind-at YYYY-MM-DD | ISO [--importance low|normal|high] [--urgency low|normal|high]`
+- `add-reminder --title TEXT [--detail TEXT] --remind-at YYYY-MM-DD | ISO [--end-at YYYY-MM-DD | ISO] [--importance low|normal|high] [--urgency low|normal|high]`
+  - `--end-at` makes it a multi-day span (inclusive). Omit for a single instant.
   - A bare `YYYY-MM-DD` means 9:00am in the configured timezone that day.
   - `list-reminders [--status open|done|all]` — list reminders, soonest first.
   - `update-reminder --id UUID [--title TEXT] [--detail TEXT] [--remind-at YYYY-MM-DD|ISO] [--importance low|normal|high] [--urgency low|normal|high] [--status open|done]` — patch any subset of fields.

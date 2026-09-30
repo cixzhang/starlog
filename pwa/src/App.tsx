@@ -1,6 +1,23 @@
 // Starlog app shell: setup gate, tenant resolution, header, tab navigation.
 // Read-only by design — the anon key this app holds has SELECT grants only.
 
+/** Database spec this build expects. Bump when a migration adds
+ *  columns/tables the PWA reads. */
+const REQUIRED_SPEC_VERSION = '0.7.0';
+
+/** True if backend spec `have` is older than `need` (semver-ish). */
+function specIsBehind(have: string, need: string): boolean {
+  const h = have.split('.').map(Number);
+  const n = need.split('.').map(Number);
+  for (let i = 0; i < Math.max(h.length, n.length); i++) {
+    const hd = h[i] ?? 0;
+    const nd = n[i] ?? 0;
+    if (hd < nd) return true;
+    if (hd > nd) return false;
+  }
+  return false;
+}
+
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -20,6 +37,7 @@ import { starlogTheme } from './studio/starlog.js';
 import {
   clearConfig,
   consumeLinkConfig,
+  getCapabilities,
   getTenantId,
   loadConfig,
   saveConfig,
@@ -126,6 +144,37 @@ const styles = stylex.create({
     flex: 1,
     minHeight: 0,
   },
+  updateBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '10px 16px',
+    backgroundColor: 'var(--color-background-surface)',
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid',
+    borderBottomColor: 'var(--color-border)',
+    fontSize: 13,
+  },
+  updateBannerText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  updateBannerTitle: {
+    fontWeight: 600,
+  },
+  updateBannerButton: {
+    flexShrink: 0,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-accent)',
+    color: 'var(--color-accent)',
+    backgroundColor: 'transparent',
+    borderRadius: 999,
+    padding: '6px 12px',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
 });
 
 function initialMode(): Mode {
@@ -186,6 +235,12 @@ export default function App() {
   // ... (rest unchanged)
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantError, setTenantError] = useState<string | null>(null);
+  /** {have, need} when the backend spec is older than this build expects. */
+  const [specBehind, setSpecBehind] = useState<{
+    have: string;
+    need: string;
+  } | null>(null);
+  const [promptCopied, setPromptCopied] = useState(false);
   const [tab, setTab] = useState<Tab>('journal');
   const [mode, setMode] = useState<Mode>(initialMode);
   const { customTheme, builtTheme, removeCustomTheme, installCustomTheme } = useCustomTheme();
@@ -250,10 +305,19 @@ export default function App() {
     }
     let alive = true;
     setTenantError(null);
+    setSpecBehind(null);
     (async () => {
       try {
         const id = await getTenantId(cfg);
         if (alive) setTenantId(id);
+        try {
+          const caps = await getCapabilities(cfg);
+          if (alive && specIsBehind(caps.spec_version, REQUIRED_SPEC_VERSION)) {
+            setSpecBehind({ have: caps.spec_version, need: REQUIRED_SPEC_VERSION });
+          }
+        } catch {
+          // Capabilities unreadable (very old backend): don't block the app.
+        }
       } catch (e) {
         if (alive)
           setTenantError(
@@ -272,6 +336,20 @@ export default function App() {
     setTenantId(null);
     setTab('journal');
   }, []);
+
+  const copyUpdatePrompt = useCallback(async () => {
+    if (!specBehind) return;
+    const prompt =
+      `My Starlog database is at spec ${specBehind.have} but the app needs ${specBehind.need}. ` +
+      `Using the starlog skill, apply the pending migrations in order and confirm the new spec version.`;
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setPromptCopied(true);
+      window.setTimeout(() => setPromptCopied(false), 2500);
+    } catch {
+      // Clipboard unavailable; the banner text still explains the fix.
+    }
+  }, [specBehind]);
 
   // Settings lives behind the ⋯ trigger as a custom bottom-sheet panel.
   // (Astryx DropdownMenu section headings are misaligned; see filed issue.)
@@ -410,6 +488,28 @@ export default function App() {
               </Suspense>
             </div>
             </header>
+
+            {specBehind && (
+              <div {...stylex.props(styles.updateBanner)}>
+                <div {...stylex.props(styles.updateBannerText)}>
+                  <div {...stylex.props(styles.updateBannerTitle)}>
+                    {s.app.updateAvailable}
+                  </div>
+                  <div>
+                    {fmt(s.app.updateDetail, {
+                      have: specBehind.have,
+                      need: specBehind.need,
+                    })}
+                  </div>
+                </div>
+                <button
+                  {...stylex.props(styles.updateBannerButton)}
+                  onClick={copyUpdatePrompt}
+                >
+                  {promptCopied ? s.app.promptCopied : s.app.copyPrompt}
+                </button>
+              </div>
+            )}
 
             <main {...stylex.props(styles.main)}>
               {tenantError && (

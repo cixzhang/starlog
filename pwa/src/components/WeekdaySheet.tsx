@@ -9,7 +9,7 @@
 // the `past`/`future` window, scroll-to-k=0 init, and infinite scroll.
 // This sheet only renders the canvas and positions its dates.
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { addDays, daysBetween, formatShort, parseISODate, toISODate } from '../lib/dates';
 import { fmt, useStrings, type Strings } from '../lib/i18n';
@@ -73,6 +73,8 @@ interface WeekdaySheetProps {
    *  the reorder transform to flush before running. */
   jumpReady: boolean;
   onJumpHandled: () => void;
+  /** Tap on a span-continuation line: jump to the span's start day. */
+  onReminderTap: (date: string, reminderId: string) => void;
   /** Request the parent to extend the shared window (for jump-to-date). */
   onNeedWindow: (past: number, future: number) => void;
 }
@@ -165,10 +167,13 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
     jumpReminderId,
     jumpReady,
     onJumpHandled,
+    onReminderTap,
     onNeedWindow,
   } = props;
 
   const innerRef = useRef<HTMLDivElement>(null);
+  // Tap-to-expand for reminder details (stores the expanded reminder id).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const datesRef = useRef<DateItem[]>([]);
   const s = useStrings();
   // Rendered content edges (in container coordinates). The parent's infinite
@@ -377,6 +382,44 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                       )}
                       {dayReminders.map((r) => {
                         const rowSx = stylex.props(styles.annoLine);
+                        // Match Journal's keying: local-midnight date of remind_at.
+                        const startD = new Date(r.remind_at);
+                        startD.setHours(0, 0, 0, 0);
+                        const startIso = toISODate(startD);
+                        const endIso = r.end_at
+                          ? (() => {
+                              const d = new Date(r.end_at);
+                              d.setHours(0, 0, 0, 0);
+                              return toISODate(d);
+                            })()
+                          : null;
+                        const isSpan = endIso != null && endIso !== startIso;
+                        const isContinuation = isSpan && iso !== startIso;
+                        if (isContinuation && endIso) {
+                          // Slim continuation line on middle/end days of a span.
+                          const total = daysBetween(parseISODate(startIso), parseISODate(endIso)) + 1;
+                          const dayN = daysBetween(parseISODate(startIso), parseISODate(iso)) + 1;
+                          return (
+                            <div
+                              key={r.id}
+                              data-reminder-id={r.id}
+                              {...rowSx}
+                              className={hlClass(
+                                rowSx.className,
+                                highlightedReminderId === r.id,
+                              )}
+                              onClick={() => onReminderTap(startIso, r.id)}
+                              style={{ cursor: 'pointer', opacity: 0.75 }}
+                            >
+                              <span {...stylex.props(styles.annoLabel)}>→</span>
+                              <span>
+                                {r.title} ·{' '}
+                                {fmt(s.sheet.spanDayOf, { d: String(dayN), n: String(total) })}
+                              </span>
+                            </div>
+                          );
+                        }
+                        const expanded = expandedId === r.id;
                         return (
                           <div
                             key={r.id}
@@ -386,6 +429,8 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                               rowSx.className,
                               highlightedReminderId === r.id,
                             )}
+                            onClick={() => setExpandedId(expanded ? null : r.id)}
+                            style={{ cursor: r.detail ? 'pointer' : undefined }}
                           >
                             {r.importance === 'high' ? (
                               <span {...stylex.props(styles.annoDot)} />
@@ -394,7 +439,23 @@ export default function WeekdaySheet(props: WeekdaySheetProps) {
                                 {r.urgency === 'high' ? s.sheet.important : s.sheet.reminder}
                               </span>
                             )}
-                            <span>{r.title}</span>
+                            <span>
+                              <span>{r.title}</span>
+                              {isSpan && endIso && (
+                                <span {...stylex.props(styles.annoLabel)}>
+                                  {' '}{startIso.slice(5).replace('-', '/')} →{' '}
+                                  {endIso.slice(5).replace('-', '/')} ·{' '}
+                                  {fmt(s.sheet.spanDays, {
+                                    n: String(daysBetween(parseISODate(startIso), parseISODate(endIso)) + 1),
+                                  })}
+                                </span>
+                              )}
+                              {expanded && r.detail && (
+                                <span style={{ display: 'block', marginTop: 4, opacity: 0.85 }}>
+                                  {r.detail}
+                                </span>
+                              )}
+                            </span>
                           </div>
                         );
                       })}

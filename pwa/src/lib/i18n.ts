@@ -154,6 +154,10 @@ export interface Strings {
     backToJournal: string;
     settings: string;
     unreachable: string;
+    updateAvailable: string;
+    updateDetail: string;
+    copyPrompt: string;
+    promptCopied: string;
   };
   ui: { loading: string; errorDefault: string };
   calendar: {
@@ -175,6 +179,8 @@ export interface Strings {
     prompt: string;
     important: string;
     reminder: string;
+    spanDays: string;
+    spanDayOf: string;
   };
   sound: { play: string; pause: string; untitled: string };
 }
@@ -250,6 +256,10 @@ const en: Strings = {
     backToJournal: 'Back to journal',
     settings: 'Settings',
     unreachable: 'Couldn’t reach your journal.',
+    updateAvailable: 'Database update available',
+    updateDetail: 'Your journal’s database is at {have} but this app needs {need}.',
+    copyPrompt: 'Copy prompt for your agent',
+    promptCopied: 'Copied — paste it to your agent.',
   },
   ui: {
     loading: 'Reading the log…',
@@ -274,6 +284,8 @@ const en: Strings = {
     prompt: 'PROMPT ·',
     important: 'IMPORTANT ·',
     reminder: 'REMINDER ·',
+    spanDays: '{n} days',
+    spanDayOf: 'day {d} of {n}',
   },
   sound: { play: 'Play sound', pause: 'Pause sound', untitled: 'sound' },
 };
@@ -345,6 +357,10 @@ const zh: Strings = {
     backToJournal: '返回日记',
     settings: '设置',
     unreachable: '无法连接到你的日记。',
+    updateAvailable: '有数据库更新',
+    updateDetail: '你的日记数据库是 {have}，但此应用需要 {need}。',
+    copyPrompt: '复制给助手的提示',
+    promptCopied: '已复制 — 粘贴给你的助手。',
   },
   ui: {
     loading: '正在读取日志…',
@@ -369,6 +385,8 @@ const zh: Strings = {
     prompt: '提问 ·',
     important: '重要 ·',
     reminder: '提醒 ·',
+    spanDays: '{n} 天',
+    spanDayOf: '第 {d} 天 / 共 {n} 天',
   },
   sound: { play: '播放声音', pause: '暂停声音', untitled: '声音' },
 };
@@ -441,6 +459,10 @@ const ja: Strings = {
     backToJournal: 'ジャーナルに戻る',
     settings: '設定',
     unreachable: 'ジャーナルに接続できませんでした。',
+    updateAvailable: 'データベースの更新があります',
+    updateDetail: 'ジャーナルのデータベースは {have} ですが、このアプリには {need} が必要です。',
+    copyPrompt: 'エージェント用のプロンプトをコピー',
+    promptCopied: 'コピーしました — エージェントに貼り付けてください。',
   },
   ui: {
     loading: 'ログを読み込み中…',
@@ -465,6 +487,8 @@ const ja: Strings = {
     prompt: 'プロンプト ·',
     important: '重要 ·',
     reminder: 'リマインダー ·',
+    spanDays: '{n}日間',
+    spanDayOf: '{n}日中{d}日目',
   },
   sound: { play: 'サウンドを再生', pause: 'サウンドを一時停止', untitled: 'サウンド' },
 };

@@ -138,6 +138,8 @@ export interface Reminder {
   title: string;
   detail: string;
   remind_at: string; // ISO timestamptz
+  /** Null = single instant; set = multi-day span (inclusive). */
+  end_at: string | null;
   importance: 'low' | 'normal' | 'high';
   urgency: 'low' | 'normal' | 'high';
   status: 'open' | 'done' | 'dismissed';
@@ -274,13 +276,28 @@ export async function fetchReminders(
   fromIso: string,
   toIso: string,
 ): Promise<Reminder[]> {
-  return (await sbFetch(
-    cfg,
+  const base =
     `/reminders?tenant_id=eq.${tenantId}&status=eq.open` +
-      `&remind_at=gte.${encodeURIComponent(fromIso)}` +
-      `&remind_at=lt.${encodeURIComponent(toIso)}` +
-      `&order=remind_at&select=id,title,detail,remind_at,importance,urgency,status`,
-  )) as Reminder[];
+    `&remind_at=gte.${encodeURIComponent(fromIso)}` +
+    `&remind_at=lt.${encodeURIComponent(toIso)}` +
+    `&order=remind_at`;
+  try {
+    return (await sbFetch(
+      cfg,
+      base + `&select=id,title,detail,remind_at,end_at,importance,urgency,status`,
+    )) as Reminder[];
+  } catch (e) {
+    // Backends that haven't applied migration 0005 have no end_at column;
+    // fall back so reminders still load (spans just won't render).
+    if (e instanceof SbError && /end_at/.test(e.message)) {
+      const rows = (await sbFetch(
+        cfg,
+        base + `&select=id,title,detail,remind_at,importance,urgency,status`,
+      )) as Reminder[];
+      return rows.map((r) => ({ ...r, end_at: null }));
+    }
+    throw e;
+  }
 }
 
 /** Decorations owned by any of the given dates, ordered by z. */
