@@ -241,7 +241,7 @@ export default function Journal({
           if (!mountedRef.current) return;
           setEntriesByDate((prev) => {
             const next = { ...prev };
-            for (const e of es) if (!next[e.entry_date]) next[e.entry_date] = e;
+            for (const e of es) next[e.entry_date] = e;
             return next;
           });
           setPromptsByDate((prev) => {
@@ -281,28 +281,16 @@ export default function Journal({
   );
 
   // Foreground refresh: when the app returns from the background the
-  // realtime socket may have missed changes while it was dead. Invalidate
-  // the fetch caches and reload the visible window so reopening the app
-  // always shows the latest data.
+  // realtime socket may have missed changes while it was dead (iOS kills
+  // websockets aggressively and reconnect isn't guaranteed). Refetch the
+  // visible window on every foreground so reopening the app always shows
+  // the latest data. State isn't cleared (no flicker); the merges below
+  // overwrite with fresh rows.
   useEffect(() => {
-    let hiddenAt = 0;
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        hiddenAt = Date.now();
-        return;
-      }
       if (document.visibilityState !== 'visible') return;
-      // Skip the refresh for very brief backgroundings (quick app switches);
-      // the realtime socket covers those.
-      if (Date.now() - hiddenAt < 10000) return;
       fetchedDates.current.clear();
       reminderBounds.current = null;
-      // Reset so the refetch repopulates cleanly (no duplicates, no stale rows).
-      setEntriesByDate({});
-      setPromptsByDate({});
-      setDecosByDate({});
-      setScoresByEntryId({});
-      setAllReminders([]);
       setFetchVersion((v) => v + 1);
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -467,14 +455,9 @@ export default function Journal({
           to: b ? new Date(Math.max(b.to.getTime(), maxD.getTime())) : maxD,
         };
         setAllReminders((prev) => {
-          const seen = new Set(prev.map((r) => r.id));
-          const next = [...prev];
-          for (const r of rs)
-            if (!seen.has(r.id)) {
-              seen.add(r.id);
-              next.push(r);
-            }
-          return next;
+          const byId = new Map(prev.map((r) => [r.id, r] as const));
+          for (const r of rs) byId.set(r.id, r);
+          return [...byId.values()];
         });
       } catch {
         /* quiet: the radar just stays empty */

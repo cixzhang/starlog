@@ -158,6 +158,9 @@ export interface Strings {
     updateDetail: string;
     copyPrompt: string;
     promptCopied: string;
+    newVersion: string;
+    newVersionDetail: string;
+    refresh: string;
   };
   ui: { loading: string; errorDefault: string };
   calendar: {
@@ -260,6 +263,9 @@ const en: Strings = {
     updateDetail: 'Your journal’s database is at {have} but this app needs {need}.',
     copyPrompt: 'Copy prompt for your agent',
     promptCopied: 'Copied — paste it to your agent.',
+    newVersion: 'New version available',
+    newVersionDetail: 'Refresh to get the latest Starlog.',
+    refresh: 'Refresh',
   },
   ui: {
     loading: 'Reading the log…',
@@ -361,6 +367,9 @@ const zh: Strings = {
     updateDetail: '你的日记数据库是 {have}，但此应用需要 {need}。',
     copyPrompt: '复制给助手的提示',
     promptCopied: '已复制 — 粘贴给你的助手。',
+    newVersion: '有新版本',
+    newVersionDetail: '刷新以获取最新版 Starlog。',
+    refresh: '刷新',
   },
   ui: {
     loading: '正在读取日志…',
@@ -463,6 +472,9 @@ const ja: Strings = {
     updateDetail: 'ジャーナルのデータベースは {have} ですが、このアプリには {need} が必要です。',
     copyPrompt: 'エージェント用のプロンプトをコピー',
     promptCopied: 'コピーしました — エージェントに貼り付けてください。',
+    newVersion: '新しいバージョンがあります',
+    newVersionDetail: '最新の Starlog を取得するには更新してください。',
+    refresh: '更新',
   },
   ui: {
     loading: 'ログを読み込み中…',

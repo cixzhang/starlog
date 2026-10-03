@@ -241,6 +241,29 @@ export default function App() {
     need: string;
   } | null>(null);
   const [promptCopied, setPromptCopied] = useState(false);
+  /** True when /version.json reports a newer deploy than this build. */
+  const [appUpdateAvailable, setAppUpdateAvailable] = useState(false);
+  const checkAppVersion = useCallback(async () => {
+    try {
+      // Query-busted: the service worker cache-firsts same-origin assets.
+      const res = await fetch(`/version.json?t=${Date.now()}`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) return;
+      const { commit } = (await res.json()) as { commit?: string };
+      if (commit && commit !== __COMMIT_HASH__) setAppUpdateAvailable(true);
+    } catch {
+      // Offline or pre-version.json deploy: stay quiet.
+    }
+  }, []);
+  useEffect(() => {
+    checkAppVersion();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') checkAppVersion();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [checkAppVersion]);
   const [tab, setTab] = useState<Tab>('journal');
   const [mode, setMode] = useState<Mode>(initialMode);
   const { customTheme, builtTheme, removeCustomTheme, installCustomTheme } = useCustomTheme();
@@ -488,6 +511,23 @@ export default function App() {
               </Suspense>
             </div>
             </header>
+
+            {appUpdateAvailable && (
+              <div {...stylex.props(styles.updateBanner)}>
+                <div {...stylex.props(styles.updateBannerText)}>
+                  <div {...stylex.props(styles.updateBannerTitle)}>
+                    {s.app.newVersion}
+                  </div>
+                  <div>{s.app.newVersionDetail}</div>
+                </div>
+                <button
+                  {...stylex.props(styles.updateBannerButton)}
+                  onClick={() => window.location.reload()}
+                >
+                  {s.app.refresh}
+                </button>
+              </div>
+            )}
 
             {specBehind && (
               <div {...stylex.props(styles.updateBanner)}>

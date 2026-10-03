@@ -12,7 +12,23 @@ try {
 }
 
 export default defineConfig({
-  plugins: [...astryxStylex(), react()],
+  plugins: [
+    ...astryxStylex(),
+    react(),
+    // Emit version.json so the running app can detect a newer deploy:
+    // it fetches /version.json (cache-busted) and compares `commit`
+    // against its embedded __COMMIT_HASH__.
+    {
+      name: 'starlog-version-json',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'version.json',
+          source: JSON.stringify({ commit: commitHash }),
+        });
+      },
+    },
+  ],
   define: {
     __COMMIT_HASH__: JSON.stringify(commitHash),
   },
