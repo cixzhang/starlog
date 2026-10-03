@@ -253,18 +253,23 @@ export default function Journal({
             const next = { ...prev };
             for (const d of ds) {
               const key = d.entry_date ?? '';
-              if (!key || fetchedDates.current.has(`deco:${d.id}`)) continue;
-              fetchedDates.current.add(`deco:${d.id}`);
-              (next[key] ??= []).push(d);
+              if (!key) continue;
+              const list = [...(next[key] ?? [])];
+              const idx = list.findIndex((x) => x.id === d.id);
+              if (idx >= 0) list[idx] = d;
+              else list.push(d);
+              next[key] = list;
             }
             return next;
           });
           setScoresByEntryId((prev) => {
             const next = { ...prev };
             for (const sc of scs) {
-              if (fetchedDates.current.has(`score:${sc.id}`)) continue;
-              fetchedDates.current.add(`score:${sc.id}`);
-              (next[sc.entry_id] ??= []).push(sc);
+              const list = [...(next[sc.entry_id] ?? [])];
+              const idx = list.findIndex((x) => x.id === sc.id);
+              if (idx >= 0) list[idx] = sc;
+              else list.push(sc);
+              next[sc.entry_id] = list;
             }
             return next;
           });
