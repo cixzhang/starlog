@@ -405,7 +405,7 @@ export default function Calendar({ cfg, tenantId, onPickDay, weekStart }: Props)
                       {...stylex.props(
                         styles.cell,
                         !inMonth && styles.cellDim,
-                        iso === todayIso && styles.cellToday,
+                        inMonth && iso === todayIso && styles.cellToday,
                         k !== 0 && styles.cellMuted,
                       )}
                       onClick={() => onPickDay(iso)}
