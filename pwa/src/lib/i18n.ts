@@ -145,6 +145,9 @@ export interface Strings {
     disconnectAction: string;
     about: string;
     build: string;
+    checkUpdates: string;
+    upToDate: string;
+    checking: string;
   };
   app: {
     prevWeekday: string;
@@ -250,6 +253,9 @@ const en: Strings = {
     disconnectAction: 'Disconnect',
     about: 'About',
     build: 'Build',
+    checkUpdates: 'Check for updates',
+    upToDate: 'Up to date',
+    checking: 'Checking…',
   },
   app: {
     prevWeekday: 'Previous weekday',
@@ -354,6 +360,9 @@ const zh: Strings = {
     disconnectAction: '断开连接',
     about: '关于',
     build: '版本',
+    checkUpdates: '检查更新',
+    upToDate: '已是最新',
+    checking: '检查中…',
   },
   app: {
     prevWeekday: '上一个',
@@ -459,6 +468,9 @@ const ja: Strings = {
     disconnectAction: '接続を解除',
     about: 'このアプリについて',
     build: 'ビルド',
+    checkUpdates: '更新を確認',
+    upToDate: '最新です',
+    checking: '確認中…',
   },
   app: {
     prevWeekday: '前の曜日',

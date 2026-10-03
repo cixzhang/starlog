@@ -243,17 +243,20 @@ export default function App() {
   const [promptCopied, setPromptCopied] = useState(false);
   /** True when /version.json reports a newer deploy than this build. */
   const [appUpdateAvailable, setAppUpdateAvailable] = useState(false);
-  const checkAppVersion = useCallback(async () => {
+  const checkAppVersion = useCallback(async (): Promise<boolean> => {
     try {
       // Query-busted: the service worker cache-firsts same-origin assets.
       const res = await fetch(`/version.json?t=${Date.now()}`, {
         cache: 'no-store',
       });
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const { commit } = (await res.json()) as { commit?: string };
-      if (commit && commit !== __COMMIT_HASH__) setAppUpdateAvailable(true);
+      const behind = !!commit && commit !== __COMMIT_HASH__;
+      if (behind) setAppUpdateAvailable(true);
+      return behind;
     } catch {
       // Offline or pre-version.json deploy: stay quiet.
+      return false;
     }
   }, []);
   useEffect(() => {
@@ -504,6 +507,7 @@ export default function App() {
                     /* clipboard unavailable */
                   }
                 }}
+                onCheckUpdates={checkAppVersion}
                 customTheme={customTheme}
                 onRemoveCustomTheme={removeCustomTheme}
                 onInstallCustomTheme={installCustomTheme}

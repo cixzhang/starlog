@@ -24,6 +24,8 @@ interface SettingsPanelProps {
   onDisconnect: () => void;
   buildHash: string;
   onCopyHash: () => void;
+  /** Returns true when a newer deploy is available. */
+  onCheckUpdates: () => Promise<boolean>;
   customTheme: CustomTheme | null;
   onRemoveCustomTheme: () => void;
   onInstallCustomTheme: (input: string) => string | null;
@@ -164,12 +166,14 @@ export default function SettingsPanel({
   onDisconnect,
   buildHash,
   onCopyHash,
+  onCheckUpdates,
   customTheme,
   onRemoveCustomTheme,
   onInstallCustomTheme,
 }: SettingsPanelProps) {
   const [themeError, setThemeError] = useState<string | null>(null);
   const [disconnectAlertOpen, setDisconnectAlertOpen] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'current'>('idle');
   const s = useStrings();
 
   return (
@@ -386,6 +390,26 @@ export default function SettingsPanel({
 
         <div {...stylex.props(styles.sectionTitle)}>{s.settings.about}</div>
         <Item label={`${s.settings.build} ${buildHash}`} onClick={onCopyHash} />
+        <Item
+          label={
+            updateStatus === 'checking'
+              ? s.settings.checking
+              : updateStatus === 'current'
+                ? s.settings.upToDate
+                : s.settings.checkUpdates
+          }
+          onClick={async () => {
+            if (updateStatus === 'checking') return;
+            setUpdateStatus('checking');
+            const hasUpdate = await onCheckUpdates();
+            // When an update exists the App banner appears; here we only
+            // confirm the up-to-date case.
+            setUpdateStatus(hasUpdate ? 'idle' : 'current');
+            if (!hasUpdate) {
+              window.setTimeout(() => setUpdateStatus('idle'), 2500);
+            }
+          }}
+        />
       </div>
     </Dialog>
   );
